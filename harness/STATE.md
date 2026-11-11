@@ -37,8 +37,8 @@ Counters: g = gate retries used (max 3), r = review cycles used (max 2).
 | T12 | 2 | done | 0 | 0 | e61ddf4 | effects panel |
 | T13 | 2 | done | 0 | 0 | 64ef23a | palette panel |
 | T14 | 3 | done | 0 | 0 | 0ca8c8c | integration, worker, live preview |
-| T15 | 3 | done | 0 | 0 | pending | packaging; script NOT run (H3) |
-| T16 | 3 | todo | 0 | 0 | | needs H4, human + PhotoCraft |
+| T15 | 3 | done | 0 | 0 | e4d9c5a | packaging; script run by the user (H3) |
+| T16 | 3 | done | 0 | 0 | | accepted by the user in PhotoCraft (H4) |
 
 ## Decisions log
 - 2026-11-10: external tool architecture (no PhotoCraft fork), PySide6, images only, live preview,
@@ -66,4 +66,10 @@ Counters: g = gate retries used (max 3), r = review cycles used (max 2).
 - 2026-11-11: DEV-004 to DEV-007 recorded (additive `call()`, pid check dropped as unimplementable,
   tone mapping constants, effect seed indexing).
 - 2026-11-11: 490 tests green, ruff clean, check_contract OK, working tree clean.
-- NEXT: H2 (run the UI, judge ergonomics), H3 (approve the shortcut script), H4 (T16 acceptance in PhotoCraft).
+- 2026-11-11: H2 satisfied (preset navigation judged "c'est parfait"), H4 satisfied (T16 accepted in
+  PhotoCraft). H3: the user runs scripts/install_shortcuts.ps1 themselves; the script had only ever been
+  exercised with -WhatIf before that point.
+- 2026-11-11: post-harness features, all user-requested and committed: preset navigation (b8195f4),
+  seven extra algorithms (ade0b4b, DEV-008), DBS filtered-error rewrite (f3c6ef3).
+- NEXT: none. All cards done, all human checkpoints satisfied. 622 tests green, ruff clean,
+  check_contract OK.
