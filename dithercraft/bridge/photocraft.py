@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ctypes
 import json
 import os
 import re
@@ -26,8 +25,6 @@ EXCHANGE_MAX_AGE = 3600.0
 VERSION_TIMEOUT = 10.0
 _VERSION_RE = re.compile(r"photocraft-cli\s+(\d+\.\d+\.\d+)")
 _CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-_PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-_STILL_ACTIVE = 259
 
 
 def _local_appdata() -> Path:
@@ -53,8 +50,8 @@ class _Channel:
         self._next_id = 0
         self.broken = False
 
-    def call(self, method: str, params: dict | None = None) -> dict:
-        """Send one request and return its result, raising BridgeError on failure."""
+    def call(self, method: str, params: dict | None = None) -> object:
+        """Send one request and return its raw result, raising BridgeError on failure."""
         request: dict = {"id": self._next_id, "method": method}
         self._next_id += 1
         if params is not None:
@@ -77,8 +74,7 @@ class _Channel:
             raise BridgeError(f"{method}: invalid response: {response!r}")
         if not response.get("ok"):
             raise BridgeError(str(response.get("error") or f"{method} failed"))
-        result = response.get("result")
-        return result if isinstance(result, dict) else {}
+        return response.get("result")
 
     def close(self) -> None:
         """Close the buffered file and the socket, ignoring errors."""
@@ -102,6 +98,21 @@ def _cleanup_exchange(max_age: float = EXCHANGE_MAX_AGE) -> None:
                 entry.unlink()
         except OSError:
             continue
+
+
+def _as_dict(value: object, where: str) -> dict:
+    """Return a dict result, or raise BridgeError when the server sent something else."""
+    if not isinstance(value, dict):
+        raise BridgeError(f"{where} returned no result object: {value!r}")
+    return value
+
+
+def _discard(path: Path) -> None:
+    """Delete an exchange file, ignoring a Windows sharing violation."""
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 def _as_index(value: object, where: str) -> int:
@@ -155,8 +166,8 @@ class PhotoCraftClient:
             return False
         return True
 
-    def call(self, method: str, params: dict | None = None) -> dict:
-        """Send one raw request on its own authenticated connection and return the result."""
+    def call(self, method: str, params: dict | None = None) -> object:
+        """Send one raw request on its own authenticated connection and return its result."""
         with self._lock:
             _cleanup_exchange()
             with self._session() as channel:
@@ -177,7 +188,7 @@ class PhotoCraftClient:
             except OSError as exc:
                 raise BridgeError(f"cannot read the saved PNG {name!r}: {exc}") from exc
             finally:
-                path.unlink(missing_ok=True)
+                _discard(path)
 
     def place_as_layer(self, img: Image.Image, layer_name: str = "DitherCraft") -> int:
         """Copy the image into the active document as a new layer and return its id."""
@@ -189,9 +200,12 @@ class PhotoCraftClient:
             helper: int | None = None
             with self._session() as channel:
                 try:
-                    result = channel.call(
-                        "engine.execute",
-                        {"command": "document.activate", "params": {"offset": 0}},
+                    result = _as_dict(
+                        channel.call(
+                            "engine.execute",
+                            {"command": "document.activate", "params": {"offset": 0}},
+                        ),
+                        "document.activate",
                     )
                     target = _as_index(result.get("document"), "document.activate")
                     _save_png(img, path)
@@ -212,13 +226,16 @@ class PhotoCraftClient:
                         },
                     )
                     helper = None
-                    result = channel.call("engine.execute", {"command": "document.inspect"})
+                    result = _as_dict(
+                        channel.call("engine.execute", {"command": "document.inspect"}),
+                        "document.inspect",
+                    )
                     return _as_index(result.get("activeLayer"), "document.inspect")
                 except BridgeError:
                     self._recover(channel, name, helper, target)
                     raise
                 finally:
-                    path.unlink(missing_ok=True)
+                    _discard(path)
 
     @contextmanager
     def _session(self) -> Iterator[_Channel]:
@@ -232,7 +249,7 @@ class PhotoCraftClient:
         channel = _Channel(sock)
         try:
             try:
-                result = channel.call("auth", {"token": self._token})
+                result = _as_dict(channel.call("auth", {"token": self._token}), "auth")
             except BridgeError:
                 if channel.broken:
                     raise
@@ -245,7 +262,7 @@ class PhotoCraftClient:
 
     def _find_document(self, channel: _Channel, name: str) -> int:
         """Return the index of the document whose path or name is `name`."""
-        result = channel.call("ui.inspect")
+        result = _as_dict(channel.call("ui.inspect"), "ui.inspect")
         session = result.get("session") or {}
         for document in session.get("documents") or []:
             if document.get("path") == name or document.get("name") == name:
@@ -280,39 +297,6 @@ class PhotoCraftClient:
                 )
             except BridgeError:
                 pass
-
-
-def _kernel32() -> object | None:
-    """Return the kernel32 DLL handle, or None when ctypes cannot load it."""
-    if not hasattr(ctypes, "WinDLL"):
-        return None
-    try:
-        return ctypes.WinDLL("kernel32", use_last_error=True)
-    except OSError:
-        return None
-
-
-def is_process_alive(pid: int) -> bool:
-    """Return True when the process with this pid is still running."""
-    if pid <= 0:
-        return False
-    kernel32 = _kernel32()
-    if kernel32 is None:
-        return False
-    kernel32.OpenProcess.restype = ctypes.c_void_p
-    kernel32.OpenProcess.argtypes = (ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32)
-    kernel32.GetExitCodeProcess.argtypes = (ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32))
-    kernel32.CloseHandle.argtypes = (ctypes.c_void_p,)
-    handle = kernel32.OpenProcess(_PROCESS_QUERY_LIMITED_INFORMATION, 0, pid)
-    if not handle:
-        return False
-    try:
-        code = ctypes.c_uint32()
-        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
-            return False
-        return code.value == _STILL_ACTIVE
-    finally:
-        kernel32.CloseHandle(handle)
 
 
 def installed_photocraft_version(cli: Path = PHOTOCRAFT_CLI) -> str | None:

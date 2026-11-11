@@ -79,6 +79,32 @@ def test_cluster_dot_ranks_follow_distance() -> None:
         assert np.all(np.diff(distance[order]) >= -1e-12)
 
 
+def test_cluster_dot_4_is_exact() -> None:
+    """The 4x4 cluster-dot ranks are the card's, ties broken by ascending atan2."""
+    assert ordered._cluster_dot(4).tolist() == [
+        [12, 5, 6, 13],
+        [4, 0, 1, 7],
+        [11, 3, 2, 8],
+        [15, 10, 9, 14],
+    ]
+
+
+def test_cluster_dot_ties_are_broken_by_angle() -> None:
+    """Cells at the same distance are ranked by ascending atan2, not by scan order."""
+    for size in (4, 8):
+        ranks = ordered._cluster_dot(size)
+        centre = (size - 1) / 2.0
+        ys, xs = np.mgrid[0:size, 0:size]
+        distance = np.hypot(ys - centre, xs - centre).ravel()
+        angle = np.arctan2(ys - centre, xs - centre).ravel()
+        order = np.argsort(ranks.ravel())
+        ranked_distance = distance[order]
+        ranked_angle = angle[order]
+        tied = np.isclose(ranked_distance[1:], ranked_distance[:-1], rtol=0.0, atol=1e-12)
+        assert tied.any()
+        assert np.all(ranked_angle[1:][tied] > ranked_angle[:-1][tied])
+
+
 def test_blue_noise_file() -> None:
     """The committed blue-noise file is a 64x64 permutation of 0..4095."""
     ranks = np.load(BLUE_NOISE_PATH)
@@ -92,6 +118,25 @@ def test_blue_noise_is_cached() -> None:
     """The blue-noise array and every built matrix are cached at module level."""
     assert ordered.blue_noise_ranks() is ordered.blue_noise_ranks()
     assert ordered.matrix("blue_noise") is ordered.matrix("blue_noise")
+
+
+@pytest.mark.parametrize("matrix_id", MATRIX_IDS)
+def test_matrix_is_read_only(matrix_id: str) -> None:
+    """A caller cannot corrupt the cached matrix: writing to it raises."""
+    t = ordered.matrix(matrix_id)
+    assert not t.flags.writeable
+    with pytest.raises(ValueError):
+        t[0, 0] = 0.5
+    assert np.array_equal(ordered.matrix(matrix_id), t)
+
+
+def test_blue_noise_ranks_is_read_only() -> None:
+    """A caller cannot corrupt the cached blue-noise ranks: writing to them raises."""
+    ranks = ordered.blue_noise_ranks()
+    assert not ranks.flags.writeable
+    with pytest.raises(ValueError):
+        ranks[0, 0] = 7
+    assert np.array_equal(ordered.blue_noise_ranks(), np.load(BLUE_NOISE_PATH))
 
 
 def test_grey_half_bayer_4_is_exactly_half(pal_bw: Palette) -> None:

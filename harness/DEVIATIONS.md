@@ -63,3 +63,35 @@ Format: one block per deviation, newest at the bottom. Status: open | accepted |
 - assumption / proposal: T14 rewrites only the two affected tests in tests/test_ui_canvas.py, keeping their intent (the window builds, the actions exist and are wired) and asserting the real panels instead of the placeholders. `placeholder_tabs` stays as an empty dict so T10's `replace_tab` API and its remaining test stay valid.
 - decision: accepted; the edit is limited to tests/test_ui_canvas.py and reviewed in the T14 commit | by: orchestrator
 - impact: none on the contract; T10's card should have said "placeholder until T14" for those two accept items.
+
+### DEV-004
+- class: E1 (additive) | task: T08 | contract: 1.2.0-draft | status: resolved
+- raised by: T08 coder, confirmed by the review pass | date: 2026-11-11
+- facts: §8.5 lists no raw request entry point, but §8.6's smoke tool needs raw `ui.inspect`, `engine.execute`, `app.open` and `file.close` calls that the three documented methods do not expose.
+- assumption / proposal: keep `PhotoCraftClient.call(method, params)` as an additive public method (one authenticated connection, lock, exchange cleanup).
+- decision: accepted | by: orchestrator
+- impact: none; §8.5 gains a method on the next MINOR bump.
+
+### DEV-005
+- class: E4 (technical block) | task: T08 | contract: 1.2.0-draft | status: resolved
+- raised by: T08 coder, confirmed by the review pass | date: 2026-11-11
+- facts: the T08 card requires a ctypes pid liveness check (OpenProcess + GetExitCodeProcess). No pid source exists: DEV-001 forbids `instance.json` (the only place a pid appears) and the control server exposes none. The check was therefore dead code with no caller.
+- assumption / proposal: drop `is_process_alive` and the ctypes constants. Liveness is established by the TCP connect plus the auth handshake, which is what `discover()` already does and what §8.5 specifies.
+- decision: accepted; the card item is not applicable as written | by: orchestrator
+- impact: T08 card accept item removed; no code impact.
+
+### DEV-006
+- class: E1 | task: T07A | contract: 1.2.0-draft | status: resolved
+- raised by: the review pass | date: 2026-11-11
+- facts: §4 fixes only the effect contract (same shape, float32, [0, 1], deterministic, never raises) and the T07A card says only "bright-pass, blur, screen blend" and "gaussian" noise. Neither fixes the amount-to-sigma factor nor the bright-pass normalisation.
+- assumption / proposal: noise standard deviation = amount * 0.5 (`_NOISE_SCALE`); bright pass = clip((data - threshold) / (1 - threshold), 0, 1). Behaviour left unchanged.
+- decision: accepted as the reference mapping | by: orchestrator
+- impact: none; documents the UI labels and future tuning.
+
+### DEV-007
+- class: E1 | task: T09 | contract: 1.2.0-draft | status: resolved
+- raised by: the review pass | date: 2026-11-11
+- facts: §7 says "effect i gets default_rng(spec.seed + i)" without saying whether i is the list position or the position among enabled effects. The two readings differ once an effect is disabled.
+- assumption / proposal: i counts only ENABLED effects, so disabling an effect does not renumber the seeds of the later ones. Pinned by tests/test_pipeline.py::test_disabled_effect_does_not_shift_the_seed.
+- decision: accepted | by: orchestrator
+- impact: none; a PATCH clarification of §7 is due at the next contract bump.

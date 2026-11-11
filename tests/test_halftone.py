@@ -96,3 +96,27 @@ def test_does_not_mutate_inputs(pal_bw: Palette, photo_like: Image) -> None:
         _run(algorithm_id, img, palette)
     assert np.array_equal(img, photo_like)
     assert np.array_equal(palette, pal_bw)
+
+
+@pytest.mark.parametrize("algorithm_id", IDS)
+def test_cell_mean_drives_the_pattern(algorithm_id: str, pal_bw: Palette) -> None:
+    """A cell whose mean is 0.5 renders like a flat 0.5 cell, whatever its pixels are."""
+    ys, xs = np.mgrid[0:16, 0:16]
+    checker = np.ascontiguousarray(np.repeat(((ys + xs) % 2).astype(np.float32)[:, :, None], 3, 2))
+    flat = np.full((16, 16, 3), 0.5, dtype=np.float32)
+    assert np.array_equal(
+        _run(algorithm_id, checker, pal_bw, cell_size=8, angle=0.0),
+        _run(algorithm_id, flat, pal_bw, cell_size=8, angle=0.0),
+    )
+
+
+def test_same_cell_pixels_share_the_cell_mean(pal_bw: Palette) -> None:
+    """Two pixels of one cell with different luminance get the same index."""
+    flat = np.full((8, 8, 3), 0.5, dtype=np.float32)
+    perturbed = flat.copy()
+    perturbed[0, 0] = 0.0
+    perturbed[0, 7] = 1.0
+    flat_out = _run("halftone_lines", flat, pal_bw, cell_size=8, angle=0.0)
+    out = _run("halftone_lines", perturbed, pal_bw, cell_size=8, angle=0.0)
+    assert out[0, 0] == out[0, 7]
+    assert np.array_equal(out, flat_out)

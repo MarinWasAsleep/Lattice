@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
 from dithercraft.core.pipeline import PipelineSpec
 from dithercraft.core.types import Image
 from dithercraft.palettes.builtin import builtin_names, get_builtin
-from dithercraft.palettes.extract import MAX_K, MIN_K, extract_palette
+from dithercraft.palettes.extract import MAX_K, MIN_K
 from dithercraft.palettes.io import (
     MAX_COLORS,
     MIN_COLORS,
@@ -36,6 +36,7 @@ from dithercraft.palettes.io import (
     load_palette,
     save_palette,
 )
+from dithercraft.ui.worker import PaletteExtraction
 
 LOGGER = logging.getLogger(__name__)
 
@@ -156,17 +157,21 @@ class PalettePanel(QWidget):
         palette.extract_method = str(self.extract_method.currentText())
 
     def extract_now(self) -> None:
-        """Extract colours from the source image and switch the panel to Custom."""
+        """Extract colours from the source image on a helper thread."""
         if self._image is None:
             self._set_error("Load an image before extracting a palette.")
             return
-        method = str(self.extract_method.currentText())
-        try:
-            palette = extract_palette(self._image, int(self.extract_k.value()), method)
-        except ValueError as exc:
-            self._set_error(str(exc))
-            return
-        self._adopt_custom(hex_list(palette))
+        job = PaletteExtraction(
+            self._image, int(self.extract_k.value()), str(self.extract_method.currentText())
+        )
+        job.finished.connect(self._adopt_custom)
+        job.failed.connect(self._set_error)
+        job.start()
+
+    def _emit_changed(self, _value: int = 0) -> None:
+        """Emit changed for a user edit, unless a spec is being loaded."""
+        if not self._loading:
+            self.changed.emit()
 
     def import_palette(self, path: Path) -> None:
         """Load a .hex or .gpl palette from path and switch the panel to Custom."""
@@ -196,9 +201,8 @@ class PalettePanel(QWidget):
         """Create the source radios, built-in combo, extract controls, grid and file buttons."""
         outer = QVBoxLayout(self)
         outer.setContentsMargins(6, 6, 6, 6)
-        outer.addWidget(self._build_source_box())
-        outer.addWidget(self._build_extract_box())
-        outer.addWidget(self._build_custom_box())
+        for box in (self._build_source_box(), self._build_extract_box(), self._build_custom_box()):
+            outer.addWidget(box)
         self.error_label = QLabel("", self)
         self.error_label.setObjectName("palette_error")
         self.error_label.setWordWrap(True)
@@ -211,7 +215,6 @@ class PalettePanel(QWidget):
         column = QVBoxLayout(box)
         row = QHBoxLayout()
         self.source_group = QButtonGroup(self)
-        self.source_group.setExclusive(True)
         self.source_buttons: dict[str, QRadioButton] = {}
         for name in SOURCES:
             button = QRadioButton(SOURCE_LABELS[name], box)
@@ -241,6 +244,8 @@ class PalettePanel(QWidget):
         self.extract_method = QComboBox(box)
         self.extract_method.setObjectName("extract_method")
         self.extract_method.addItems(list(METHODS))
+        self.extract_k.valueChanged.connect(self._emit_changed)
+        self.extract_method.currentIndexChanged.connect(self._emit_changed)
         self.extract_button = QPushButton("Extract", box)
         self.extract_button.setObjectName("extract_button")
         self.extract_button.clicked.connect(self.extract_now)
@@ -355,9 +360,8 @@ class PalettePanel(QWidget):
     def _refresh(self) -> None:
         """Sync every widget with the panel state without emitting changed."""
         with QSignalBlocker(self.builtin_combo):
-            self.builtin_combo.setCurrentIndex(
-                max(0, self.builtin_combo.findText(self._builtin_name))
-            )
+            index = max(0, self.builtin_combo.findText(self._builtin_name))
+            self.builtin_combo.setCurrentIndex(index)
             self._rebuild_grid()
         self._update_enabled()
 
@@ -375,15 +379,12 @@ class PalettePanel(QWidget):
             swatch.remove_requested.connect(lambda i=index: self._on_swatch_removed(i))
             self.grid_layout.addWidget(swatch, index // GRID_COLUMNS, index % GRID_COLUMNS)
             self.swatches.append(swatch)
-        position = len(self._colors)
-        self.grid_layout.addWidget(
-            self.add_button, position // GRID_COLUMNS, position % GRID_COLUMNS
-        )
+        row, column = divmod(len(self._colors), GRID_COLUMNS)
+        self.grid_layout.addWidget(self.add_button, row, column)
 
     def _update_enabled(self) -> None:
         """Enable only the controls that belong to the selected source."""
-        builtin, extracted = self._source == "builtin", self._source == "extracted"
-        custom = self._source == "custom"
+        builtin, extracted, custom = (self._source == name for name in SOURCES)
         self.builtin_combo.setEnabled(builtin)
         self.extract_k.setEnabled(extracted)
         self.extract_method.setEnabled(extracted)

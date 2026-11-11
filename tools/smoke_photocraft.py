@@ -50,17 +50,27 @@ def _write_png(path: Path) -> None:
     Image.fromarray(data, "RGB").save(path, format="PNG")
 
 
+def _session(client: PhotoCraftClient) -> dict:
+    """Return the ui.inspect session object, or raise BridgeError."""
+    result = client.call("ui.inspect")
+    if not isinstance(result, dict):
+        raise BridgeError(f"ui.inspect returned no result object: {result!r}")
+    session = result.get("session")
+    if not isinstance(session, dict):
+        raise BridgeError(f"ui.inspect returned no session: {session!r}")
+    return session
+
+
 def _snapshot(client: PhotoCraftClient) -> tuple[int, int]:
     """Return the document count and the active document index."""
-    session = client.call("ui.inspect").get("session") or {}
+    session = _session(client)
     documents = session.get("documents") or []
     return len(documents), int(session.get("active", -1))
 
 
 def _find_index(client: PhotoCraftClient, name: str) -> int:
     """Return the index of the document whose path or name is `name`."""
-    session = client.call("ui.inspect").get("session") or {}
-    for document in session.get("documents") or []:
+    for document in _session(client).get("documents") or []:
         if document.get("path") == name or document.get("name") == name:
             return int(document["index"])
     raise BridgeError(f"test document {name!r} not found in the session")
@@ -71,15 +81,35 @@ def _invert(img: Image.Image) -> Image.Image:
     return Image.eval(img.convert("RGB"), lambda value: 255 - value)
 
 
-def _check_layer(client: PhotoCraftClient, layer_name: str) -> None:
-    """Check that the active layer is the new Pixel layer created by the bridge."""
+def _inspect(client: PhotoCraftClient) -> dict:
+    """Return the document.inspect result of the active document, or raise BridgeError."""
     result = client.call("engine.execute", {"command": "document.inspect"})
+    if not isinstance(result, dict):
+        raise BridgeError(f"document.inspect returned no result object: {result!r}")
+    return result
+
+
+def _layer_count(client: PhotoCraftClient) -> int:
+    """Return how many layers the active document has, or raise BridgeError."""
+    layers = _inspect(client).get("layers")
+    if not isinstance(layers, list):
+        raise BridgeError(f"document.inspect returned no layers list: {layers!r}")
+    return len(layers)
+
+
+def _check_layer(client: PhotoCraftClient, layer_name: str, before: int) -> None:
+    """Check that exactly one new Pixel layer named `layer_name` is the active layer."""
+    result = _inspect(client)
+    layers = result.get("layers")
+    if not isinstance(layers, list) or not layers:
+        raise BridgeError(f"document.inspect returned no layers list: {layers!r}")
+    if len(layers) != before + 1:
+        raise BridgeError(f"layer count went from {before} to {len(layers)}, expected one more")
     active = result.get("activeLayer")
     if active is None:
         raise BridgeError("document.inspect returned no activeLayer")
-    layers = result.get("layers") or []
     for layer in layers:
-        if layer.get("id") != active:
+        if not isinstance(layer, dict) or layer.get("id") != active:
             continue
         if layer.get("name") != layer_name:
             raise BridgeError(f"active layer is {layer.get('name')!r}, expected {layer_name!r}")
@@ -87,8 +117,7 @@ def _check_layer(client: PhotoCraftClient, layer_name: str) -> None:
         if kind and "pixel" not in kind:
             raise BridgeError(f"active layer kind is {kind!r}, expected a Pixel layer")
         return
-    if layers:
-        raise BridgeError(f"active layer {active} is missing from document.inspect")
+    raise BridgeError(f"active layer {active} is missing from document.inspect")
 
 
 def _close(client: PhotoCraftClient, index: int) -> None:
@@ -112,6 +141,7 @@ def main(argv: list[str] | None = None) -> int:
     step = 0
     client: PhotoCraftClient | None = None
     helper: int | None = None
+    opened = False
     before: tuple[int, int] | None = None
     png = EXCHANGE_DIR / f"smoke_{uuid.uuid4().hex}.png"
     try:
@@ -130,26 +160,29 @@ def main(argv: list[str] | None = None) -> int:
         _write_png(png)
         step = 4
         client.call("app.open", {"path": png.name})
+        opened = True
         step = 5
         helper = _find_index(client, png.name)
         step = 6
         image = client.render_document()
         step = 7
+        layers_before = _layer_count(client)
         client.place_as_layer(_invert(image), LAYER_NAME)
         step = 8
-        _check_layer(client, LAYER_NAME)
+        _check_layer(client, LAYER_NAME, layers_before)
         step = 9
         _close(client, helper)
         helper = None
+        opened = False
         step = 10
         _verify_restored(client, before)
     except Exception as exc:
         print(f"FAIL at step {step}: {exc}")
         return 1
     finally:
-        if helper is not None and client is not None:
+        if client is not None and (helper is not None or opened):
             try:
-                _close(client, helper)
+                _close(client, helper if helper is not None else _find_index(client, png.name))
             except BridgeError:
                 pass
         if not args.keep:

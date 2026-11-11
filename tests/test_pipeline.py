@@ -321,3 +321,44 @@ def test_custom_palette_drives_render(test_registry):
     spec = _spec(palette=PaletteSpec(source="custom", colors=["#FF0000", "#00FF00"]))
     out = render(src, spec)
     assert np.all(out == np.array([255, 0, 0], dtype=np.uint8))
+
+
+def test_extract_palette_receives_the_downscaled_image(test_registry, monkeypatch):
+    """Step 5 extracts from the image produced by step 4, not from the source."""
+    seen: dict = {}
+    fake = types.ModuleType("dithercraft.palettes.extract")
+
+    def extract_palette(img, k, method, seed=0):
+        seen["shape"] = img.shape
+        return np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], np.float32)
+
+    fake.extract_palette = extract_palette
+    monkeypatch.setitem(sys.modules, "dithercraft.palettes.extract", fake)
+    spec = _spec(pixel_size=3, palette=PaletteSpec(source="extracted", extract_k=4))
+    out = render(_image(), spec)
+    assert seen["shape"] == (13, 8, 3)
+    assert out.shape == (37, 23, 3)
+
+
+def test_post_effects_run_after_upscale(test_registry):
+    """A per-pixel post-effect is not blocky, so it runs after upscale_nearest."""
+    src = np.zeros((9, 9, 3), dtype=np.float32)
+    spec = _spec(pixel_size=3, post_effects=[EffectInstance("test_noise", {"amount": 1.0})])
+    out = render(src, spec)
+    assert out.shape == (9, 9, 3)
+    for y in range(0, 9, 3):
+        for x in range(0, 9, 3):
+            block = out[y : y + 3, x : x + 3]
+            assert not np.array_equal(block, np.broadcast_to(block[0, 0], block.shape))
+
+
+@pytest.mark.parametrize("field", ["pre_effects", "post_effects"])
+def test_disabled_effect_does_not_shift_the_seed(test_registry, field):
+    """A disabled effect is not counted: the i-th enabled effect keeps its own seed."""
+    src = np.zeros((8, 8, 3), dtype=np.float32)
+    noise = EffectInstance("test_noise", {"amount": 1.0})
+    disabled = EffectInstance("test_noise", {"amount": 1.0}, enabled=False)
+    alone = render(src, _spec(**{field: [noise]}))
+    shifted = render(src, _spec(**{field: [disabled, noise]}))
+    assert np.array_equal(alone, shifted)
+

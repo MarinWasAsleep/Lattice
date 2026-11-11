@@ -42,20 +42,34 @@ def _copy(img: Image) -> Image:
     return np.clip(out, 0.0, 1.0, out=out)
 
 
+def _radial_offsets(height: int, width: int) -> tuple[np.ndarray, np.ndarray]:
+    """Return float32 (1, W) x and (H, 1) y offsets from the image centre."""
+    centre_x = np.float32((width - 1) / 2.0)
+    centre_y = np.float32((height - 1) / 2.0)
+    xs = np.arange(width, dtype=np.float32)[None, :] - centre_x
+    ys = np.arange(height, dtype=np.float32)[:, None] - centre_y
+    return xs, ys
+
+
 def _sample_channel(channel: np.ndarray, xs: np.ndarray, ys: np.ndarray) -> np.ndarray:
-    """Bilinearly sample a 2D channel at float coordinates, clamping to the edges."""
+    """Bilinearly sample a 2D channel at broadcastable float coordinates, clamping to the edges."""
     height, width = channel.shape
     x0 = np.floor(xs).astype(np.intp)
     y0 = np.floor(ys).astype(np.intp)
     fx = (xs - x0).astype(np.float32)
     fy = (ys - y0).astype(np.float32)
-    x0 = np.clip(x0, 0, width - 1)
-    y0 = np.clip(y0, 0, height - 1)
+    np.clip(x0, 0, width - 1, out=x0)
+    np.clip(y0, 0, height - 1, out=y0)
     x1 = np.clip(x0 + 1, 0, width - 1)
     y1 = np.clip(y0 + 1, 0, height - 1)
-    top = channel[y0, x0] * (1.0 - fx) + channel[y0, x1] * fx
-    bottom = channel[y1, x0] * (1.0 - fx) + channel[y1, x1] * fx
-    return (top * (1.0 - fy) + bottom * fy).astype(np.float32)
+    top = channel[y0, x0] * (1.0 - fx)
+    top += channel[y0, x1] * fx
+    bottom = channel[y1, x0] * (1.0 - fx)
+    bottom += channel[y1, x1] * fx
+    bottom *= fy
+    top *= 1.0 - fy
+    top += bottom
+    return top
 
 
 @register_effect("chromatic_aberration", "Chromatic Aberration", _CHROMATIC_PARAMS)
@@ -68,18 +82,20 @@ def chromatic_aberration(img: Image, params: dict, rng: np.random.Generator) -> 
     height, width = source.shape[:2]
     centre_y = (height - 1) / 2.0
     centre_x = (width - 1) / 2.0
-    ys, xs = np.mgrid[0:height, 0:width]
-    dy = ys.astype(np.float64) - centre_y
-    dx = xs.astype(np.float64) - centre_x
+    dx, dy = _radial_offsets(height, width)
     radius = float(np.hypot(max(centre_x, 0.5), max(centre_y, 0.5)))
     scale = amount / radius
     out = np.empty((height, width, 3), dtype=np.float32)
     out[:, :, 0] = _sample_channel(
-        source[:, :, 0], centre_x + dx * (1.0 + scale), centre_y + dy * (1.0 + scale)
+        source[:, :, 0],
+        np.float32(centre_x) + dx * np.float32(1.0 + scale),
+        np.float32(centre_y) + dy * np.float32(1.0 + scale),
     )
     out[:, :, 1] = source[:, :, 1]
     out[:, :, 2] = _sample_channel(
-        source[:, :, 2], centre_x + dx * (1.0 - scale), centre_y + dy * (1.0 - scale)
+        source[:, :, 2],
+        np.float32(centre_x) + dx * np.float32(1.0 - scale),
+        np.float32(centre_y) + dy * np.float32(1.0 - scale),
     )
     return np.clip(out, 0.0, 1.0, out=out)
 

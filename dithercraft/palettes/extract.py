@@ -24,12 +24,20 @@ def _subsample(pixels: np.ndarray, seed: int) -> np.ndarray:
 
 
 def _unique_colors(pixels: np.ndarray) -> np.ndarray:
-    """Return the distinct 8-bit colours of pixels as a float32 (U, 3) array."""
-    rgb8 = np.floor(np.clip(pixels, 0.0, 1.0) * 255.0 + 0.5).astype(np.uint32)
-    keys = (rgb8[:, 0] << 16) | (rgb8[:, 1] << 8) | rgb8[:, 2]
-    unique = np.unique(keys)
-    channels = [(unique >> 16) & 255, (unique >> 8) & 255, unique & 255]
-    return np.stack(channels, axis=1).astype(np.float32) / np.float32(255.0)
+    """Return the distinct float32 colours of pixels as a (U, 3) array, exactly."""
+    data = np.ascontiguousarray(pixels, dtype=np.float32).reshape(-1, 3)
+    bits = data.view(np.uint32)
+    high = (bits[:, 0].astype(np.uint64) << np.uint64(32)) | bits[:, 1]
+    order = np.lexsort((bits[:, 2], high))
+    sorted_high = high[order]
+    sorted_low = bits[order, 2]
+    keep = np.ones(sorted_high.shape[0], dtype=bool)
+    keep[1:] = (sorted_high[1:] != sorted_high[:-1]) | (sorted_low[1:] != sorted_low[:-1])
+    unique = np.empty((int(keep.sum()), 3), dtype=np.uint32)
+    unique[:, 0] = sorted_high[keep] >> np.uint64(32)
+    unique[:, 1] = sorted_high[keep] & np.uint64(0xFFFFFFFF)
+    unique[:, 2] = sorted_low[keep]
+    return unique.view(np.float32)
 
 
 def _sorted_palette(colors: np.ndarray) -> Palette:
@@ -167,10 +175,14 @@ def extract_palette(
     if pixels.shape[0] == 0:
         raise ValueError("cannot extract a palette from an empty image")
     data = _subsample(pixels, seed)
-    if _unique_colors(data).shape[0] < k:
-        unique = _unique_colors(pixels)
-        if unique.shape[0] < k:
+    unique = _unique_colors(data)
+    if unique.shape[0] < k:
+        full = _unique_colors(pixels)
+        if full.shape[0] < k:
+            return _few_colors(full)
+        if full.shape[0] <= MAX_SAMPLES:
+            data = full
+        else:
             return _few_colors(unique)
-        data = pixels
     colors = _kmeans(data, k, seed) if method == "kmeans" else _median_cut(data, k)
     return _sorted_palette(colors)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import tracemalloc
 
 import numpy as np
 import pytest
@@ -132,6 +133,80 @@ def test_chromatic_aberration_keeps_1x1() -> None:
     """A 1x1 image has no radius, so the effect leaves it unchanged."""
     img = np.full((1, 1, 3), 0.4, dtype=np.float32)
     assert np.allclose(_run("chromatic_aberration", img, amount=50.0), img)
+
+
+def _reference_sample(channel: np.ndarray, xs: np.ndarray, ys: np.ndarray) -> np.ndarray:
+    """Bilinearly sample a channel exactly as the pre-fix code did."""
+    height, width = channel.shape
+    x0 = np.floor(xs).astype(np.intp)
+    y0 = np.floor(ys).astype(np.intp)
+    fx = (xs - x0).astype(np.float32)
+    fy = (ys - y0).astype(np.float32)
+    x0 = np.clip(x0, 0, width - 1)
+    y0 = np.clip(y0, 0, height - 1)
+    x1 = np.clip(x0 + 1, 0, width - 1)
+    y1 = np.clip(y0 + 1, 0, height - 1)
+    top = channel[y0, x0] * (1.0 - fx) + channel[y0, x1] * fx
+    bottom = channel[y1, x0] * (1.0 - fx) + channel[y1, x1] * fx
+    return (top * (1.0 - fy) + bottom * fy).astype(np.float32)
+
+
+def _reference_chromatic_aberration(img: Image, amount: float) -> Image:
+    """Return the pre-fix output: mgrid int64 coordinates and float64 offsets."""
+    source = np.asarray(img, dtype=np.float32)
+    height, width = source.shape[:2]
+    centre_y = (height - 1) / 2.0
+    centre_x = (width - 1) / 2.0
+    ys, xs = np.mgrid[0:height, 0:width]
+    dy = ys.astype(np.float64) - centre_y
+    dx = xs.astype(np.float64) - centre_x
+    radius = float(np.hypot(max(centre_x, 0.5), max(centre_y, 0.5)))
+    scale = amount / radius
+    out = np.empty((height, width, 3), dtype=np.float32)
+    out[:, :, 0] = _reference_sample(
+        source[:, :, 0], centre_x + dx * (1.0 + scale), centre_y + dy * (1.0 + scale)
+    )
+    out[:, :, 1] = source[:, :, 1]
+    out[:, :, 2] = _reference_sample(
+        source[:, :, 2], centre_x + dx * (1.0 - scale), centre_y + dy * (1.0 - scale)
+    )
+    return np.clip(out, 0.0, 1.0, out=out)
+
+
+@pytest.mark.parametrize("shape", [(1, 5), (5, 1), (37, 23), (64, 64), (33, 33)])
+@pytest.mark.parametrize("amount", [0.5, 4.0, 25.0, 50.0])
+def test_chromatic_aberration_matches_the_pre_fix_reference(
+    shape: tuple[int, int], amount: float
+) -> None:
+    """The float32 rewrite reproduces the old float64 output to within 1e-4 per pixel."""
+    img = _image(shape, seed=21)
+    out = _run("chromatic_aberration", img, amount=amount)
+    expected = _reference_chromatic_aberration(img, amount)
+    assert np.allclose(out, expected, atol=1e-4, rtol=0.0)
+
+
+def test_chromatic_aberration_coordinates_are_float32() -> None:
+    """The radial offsets are float32 broadcast rows and columns, not int64 mgrid planes."""
+    height, width = 4000, 3000
+    dx, dy = glitch._radial_offsets(height, width)
+    assert dx.dtype == np.float32 and dy.dtype == np.float32
+    assert dx.shape == (1, width) and dy.shape == (height, 1)
+    assert dx.nbytes + dy.nbytes <= 4 * (height + width)
+    xs = np.float32((width - 1) / 2.0) + dx * np.float32(1.5)
+    ys = np.float32((height - 1) / 2.0) + dy * np.float32(1.5)
+    assert xs.dtype == np.float32 and ys.dtype == np.float32
+
+
+def test_chromatic_aberration_peak_memory_stays_near_the_input() -> None:
+    """Peak allocation stays under 5x the input instead of the old 10x."""
+    img = _image((1200, 900), seed=22)
+    tracemalloc.start()
+    try:
+        _run("chromatic_aberration", img, amount=4.0)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert peak < 5 * img.nbytes
 
 
 def test_rgb_shift_moves_red_right_and_replicates_edges() -> None:

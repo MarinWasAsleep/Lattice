@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import os
+import threading
+import time
+from collections.abc import Callable
 from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -17,6 +20,7 @@ from dithercraft.core.pipeline import PaletteSpec, PipelineSpec, render  # noqa:
 from dithercraft.palettes.builtin import builtin_names  # noqa: E402
 from dithercraft.palettes.extract import extract_palette  # noqa: E402
 from dithercraft.palettes.io import MAX_COLORS, hex_list, load_palette  # noqa: E402
+from dithercraft.ui import worker as worker_module  # noqa: E402
 from dithercraft.ui.palette_panel import PalettePanel  # noqa: E402
 
 import dithercraft.algorithms  # noqa: E402, F401  isort:skip
@@ -51,6 +55,15 @@ def _counter(panel: PalettePanel) -> list[int]:
     calls: list[int] = []
     panel.changed.connect(lambda: calls.append(1))
     return calls
+
+
+def _wait_until(predicate: Callable[[], bool], timeout: float = 2.0) -> bool:
+    """Spin the event loop until predicate is true or the timeout expires."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline and not predicate():
+        QApplication.processEvents()
+        time.sleep(0.005)
+    return bool(predicate())
 
 
 def _quad_image() -> np.ndarray:
@@ -167,21 +180,48 @@ def test_extract_without_image_reports_an_error(panel: PalettePanel) -> None:
     assert panel.colors() == []
 
 
-def test_extraction_result_becomes_custom_colours(panel: PalettePanel) -> None:
-    """Extract fills the grid with the extracted colours and switches to Custom."""
+def test_extraction_runs_off_the_gui_thread(
+    panel: PalettePanel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Extract returns at once, runs on a helper thread and fills the grid with its result."""
+    threads: list[str] = []
+
+    def slow_extract(image: np.ndarray, k: int, method: str) -> np.ndarray:
+        threads.append(threading.current_thread().name)
+        time.sleep(0.05)
+        return extract_palette(image, k, method)
+
+    monkeypatch.setattr(worker_module, "extract_palette", slow_extract)
     img = _quad_image()
     panel.set_source_image(img)
     panel.source_buttons["extracted"].setChecked(True)
     panel.extract_k.setValue(4)
     calls = _counter(panel)
     panel.extract_button.click()
+    assert panel.colors() == []
     expected = hex_list(extract_palette(img, 4, "kmeans"))
-    assert panel.colors() == expected
+    assert _wait_until(lambda: panel.colors() == expected)
     assert len(expected) == 4
     assert _applied(panel).source == "custom"
     assert _applied(panel).colors == expected
     assert len(calls) == 1
     assert panel.error_label.text() == ""
+    assert threads and threads[0] != threading.main_thread().name
+
+
+def test_extract_controls_emit_changed(panel: PalettePanel) -> None:
+    """Editing k or the extraction method emits changed once, and load_from stays silent."""
+    panel.load_from(_spec(source="extracted", extract_k=4, extract_method="kmeans"))
+    calls = _counter(panel)
+    panel.extract_k.setValue(6)
+    assert len(calls) == 1
+    panel.extract_method.setCurrentIndex(panel.extract_method.findText("median_cut"))
+    assert len(calls) == 2
+    applied = _applied(panel)
+    assert applied.extract_k == 6
+    assert applied.extract_method == "median_cut"
+    panel.load_from(_spec(source="extracted", extract_k=8, extract_method="kmeans"))
+    assert len(calls) == 2
 
 
 def test_extract_k_cannot_go_below_two(panel: PalettePanel) -> None:

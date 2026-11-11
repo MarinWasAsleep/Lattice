@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import os
 import socket
 import subprocess
-import sys
 import threading
 import time
 from pathlib import Path
@@ -22,9 +20,9 @@ TOKEN = "a" * 64
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _ok(request: dict, result: dict | None = None) -> dict:
+def _ok(request: dict, result: object = None) -> dict:
     """Build a successful response."""
-    return {"id": request["id"], "ok": True, "result": result or {}}
+    return {"id": request["id"], "ok": True, "result": {} if result is None else result}
 
 
 def _error(request: dict, message: str) -> dict:
@@ -87,8 +85,8 @@ class FakeDesktopServer:
                 request = json.loads(line.decode("utf-8"))
                 record.append(request)
                 if len(record) == 1:
-                    token = (request.get("params") or {}).get("token")
-                    if request.get("method") != "auth" or token != self.token:
+                    params = request.get("params") or {}
+                    if request.get("method") != "auth" or params.get("token") != self.token:
                         refusal = {"id": request.get("id"), "ok": False}
                         _send(conn, refusal | {"error": "authentication required"})
                         return
@@ -181,6 +179,15 @@ def test_every_connection_authenticates_first(exchange: Path, server) -> None:
         assert connection[0]["id"] == 0
         assert connection[0]["params"] == {"token": TOKEN}
         assert [request["id"] for request in connection] == list(range(len(connection)))
+
+
+def test_list_result_survives_the_channel(exchange: Path, server) -> None:
+    """engine.commands answers with a list of 1005 entries; the channel must not discard it."""
+    commands = [{"id": f"cmd.{index}", "label": str(index)} for index in range(1005)]
+    fake = server(lambda request: _ok(request, commands))
+    client = PhotoCraftClient(fake.port, TOKEN)
+    assert client.call("engine.commands") == commands
+    assert client.ping()
 
 
 def test_render_document_saves_reads_and_deletes(exchange: Path, server) -> None:
@@ -301,6 +308,24 @@ def test_place_as_layer_failure_cleans_up(
     assert list(exchange.iterdir()) == []
 
 
+def test_locked_png_does_not_mask_success(exchange: Path, server, monkeypatch) -> None:
+    """A PermissionError while deleting the exchange PNG must not turn a success into a failure."""
+
+    def locked(self, *args, **kwargs):
+        raise PermissionError(32, "The process cannot access the file")
+
+    def saving(request: dict) -> dict:
+        if request["method"] == "engine.execute":
+            return _ok(request, {"activeLayer": 10})
+        Image.new("RGB", (5, 3), (10, 20, 30)).save(exchange / request["params"]["path"])
+        return _ok(request)
+
+    monkeypatch.setattr(Path, "unlink", locked)
+    placing = server(PlaceHandler(exchange))
+    assert PhotoCraftClient(placing.port, TOKEN).place_as_layer(Image.new("RGB", (4, 4))) == 24
+    assert PhotoCraftClient(server(saving).port, TOKEN).render_document().size == (5, 3)
+
+
 def test_old_exchange_files_are_cleaned(exchange: Path, server) -> None:
     """Files older than one hour are deleted at each call, fresh ones are kept."""
 
@@ -331,13 +356,6 @@ def test_timeout_raises_bridge_error(exchange: Path, server) -> None:
     fake = server(handler)
     with pytest.raises(BridgeError):
         PhotoCraftClient(fake.port, TOKEN, timeout=0.1).render_document()
-
-
-def test_is_process_alive() -> None:
-    """The ctypes liveness check accepts a live pid and rejects dead ones."""
-    assert photocraft.is_process_alive(os.getpid())
-    assert not photocraft.is_process_alive(0)
-    assert not photocraft.is_process_alive(0x7FFFFFF0)
 
 
 @pytest.mark.parametrize(
@@ -379,28 +397,3 @@ def test_version_status(monkeypatch, installed: str | None, expected: str) -> No
     """version_status maps the installed version onto the three contract states."""
     monkeypatch.setattr(photocraft, "installed_photocraft_version", lambda cli=None: installed)
     assert photocraft.version_status() == expected
-
-
-def _load_smoke():
-    """Import tools/smoke_photocraft.py as a module without running main."""
-    path = ROOT / "tools" / "smoke_photocraft.py"
-    spec = importlib.util.spec_from_file_location("smoke_photocraft", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def test_smoke_tool(monkeypatch, capsys) -> None:
-    """--help exits 0 without touching the app, and an unreachable server fails at step 1."""
-    completed = subprocess.run(
-        [sys.executable, str(ROOT / "tools" / "smoke_photocraft.py"), "--help"],
-        capture_output=True, text=True, encoding="utf-8", timeout=60, cwd=ROOT, check=False,
-    )
-    assert completed.returncode == 0
-    assert "usage" in completed.stdout.lower()
-    module = _load_smoke()
-    monkeypatch.setattr(
-        module.PhotoCraftClient, "discover", staticmethod(lambda *args, **kwargs: None)
-    )
-    assert module.main([]) == 1
-    assert "FAIL at step 1" in capsys.readouterr().out

@@ -13,7 +13,9 @@ from pathlib import Path  # noqa: E402
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
 from PIL import Image as PILImage  # noqa: E402
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtCore import QSize, QThread  # noqa: E402
+from PySide6.QtGui import QImage  # noqa: E402
+from PySide6.QtWidgets import QApplication, QGraphicsPixmapItem  # noqa: E402
 
 from dithercraft.bridge.photocraft import PhotoCraftClient  # noqa: E402
 from dithercraft.core.pipeline import render  # noqa: E402
@@ -131,12 +133,9 @@ def window(qapp: QApplication, settings: type[FakeSettings], bridge: None) -> mw
 def _wait_until(predicate: Callable[[], bool], timeout: float = PREVIEW_TIMEOUT) -> bool:
     """Spin the event loop until predicate is true or the timeout expires."""
     deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
+    while time.monotonic() < deadline and not predicate():
         QApplication.processEvents()
-        if predicate():
-            return True
         time.sleep(0.005)
-    QApplication.processEvents()
     return bool(predicate())
 
 
@@ -152,6 +151,16 @@ def _write_png(path: Path, image: np.ndarray) -> str:
     rgb8 = np.clip(image * 255.0, 0, 255).astype(np.uint8)
     PILImage.fromarray(rgb8, "RGB").save(path)
     return str(path)
+
+
+def _canvas_array(window: mw.MainWindow) -> np.ndarray:
+    """Return the pixels currently shown by the preview canvas."""
+    items = [i for i in window.canvas.scene().items() if isinstance(i, QGraphicsPixmapItem)]
+    assert len(items) == 1
+    image = items[0].pixmap().toImage().convertToFormat(QImage.Format.Format_RGB888)
+    buffer = np.frombuffer(image.constBits(), dtype=np.uint8, count=image.sizeInBytes())
+    rows = buffer.reshape(image.height(), image.bytesPerLine())
+    return rows[:, : image.width() * 3].reshape(image.height(), image.width(), 3).copy()
 
 
 def _open(window: mw.MainWindow, dialogs: type[FakeDialogs], path: str) -> None:
@@ -219,6 +228,11 @@ def test_rapid_changes_render_only_the_last_spec(
     assert window.spec.pixel_size == 11
     expected = render(window.source, window.spec, max_side=PREVIEW_MAX_SIDE)
     assert np.array_equal(results[0].image, expected)
+    results.clear()
+    window.worker._pending_job = window.worker._job - 1
+    window.worker._render_preview()
+    qapp.processEvents()
+    assert results == []
 
 
 def test_preview_uses_the_1024_proxy(
@@ -232,6 +246,21 @@ def test_preview_uses_the_1024_proxy(
     result = results[-1]
     assert max(result.image.shape[:2]) <= PREVIEW_MAX_SIDE
     assert result.original.shape == result.image.shape
+
+
+def test_preview_updates_the_canvas_and_drops_stale_results(
+    window: mw.MainWindow, qapp: QApplication, dialogs: type[FakeDialogs], tmp_path: Path
+) -> None:
+    """The canvas shows the render, and an older PreviewResult is not applied."""
+    _open(window, dialogs, _write_png(tmp_path / "in.png", _source()))
+    assert _wait_until(lambda: window.canvas.scene().sceneRect().width() > 0)
+    expected = render(window.source, window.spec, max_side=PREVIEW_MAX_SIDE)
+    assert window.canvas.scene().sceneRect().size().toSize() == QSize(*expected.shape[1::-1])
+    assert np.array_equal(_canvas_array(window), expected)
+    stale = PreviewResult(job=window._applied_job - 1, image=np.zeros_like(expected),
+                          original=np.zeros_like(expected), seconds=0.0)
+    window._on_preview_ready(stale)
+    assert np.array_equal(_canvas_array(window), expected)
 
 
 def test_send_places_one_png_with_a_fake_bridge(
@@ -277,22 +306,43 @@ def test_connection_indicator_follows_the_worker(
     assert _wait_until(lambda: window.connection_label.text() == "PhotoCraft: connected")
 
 
-def test_untested_version_warns_once(
-    window: mw.MainWindow, qapp: QApplication, monkeypatch: pytest.MonkeyPatch
+def test_untested_version_warns_once_and_keeps_the_warning(
+    qapp: QApplication, settings: type[FakeSettings], bridge: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """An untested PhotoCraft version produces exactly one status-bar warning."""
+    """The startup check warns once, in a permanent label that later messages do not wipe."""
     monkeypatch.setattr(worker_module, "version_status", lambda: "untested")
     monkeypatch.setattr(worker_module, "installed_photocraft_version", lambda: "0.23.0")
-    window.worker.check_version()
+    win = mw.MainWindow()
+    win.show()
     qapp.processEvents()
-    message = window.statusBar().currentMessage()
-    assert "0.23.0" in message
-    assert "not tested" in message
-    assert "0.22.0" in message
-    window.statusBar().clearMessage()
-    window.worker.check_version()
-    qapp.processEvents()
-    assert window.statusBar().currentMessage() == ""
+    try:
+        assert _wait_until(lambda: "0.23.0" in win.version_label.text())
+        assert "not tested" in win.version_label.text() and "0.22.0" in win.version_label.text()
+        win.statusBar().showMessage("Exported out.png", 5000)
+        qapp.processEvents()
+        assert "not tested" in win.version_label.text()
+        win.version_label.clear()
+        time.sleep(0.2)
+        qapp.processEvents()
+        assert win.version_label.text() == ""
+    finally:
+        win.close()
+
+
+def test_shutdown_waits_for_a_running_thread(
+    window: mw.MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A timed-out shutdown keeps waiting instead of leaving a running QThread behind."""
+    thread, real_wait, calls = window.thread, QThread.wait, []
+
+    def fake_wait(self: QThread, *args: object) -> bool:
+        calls.append(args)
+        return False if len(calls) == 1 else real_wait(self, *args)
+
+    monkeypatch.setattr(QThread, "wait", fake_wait)
+    window.shutdown()
+    assert calls[0] == (mw.WORKER_STOP_MS,)
+    assert window.thread is None and thread.isRunning() is False
 
 
 def test_unknown_version_shows_nothing(
@@ -302,7 +352,7 @@ def test_unknown_version_shows_nothing(
     monkeypatch.setattr(worker_module, "version_status", lambda: "unknown")
     window.worker.check_version()
     qapp.processEvents()
-    assert "not tested" not in window.statusBar().currentMessage()
+    assert window.version_label.text() == ""
 
 
 def test_preset_round_trip_uses_the_presets_folder(

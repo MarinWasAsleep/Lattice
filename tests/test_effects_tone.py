@@ -141,6 +141,49 @@ def test_glow_intensity_zero_is_identity(photo_like: np.ndarray) -> None:
     assert np.array_equal(out, photo_like)
 
 
+def _bright_patch(
+    size: int = 64, low: int = 28, high: int = 36, background: float = 0.05
+) -> np.ndarray:
+    """Return a dark image holding a white square in the middle."""
+    img = np.full((size, size, 3), background, dtype=np.float32)
+    img[low:high, low:high] = 1.0
+    return img
+
+
+def _distance_from_patch(size: int = 64, low: int = 28, high: int = 36) -> np.ndarray:
+    """Return the (H, W) pixel distance from the white square of _bright_patch."""
+    rows = np.arange(size)[:, None]
+    cols = np.arange(size)[None, :]
+    dy = np.maximum(np.maximum(low - rows, rows - (high - 1)), 0)
+    dx = np.maximum(np.maximum(low - cols, cols - (high - 1)), 0)
+    return np.hypot(dy, dx)
+
+
+def test_glow_brightens_the_dark_ring_around_a_bright_patch() -> None:
+    """A white square lifts the dark pixels around it and leaves the far background alone."""
+    img = _bright_patch()
+    distance = _distance_from_patch()
+    ring = (distance >= 1.0) & (distance < 6.0)
+    far = distance >= 20.0
+    out = _apply("glow", img, {"threshold": 0.7, "radius": 10.0, "intensity": 1.0})
+    assert float(out[ring].mean()) > float(img[ring].mean()) + 0.05
+    assert float(out[ring].mean()) > float(out[far].mean()) + 0.05
+    assert np.allclose(out[far], img[far], atol=1e-6)
+
+
+def test_glow_larger_radius_spreads_the_halo_further() -> None:
+    """A big radius carries the halo further out and dims the ring next to the patch."""
+    img = _bright_patch()
+    distance = _distance_from_patch()
+    near = (distance >= 1.0) & (distance < 3.0)
+    far = (distance >= 6.0) & (distance < 16.0)
+    small = _apply("glow", img, {"threshold": 0.7, "radius": 4.0, "intensity": 1.0})
+    large = _apply("glow", img, {"threshold": 0.7, "radius": 20.0, "intensity": 1.0})
+    assert float(small[far].mean()) < float(img[far].mean()) + 0.005
+    assert float(large[far].mean()) > float(small[far].mean()) + 0.015
+    assert float(large[near].mean()) < float(small[near].mean())
+
+
 def test_noise_amount_zero_is_identity(photo_like: np.ndarray) -> None:
     """A noise amount of 0 returns the image unchanged."""
     out = _apply("noise", photo_like, {"amount": 0.0})

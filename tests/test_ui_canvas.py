@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import subprocess
+import winreg
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -18,6 +20,9 @@ from PySide6.QtWidgets import (  # noqa: E402
     QTabWidget,
 )
 
+from dithercraft.bridge.photocraft import PhotoCraftClient  # noqa: E402
+from dithercraft.ui import main_window as mw  # noqa: E402
+from dithercraft.ui import worker as worker_module  # noqa: E402
 from dithercraft.ui.algorithm_panel import AlgorithmPanel  # noqa: E402
 from dithercraft.ui.app import create_application, dark_palette, main  # noqa: E402
 from dithercraft.ui.canvas import PreviewCanvas  # noqa: E402
@@ -29,6 +34,49 @@ BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
+REGISTRY_KEY = r"Software\DitherCraft\DitherCraft"
+
+
+class FakeSettings:
+    """In-memory stand-in for QSettings so tests never touch the registry."""
+
+    store: dict[str, object] = {}
+
+    def __init__(self, organisation: str, application: str) -> None:
+        self._prefix = f"{organisation}/{application}/"
+
+    def value(self, key: str, default: object = None) -> object:
+        """Return the stored value of key, or default."""
+        return FakeSettings.store.get(self._prefix + key, default)
+
+    def setValue(self, key: str, value: object) -> None:
+        """Store value under key."""
+        FakeSettings.store[self._prefix + key] = value
+
+
+def _registry_geometry() -> bytes | None:
+    """Return the raw HKCU geometry value, or None when the key is absent."""
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, REGISTRY_KEY) as key:
+            return winreg.QueryValueEx(key, "geometry")[0]
+    except OSError:
+        return None
+
+
+@pytest.fixture
+def settings(monkeypatch: pytest.MonkeyPatch) -> type[FakeSettings]:
+    """Replace QSettings with an in-memory store."""
+    FakeSettings.store.clear()
+    monkeypatch.setattr(mw, "QSettings", FakeSettings)
+    return FakeSettings
+
+
+@pytest.fixture
+def bridge(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep every MainWindow away from the real PhotoCraft app and its CLI."""
+    monkeypatch.setattr(PhotoCraftClient, "discover", lambda *args, **kwargs: None)
+    monkeypatch.setattr(worker_module, "version_status", lambda: "tested")
+    monkeypatch.setattr(worker_module, "installed_photocraft_version", lambda: None)
 
 
 @pytest.fixture(scope="module")
@@ -81,7 +129,9 @@ def _mouse(kind: QEvent.Type, x: float, y: float, button: Qt.MouseButton) -> QMo
     return QMouseEvent(kind, point, point, button, button, Qt.KeyboardModifier.NoModifier)
 
 
-def test_main_window_builds_offscreen(qapp: QApplication) -> None:
+def test_main_window_builds_offscreen(
+    qapp: QApplication, settings: type[FakeSettings], bridge: None
+) -> None:
     """The shell builds with canvas, dock tabs, toolbar actions and status bar."""
     window = MainWindow()
     window.show()
@@ -123,7 +173,7 @@ def test_main_window_builds_offscreen(qapp: QApplication) -> None:
 
 
 def test_actions_are_wired_to_real_slots(
-    qapp: QApplication, monkeypatch: pytest.MonkeyPatch
+    qapp: QApplication, settings: type[FakeSettings], bridge: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The file and bridge actions report errors instead of logging a placeholder."""
     window = MainWindow()
@@ -136,7 +186,9 @@ def test_actions_are_wired_to_real_slots(
     window.close()
 
 
-def test_mode_and_zoom_actions_drive_canvas(qapp: QApplication) -> None:
+def test_mode_and_zoom_actions_drive_canvas(
+    qapp: QApplication, settings: type[FakeSettings], bridge: None
+) -> None:
     """Mode and zoom actions act on the preview canvas."""
     window = MainWindow()
     window.canvas.set_image(_solid(8, 8, WHITE))
@@ -151,7 +203,9 @@ def test_mode_and_zoom_actions_drive_canvas(qapp: QApplication) -> None:
     window.close()
 
 
-def test_replace_tab_swaps_placeholder(qapp: QApplication) -> None:
+def test_replace_tab_swaps_placeholder(
+    qapp: QApplication, settings: type[FakeSettings], bridge: None
+) -> None:
     """A placeholder tab can be replaced by a real panel widget."""
     window = MainWindow()
     panel = QLabel("real panel")
@@ -316,7 +370,28 @@ def test_create_application_uses_fusion_and_dark_palette(qapp: QApplication) -> 
     assert dark_palette().color(QPalette.ColorRole.Window).lightness() < 128
 
 
-def test_main_runs_the_event_loop(qapp: QApplication) -> None:
+def test_main_runs_the_event_loop(
+    qapp: QApplication, settings: type[FakeSettings], bridge: None
+) -> None:
     """main() builds the window, enters the event loop and returns its exit code."""
     QTimer.singleShot(0, qapp.quit)
     assert main([]) == 0
+
+
+def test_window_never_spawns_a_process_or_writes_the_registry(
+    qapp: QApplication, settings: type[FakeSettings], bridge: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Building and closing a window spawns no process and leaves HKCU untouched."""
+
+    def forbidden(*args: object, **kwargs: object) -> None:
+        raise AssertionError("a test must never spawn a process")
+
+    monkeypatch.setattr(subprocess, "run", forbidden)
+    monkeypatch.setattr(subprocess, "Popen", forbidden)
+    before = _registry_geometry()
+    window = MainWindow()
+    window.show()
+    QApplication.processEvents()
+    window.close()
+    QApplication.processEvents()
+    assert _registry_geometry() == before

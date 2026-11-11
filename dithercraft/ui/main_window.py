@@ -148,9 +148,8 @@ class MainWindow(QMainWindow):
         """Create the right dock holding the algorithm, palette and effects panels."""
         self.dock = QDockWidget("Panels", self)
         self.dock.setObjectName("panel_dock")
-        self.dock.setAllowedAreas(
-            Qt.DockWidgetArea.RightDockWidgetArea | Qt.DockWidgetArea.LeftDockWidgetArea
-        )
+        areas = Qt.DockWidgetArea.RightDockWidgetArea | Qt.DockWidgetArea.LeftDockWidgetArea
+        self.dock.setAllowedAreas(areas)
         self.tabs = QTabWidget(self.dock)
         self.tabs.setObjectName("panel_tabs")
         self.placeholder_tabs: dict[str, QLabel] = {}
@@ -173,8 +172,10 @@ class MainWindow(QMainWindow):
         self.connection_label.setObjectName("connection_label")
         self.render_time_label = QLabel("Render: -", self)
         self.render_time_label.setObjectName("render_time_label")
-        bar.addPermanentWidget(self.connection_label)
-        bar.addPermanentWidget(self.render_time_label)
+        self.version_label = QLabel("", self)
+        self.version_label.setObjectName("version_warning")
+        for label in (self.connection_label, self.render_time_label, self.version_label):
+            bar.addPermanentWidget(label)
         bar.showMessage("Ready")
 
     def _start_worker(self) -> None:
@@ -204,13 +205,14 @@ class MainWindow(QMainWindow):
         """Stop the render worker thread; safe to call more than once."""
         if self.thread is None:
             return
+        thread = self.thread
         if self.worker is not None:
             self.worker.stop_probing()
-        self.thread.quit()
-        if self.thread.wait(WORKER_STOP_MS):
-            self.thread = self.worker = None
-        else:
+        thread.quit()
+        if not thread.wait(WORKER_STOP_MS):
             LOGGER.warning("the render worker did not stop within %d ms", WORKER_STOP_MS)
+            thread.wait()
+        self.thread = self.worker = None
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Remember the window geometry and stop the worker thread."""
@@ -312,7 +314,7 @@ class MainWindow(QMainWindow):
             return
         self._version_warned = True
         version = installed or "unknown version"
-        self.statusBar().showMessage(
+        self.version_label.setText(
             UNTESTED_WARNING.format(version=version, tested=TESTED_PHOTOCRAFT_VERSION)
         )
 
@@ -365,9 +367,7 @@ class MainWindow(QMainWindow):
     def _on_save_preset(self) -> None:
         """Ask for a preset path and write the current pipeline there."""
         self._rebuild_spec()
-        path = self._ask_path(
-            "Save preset", "preset_dir", "preset.json", PRESET_FILTER, save=True
-        )
+        path = self._ask_path("Save preset", "preset_dir", "preset.json", PRESET_FILTER, save=True)
         if path is None:
             return
         try:

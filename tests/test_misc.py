@@ -104,14 +104,17 @@ def test_riemersma_is_deterministic(pal_4: Palette, photo_like: Image) -> None:
     assert np.array_equal(first, second)
 
 
-@pytest.mark.parametrize("shape", [(37, 23), (1, 5), (5, 1), (1, 1)])
-def test_riemersma_covers_every_pixel(shape: tuple[int, int], pal_bw: Palette) -> None:
+@pytest.mark.parametrize("shape", [(37, 23), (23, 37), (1, 5), (5, 1), (1, 1)])
+def test_riemersma_covers_every_pixel(shape: tuple[int, int]) -> None:
     """The Hilbert traversal visits every in-bounds pixel of any shape."""
-    img = np.full((*shape, 3), 0.5, dtype=np.float32)
-    out = _run("riemersma", img, pal_bw)
+    palette = np.array([[1.0, 1.0, 1.0], [0.0, 0.0, 0.0]], dtype=np.float32)
+    img = np.zeros((*shape, 3), dtype=np.float32)
+    out = _run("riemersma", img, palette)
     assert out.shape == shape
     assert out.dtype == np.int32
     assert set(np.unique(out).tolist()) <= {0, 1}
+    # Index 0 is white here, so a pixel left at the kernel's zero initialisation would show up.
+    assert np.all(out == 1)
 
 
 def test_riemersma_history_and_ratio_change_output(pal_bw: Palette, gradient: Image) -> None:
@@ -129,3 +132,5 @@ def test_algorithms_do_not_mutate_inputs(pal_bw: Palette, photo_like: Image) -> 
         _run(algorithm_id, img, palette)
     assert np.array_equal(img, photo_like)
     assert np.array_equal(palette, pal_bw)
+
+

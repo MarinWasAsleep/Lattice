@@ -80,10 +80,12 @@ def _lines_matrix(axis: str) -> np.ndarray:
 
 
 def blue_noise_ranks() -> np.ndarray:
-    """Return the committed 64x64 blue-noise rank array, loading it once."""
+    """Return the committed 64x64 blue-noise rank array, loading it once, read-only."""
     global _blue_noise_ranks
     if _blue_noise_ranks is None:
-        _blue_noise_ranks = np.load(_BLUE_NOISE_PATH).astype(np.int32)
+        ranks = np.load(_BLUE_NOISE_PATH).astype(np.int32)
+        ranks.setflags(write=False)
+        _blue_noise_ranks = ranks
     return _blue_noise_ranks
 
 
@@ -108,9 +110,11 @@ _MATRICES: dict[str, tuple[str, Callable[[], np.ndarray]]] = {
 
 
 def matrix(matrix_id: str) -> np.ndarray:
-    """Return the normalised threshold matrix of matrix_id, building it once."""
+    """Return the read-only normalised threshold matrix of matrix_id, building it once."""
     if matrix_id not in _matrix_cache:
-        _matrix_cache[matrix_id] = _MATRICES[matrix_id][1]()
+        built = _MATRICES[matrix_id][1]()
+        built.setflags(write=False)
+        _matrix_cache[matrix_id] = built
     return _matrix_cache[matrix_id]
 
 

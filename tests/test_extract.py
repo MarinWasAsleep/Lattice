@@ -118,3 +118,38 @@ def test_large_image_is_fast() -> None:
     elapsed = time.perf_counter() - start
     assert palette.shape == (8, 3)
     assert elapsed < 2.0
+
+
+def _rare_color_image() -> tuple[Image, np.ndarray]:
+    """Return a 2000x2000 flat grey image holding seven rare colours, and those colours."""
+    img = np.full((2000, 2000, 3), 0.5, dtype=np.float32)
+    rare = np.array([[0.1 * i, 0.2 + 0.05 * i, 0.9 - 0.1 * i] for i in range(1, 8)], np.float32)
+    for index, color in enumerate(rare):
+        img[index * 13, index * 7] = color
+    return img, rare
+
+
+@pytest.mark.parametrize("method", METHODS)
+def test_rare_colors_do_not_force_a_full_image_cluster(method: str) -> None:
+    """A subsample that misses rare colours still yields them, in under two seconds."""
+    img, rare = _rare_color_image()
+    start = time.perf_counter()
+    palette = extract_palette(img, 8, method)
+    elapsed = time.perf_counter() - start
+    assert elapsed < 2.0
+    assert palette.shape == (8, 3)
+    expected = np.concatenate([np.full((1, 3), 0.5, np.float32), rare], axis=0)
+    assert np.allclose(_sorted_rows(palette), _sorted_rows(expected), atol=1e-6)
+
+
+@pytest.mark.parametrize("method", METHODS)
+def test_colors_closer_than_one_8bit_step_stay_distinct(method: str) -> None:
+    """Two colours differing by less than 1/255 are two colours, returned exactly."""
+    low = np.float32(0.5)
+    high = low + np.float32(1e-4)
+    img = np.zeros((8, 8, 3), dtype=np.float32)
+    img[:, :4] = low
+    img[:, 4:] = high
+    palette = extract_palette(img, 8, method)
+    assert palette.shape == (2, 3)
+    assert np.array_equal(palette, np.array([[low] * 3, [high] * 3], dtype=np.float32))

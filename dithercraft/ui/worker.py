@@ -8,7 +8,7 @@ import time
 from dataclasses import dataclass
 
 import numpy as np
-from PySide6.QtCore import QObject, QTimer, Signal, Slot
+from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
 
 from dithercraft.bridge.photocraft import (
     BridgeError,
@@ -19,6 +19,8 @@ from dithercraft.bridge.photocraft import (
 from dithercraft.core import color
 from dithercraft.core.pipeline import PipelineSpec, render
 from dithercraft.core.types import RGB8, Image
+from dithercraft.palettes.extract import extract_palette
+from dithercraft.palettes.io import hex_list
 
 LOGGER = logging.getLogger(__name__)
 
@@ -102,6 +104,40 @@ class ConnectionProbe(QObject):
             self.state_changed.emit(CONNECTED if client is not None else DISCONNECTED)
 
 
+class PaletteExtraction(QObject):
+    """Runs one palette extraction on a helper thread and reports it by signal."""
+
+    finished = Signal(object)
+    failed = Signal(str)
+
+    def __init__(self, image: Image, k: int, method: str) -> None:
+        super().__init__()
+        self._args = (image, k, method)
+        self._thread = QThread()
+        self.moveToThread(self._thread)
+        self._thread.started.connect(self.run)
+        self.finished.connect(self._thread.quit)
+        self.failed.connect(self._thread.quit)
+        self._thread.finished.connect(self.deleteLater)
+        _ACTIVE_EXTRACTIONS.add(self)
+        self._thread.finished.connect(lambda: _ACTIVE_EXTRACTIONS.discard(self))
+
+    def start(self) -> None:
+        """Start the helper thread; this object stays alive until it finishes."""
+        self._thread.start()
+
+    @Slot()
+    def run(self) -> None:
+        """Emit the extracted colours, or the error message."""
+        try:
+            self.finished.emit(hex_list(extract_palette(*self._args)))
+        except ValueError as exc:
+            self.failed.emit(str(exc))
+
+
+_ACTIVE_EXTRACTIONS: set[PaletteExtraction] = set()
+
+
 class RenderWorker(QObject):
     """Renders previews and full-resolution images and talks to PhotoCraft."""
 
@@ -122,6 +158,7 @@ class RenderWorker(QObject):
         self._proxy: RGB8 | None = None
         self._spec: PipelineSpec | None = None
         self._job = 0
+        self._pending_job = 0
         self._debounce: QTimer | None = None
         self._connection: QTimer | None = None
 
@@ -158,6 +195,7 @@ class RenderWorker(QObject):
         """Store spec and restart the debounce timer; only the last spec is rendered."""
         self._spec = spec
         self._job += 1
+        self._pending_job = self._job
         if self._debounce is not None:
             self._debounce.start()
 
@@ -223,15 +261,15 @@ class RenderWorker(QObject):
         spec, source = self._spec, self._source
         if spec is None or source is None:
             return
-        job = self._job
+        job = self._pending_job
+        if job != self._job:
+            LOGGER.debug("dropping superseded preview job %d", job)
+            return
         started = time.perf_counter()
         try:
             rgb8 = render(source, spec, max_side=PREVIEW_MAX_SIDE)
         except Exception as exc:  # noqa: BLE001 - report any render failure to the user
             self.failed.emit(f"Render failed: {exc}")
-            return
-        if job != self._job:
-            LOGGER.debug("dropping stale preview job %d", job)
             return
         original = self._proxy if self._proxy is not None else rgb8
         self.preview_ready.emit(PreviewResult(job, rgb8, original, time.perf_counter() - started))

@@ -117,7 +117,7 @@ def _pixel_size(value: int) -> int:
 
 
 def _apply_effects(img: Image, instances: list[EffectInstance], seed: int, offset: int) -> Image:
-    """Run the enabled effects in order, seeding effect i with seed + offset + i."""
+    """Run the enabled effects in order, seeding the i-th enabled one with seed + offset + i."""
     out = img
     index = 0
     for instance in instances:
