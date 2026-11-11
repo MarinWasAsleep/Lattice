@@ -55,4 +55,15 @@ Counters: g = gate retries used (max 3), r = review cycles used (max 2).
   serialised by the orchestrator after each wave. No merge conflict occurred.
 - 2026-11-11: DEV-003 accepted (T14 rewrote two T10 tests that asserted the placeholders).
 - 2026-11-11: T01-T15 done, 431 tests green, ruff clean, check_contract OK.
+- 2026-11-11: independent review pass (3 read-only reviewer subagents on deepseek-flash, one per area:
+  core/algorithms, effects/bridge, UI). Verdict FIX on all three: 1 blocker, 11 major, 12 minor.
+  Fixed by 4 parallel agents, each fix backed by a test that fails on the old code.
+  Notable: the palette panel never emitted `changed` for extract_k/extract_method (stale preview);
+  an unguarded `unlink` could mask a successful layer placement on Windows; chromatic_aberration
+  peaked at 10x the input memory; palette extraction fell back to the full image and blew the 2 s
+  budget; a QThread could be destroyed while running; and two UI test modules spawned the real
+  photocraft-cli and wrote the Windows registry, violating §8.5 and §10.
+- 2026-11-11: DEV-004 to DEV-007 recorded (additive `call()`, pid check dropped as unimplementable,
+  tone mapping constants, effect seed indexing).
+- 2026-11-11: 490 tests green, ruff clean, check_contract OK, working tree clean.
 - NEXT: H2 (run the UI, judge ergonomics), H3 (approve the shortcut script), H4 (T16 acceptance in PhotoCraft).
