@@ -3,6 +3,7 @@ Shiau-Fan, Yliluoma 1 and 2, dot diffusion and direct binary search."""
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import numpy as np
@@ -54,9 +55,9 @@ def _block_error(rendered: Image, truth: Image, block: int = 8) -> float:
 
 def _perceived_error(out: np.ndarray, img: Image, palette: Palette, radius: int = 2) -> float:
     """Return the Gaussian-blurred squared error, the objective DBS minimises."""
-    kernel = dbs.gaussian_kernel(radius)
+    weights = dbs.separable_weights(radius)
     rendered = np.ascontiguousarray(palette[out], dtype=np.float32)
-    difference = dbs._blur(img, kernel, radius) - dbs._blur(rendered, kernel, radius)
+    difference = dbs._blur(img, weights, radius) - dbs._blur(rendered, weights, radius)
     return float((difference * difference).mean())
 
 
@@ -290,6 +291,18 @@ def test_direct_binary_search_stencils_sum_to_zero() -> None:
         assert abs(float(stencils[index].sum())) < 1e-6, index
 
 
+def test_autocorrelation_reproduces_the_stencil_energy() -> None:
+    """The fast path replaces the stencil energy with 2 * (sum(w^2) - A(offset))."""
+    kernel = dbs.gaussian_kernel(2)
+    autocorr = dbs.autocorrelation(kernel, 2)
+    stencils = dbs.swap_stencils(kernel, 2)
+    energy = float((kernel * kernel).sum())
+    assert autocorr[4, 4] == pytest.approx(energy)
+    for index, (ox, oy) in enumerate(dbs._SWAP_OFFSETS):
+        expected = 2.0 * (energy - autocorr[int(oy) + 4, int(ox) + 4])
+        assert float((stencils[index] ** 2).sum()) == pytest.approx(expected)
+
+
 def test_direct_binary_search_stencil_matches_its_offset() -> None:
     """The stencil of an offset is w(u) - w(u - offset), not the mirrored difference."""
     kernel = dbs.gaussian_kernel(2)
@@ -370,6 +383,17 @@ def test_parameters_change_the_output(
     default = _run(algorithm_id, colour_photo, pal_8)
     changed = _run(algorithm_id, colour_photo, pal_8, **params)
     assert not np.array_equal(default, changed), algorithm_id
+
+
+@pytest.mark.perf
+def test_perf_direct_binary_search_256(rng: np.random.Generator) -> None:
+    """DBS on 256x256 with K=16 stays under 0.15 s after warm-up."""
+    img = rng.random((256, 256, 3), dtype=np.float32)
+    palette = np.array([[i / 15] * 3 for i in range(16)], dtype=np.float32)
+    _run("direct_binary_search", img, palette)
+    start = time.perf_counter()
+    _run("direct_binary_search", img, palette)
+    assert time.perf_counter() - start < 0.15
 
 
 def test_yliluoma_buckets_cover_every_slot() -> None:
