@@ -55,3 +55,11 @@ Format: one block per deviation, newest at the bottom. Status: open | accepted |
 - assumption / proposal: add §8.6: installed version detection via photocraft-cli --version, tested version constant, manual smoke test tool, non-blocking UI warning.
 - decision: accepted, contract 1.2.0-draft | by: human
 - impact: T08 owns tools/smoke_photocraft.py and new accept items; T14 adds the startup version check.
+
+### DEV-003
+- class: E3 (accepted) | task: T14 | contract: 1.2.0-draft | status: resolved
+- raised by: T14 coder | date: 2026-11-11
+- facts: T10's accept items assert the placeholder tabs and the placeholder slots ("Open image is not wired yet"), but T14's spec requires replacing exactly those placeholders with the three real panels and the wired actions. The two cards are contradictory by construction; T14 cannot satisfy its own spec while leaving T10's tests untouched. The placeholder test also opened a real modal QMessageBox and hung the suite.
+- assumption / proposal: T14 rewrites only the two affected tests in tests/test_ui_canvas.py, keeping their intent (the window builds, the actions exist and are wired) and asserting the real panels instead of the placeholders. `placeholder_tabs` stays as an empty dict so T10's `replace_tab` API and its remaining test stay valid.
+- decision: accepted; the edit is limited to tests/test_ui_canvas.py and reviewed in the T14 commit | by: orchestrator
+- impact: none on the contract; T10's card should have said "placeholder until T14" for those two accept items.
