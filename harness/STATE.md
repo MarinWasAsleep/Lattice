@@ -67,8 +67,10 @@ Counters: g = gate retries used (max 3), r = review cycles used (max 2).
   tone mapping constants, effect seed indexing).
 - 2026-11-11: 490 tests green, ruff clean, check_contract OK, working tree clean.
 - 2026-11-11: H2 satisfied (preset navigation judged "c'est parfait"), H4 satisfied (T16 accepted in
-  PhotoCraft). H3: the user runs scripts/install_shortcuts.ps1 themselves; the script had only ever been
-  exercised with -WhatIf before that point.
+  PhotoCraft). H3 satisfied: scripts/install_shortcuts.ps1 was run for real for the first time and both
+  shortcuts verified (Desktop and Start Menu -> .venv\Scripts\pythonw.exe "DitherCraft.pyw", working
+  directory = project root, icon assets\dithercraft.ico). Launching the Desktop shortcut opens a window
+  titled "DitherCraft", so the launcher path is proven end to end.
 - 2026-11-11: post-harness features, all user-requested and committed: preset navigation (b8195f4),
   seven extra algorithms (ade0b4b, DEV-008), DBS filtered-error rewrite (f3c6ef3).
 - NEXT: none. All cards done, all human checkpoints satisfied. 622 tests green, ruff clean,
