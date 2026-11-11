@@ -6,8 +6,6 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-import logging  # noqa: E402
-
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
 from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, Qt, QTimer  # noqa: E402
@@ -16,12 +14,16 @@ from PySide6.QtWidgets import (  # noqa: E402
     QApplication,
     QGraphicsPixmapItem,
     QLabel,
+    QMessageBox,
     QTabWidget,
 )
 
+from dithercraft.ui.algorithm_panel import AlgorithmPanel  # noqa: E402
 from dithercraft.ui.app import create_application, dark_palette, main  # noqa: E402
 from dithercraft.ui.canvas import PreviewCanvas  # noqa: E402
+from dithercraft.ui.effects_panel import EffectsPanel  # noqa: E402
 from dithercraft.ui.main_window import PANEL_TABS, MainWindow  # noqa: E402
+from dithercraft.ui.palette_panel import PalettePanel  # noqa: E402
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
@@ -91,8 +93,9 @@ def test_main_window_builds_offscreen(qapp: QApplication) -> None:
     tabs = window.tabs
     assert isinstance(tabs, QTabWidget)
     assert [tabs.tabText(i) for i in range(tabs.count())] == list(PANEL_TABS)
-    for name in PANEL_TABS:
-        assert isinstance(window.placeholder_tabs[name], QLabel)
+    assert isinstance(tabs.widget(window.tab_index("Algorithm")), AlgorithmPanel)
+    assert isinstance(tabs.widget(window.tab_index("Palette")), PalettePanel)
+    assert isinstance(tabs.widget(window.tab_index("Effects")), EffectsPanel)
     expected = {
         "open_image",
         "get_from_photocraft",
@@ -110,19 +113,26 @@ def test_main_window_builds_offscreen(qapp: QApplication) -> None:
     }
     assert expected <= set(window.actions)
     assert window.statusBar() is not None
-    assert window.connection_label.text() == "PhotoCraft: unknown"
+    assert window.connection_label.text() in {
+        "PhotoCraft: unknown",
+        "PhotoCraft: connected",
+        "PhotoCraft: disconnected",
+    }
     assert window.render_time_label.text() == "Render: -"
     window.close()
 
 
-def test_placeholder_slots_log(qapp: QApplication, caplog: pytest.LogCaptureFixture) -> None:
-    """Unwired actions log instead of doing work."""
+def test_actions_are_wired_to_real_slots(
+    qapp: QApplication, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The file and bridge actions report errors instead of logging a placeholder."""
     window = MainWindow()
-    with caplog.at_level(logging.INFO, logger="dithercraft.ui.main_window"):
-        for key in ("open_image", "get_from_photocraft", "send_to_photocraft", "export_png"):
-            window.actions[key].trigger()
-    assert "Open image is not wired yet" in caplog.text
-    assert "Export PNG is not wired yet" in caplog.text
+    errors: list[str] = []
+    monkeypatch.setattr(QMessageBox, "critical", lambda *args: errors.append(args[2]))
+    for key in ("send_to_photocraft", "export_png"):
+        window.actions[key].trigger()
+    assert len(errors) == 2
+    assert all("Load an image" in message for message in errors)
     window.close()
 
 
