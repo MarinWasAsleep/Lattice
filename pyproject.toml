@@ -1,0 +1,20 @@
+[project]
+name = "dithercraft"
+version = "0.1.0"
+description = "Dithering tool for PhotoCraft"
+requires-python = ">=3.13"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "perf: performance test, informative, not a gate",
+    "manual: manual test, never run by gates",
+]
