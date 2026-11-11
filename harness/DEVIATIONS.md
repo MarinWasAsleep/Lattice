@@ -95,3 +95,12 @@ Format: one block per deviation, newest at the bottom. Status: open | accepted |
 - assumption / proposal: i counts only ENABLED effects, so disabling an effect does not renumber the seeds of the later ones. Pinned by tests/test_pipeline.py::test_disabled_effect_does_not_shift_the_seed.
 - decision: accepted | by: orchestrator
 - impact: none; a PATCH clarification of §7 is due at the next contract bump.
+
+### DEV-008
+- class: E1 (additive) | task: post-T15 | contract: 1.2.0-draft | status: resolved
+- raised by: the user, who asked for the algorithms the harness cards left out | date: 2026-11-12
+- facts: the cards fix 27 algorithms. Seven more were added afterwards: Ostromoukhov, Fan, Shiau-Fan, Yliluoma 1, Yliluoma 2, dot diffusion and direct binary search. None is covered by CONTRACT.md, so the contract checker validates them only through its generic loop (int32, shape, range, snake_case ids, bounded params).
+- assumption / proposal: the published sources are followed where they exist. Ostromoukhov uses the 256-row table of the author's reference implementation (varcoeffED), indexed by the *input* tone, with the right / down-left / down layout of Appendix I. Fan and Shiau-Fan use the left-shifted "extended distribution set" forms. Dot diffusion uses Knuth's class matrix from `dot-diff.w` with a fixed 3x3 diffused kernel normalised over the neighbours that are still unprocessed, because Knuth's co-optimised 8x8 diffused matrix is not reproducible from the sources reachable here. Yliluoma 1 is chroma-blind by construction (plans are indexed by luminance), which is the documented difference from algorithm 2. DBS visits pixels in a splitmix64-hashed order rather than a raster scan, because a raster scan biases the error and overshoots badly on flat areas.
+- decision: accepted | by: orchestrator
+- impact: none on the existing 27; the UI picks the new algorithms up through the registry. A MINOR contract bump should list them.
+

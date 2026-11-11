@@ -84,6 +84,8 @@ KERNELS: dict[str, tuple[int, tuple[tuple[int, int, int], ...]]] = {
         ((1, 0, 4), (2, 0, 3), (-2, 1, 1), (-1, 1, 2), (0, 1, 3), (1, 1, 2), (2, 1, 1)),
     ),
     "sierra_lite": (4, ((1, 0, 2), (-1, 1, 1), (0, 1, 1))),
+    "fan": (16, ((1, 0, 7), (-2, 1, 1), (-1, 1, 3), (0, 1, 5))),
+    "shiau_fan": (16, ((1, 0, 8), (-3, 1, 1), (-2, 1, 1), (-1, 1, 2), (0, 1, 4))),
     "atkinson": (8, ((1, 0, 1), (2, 0, 1), (-1, 1, 1), (0, 1, 1), (1, 1, 1), (0, 2, 1))),
     "stevenson_arce": (
         200,
@@ -113,6 +115,8 @@ _NAMES: dict[str, str] = {
     "sierra": "Sierra",
     "sierra_two_row": "Sierra Two Row",
     "sierra_lite": "Sierra Lite",
+    "fan": "Fan",
+    "shiau_fan": "Shiau-Fan",
     "atkinson": "Atkinson",
     "stevenson_arce": "Stevenson-Arce",
 }
@@ -151,7 +155,7 @@ def _diffuse(
                     dx = -dx
                 nx = x + dx
                 ny = y + offsets[k, 1]
-                if 0 <= nx < width and ny < height:
+                if 0 <= nx < width and 0 <= ny < height:
                     weight = weights[k]
                     work[ny, nx, 0] += err_r * weight
                     work[ny, nx, 1] += err_g * weight

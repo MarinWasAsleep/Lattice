@@ -22,6 +22,8 @@ EXPECTED_IDS = {
     "sierra",
     "sierra_two_row",
     "sierra_lite",
+    "fan",
+    "shiau_fan",
     "atkinson",
     "stevenson_arce",
 }
@@ -34,7 +36,7 @@ def _run(kernel_id: str, img: Image, palette: Palette, **params: object) -> np.n
 
 
 def test_registered_kernels() -> None:
-    """Exactly the ten card kernels are registered with the two shared params."""
+    """Exactly the twelve kernels are registered with the two shared params."""
     assert set(KERNELS) == EXPECTED_IDS
     for kernel_id in KERNEL_IDS:
         info = get_algorithm(kernel_id)
