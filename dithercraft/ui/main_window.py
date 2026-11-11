@@ -28,12 +28,12 @@ import dithercraft.effects  # noqa: F401  (importing the package registers every
 from dithercraft.bridge.photocraft import TESTED_PHOTOCRAFT_VERSION
 from dithercraft.core import color
 from dithercraft.core.pipeline import PipelineSpec
-from dithercraft.core.presets import load_preset, save_preset
 from dithercraft.core.types import Image
 from dithercraft.ui.algorithm_panel import AlgorithmPanel
 from dithercraft.ui.canvas import PreviewCanvas
 from dithercraft.ui.effects_panel import EffectsPanel
 from dithercraft.ui.palette_panel import PalettePanel
+from dithercraft.ui.preset_browser import PresetController
 from dithercraft.ui.worker import PreviewResult, RenderResult, RenderWorker
 
 LOGGER = logging.getLogger(__name__)
@@ -43,7 +43,6 @@ DOCK_MIN_WIDTH = 320
 SETTINGS_NAME = "DitherCraft"
 PRESET_DIR = Path(__file__).resolve().parents[2] / "presets"
 IMAGE_FILTER = "Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.webp);;All files (*)"
-PRESET_FILTER = "Presets (*.json);;All files (*)"
 PNG_FILTER = "PNG images (*.png);;All files (*)"
 STATUS_MS = 5000
 WORKER_STOP_MS = 5000
@@ -109,8 +108,6 @@ class MainWindow(QMainWindow):
         self._add_action(
             "export_png", "Export PNG", self._on_export_png, QKeySequence.StandardKey.Save
         )
-        self._add_action("load_preset", "Load preset", self._on_load_preset)
-        self._add_action("save_preset", "Save preset", self._on_save_preset)
         self.mode_group = QActionGroup(self)
         for key, text, mode in (
             ("mode_before", "Before", "before"),
@@ -125,6 +122,7 @@ class MainWindow(QMainWindow):
         self._add_action("zoom_100", "100 %", lambda: self.canvas.set_zoom(1.0))
         self._add_action("zoom_200", "200 %", lambda: self.canvas.set_zoom(2.0))
         self._add_action("zoom_400", "400 %", lambda: self.canvas.set_zoom(4.0))
+        self.presets = PresetController(self)
 
     def _build_toolbar(self) -> None:
         """Create the main toolbar with the actions in contract order."""
@@ -134,7 +132,7 @@ class MainWindow(QMainWindow):
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.toolbar)
         groups = (
             ("open_image", "get_from_photocraft", "send_to_photocraft", "export_png"),
-            ("load_preset", "save_preset"),
+            ("preset_prev", "load_preset", "save_preset", "preset_next"),
             ("mode_before", "mode_after", "mode_split"),
             ("zoom_fit", "zoom_100", "zoom_200", "zoom_400"),
         )
@@ -174,7 +172,8 @@ class MainWindow(QMainWindow):
         self.render_time_label.setObjectName("render_time_label")
         self.version_label = QLabel("", self)
         self.version_label.setObjectName("version_warning")
-        for label in (self.connection_label, self.render_time_label, self.version_label):
+        labels = (self.connection_label, self.render_time_label, self.presets.label)
+        for label in (*labels, self.version_label):
             bar.addPermanentWidget(label)
         bar.showMessage("Ready")
 
@@ -351,31 +350,10 @@ class MainWindow(QMainWindow):
         self._export_path = Path(path)
         self._emit_full_render(self.export_requested, "Rendering for export…")
 
-    def _on_load_preset(self) -> None:
-        """Ask for a preset file and adopt it as the current pipeline."""
-        path = self._ask_path("Load preset", "preset_dir", "", PRESET_FILTER, save=False)
-        if path is None:
-            return
-        try:
-            spec = load_preset(path)
-        except (OSError, ValueError) as exc:
-            self._error(f"Cannot load preset {Path(path).name!r}: {exc}")
-            return
-        self._load_spec(spec)
-        self.statusBar().showMessage(f"Loaded preset {Path(path).name}", STATUS_MS)
-
-    def _on_save_preset(self) -> None:
-        """Ask for a preset path and write the current pipeline there."""
-        self._rebuild_spec()
-        path = self._ask_path("Save preset", "preset_dir", "preset.json", PRESET_FILTER, save=True)
-        if path is None:
-            return
-        try:
-            save_preset(path, self.spec)
-        except (OSError, ValueError) as exc:
-            self._error(f"Cannot save preset {Path(path).name!r}: {exc}")
-            return
-        self.statusBar().showMessage(f"Saved preset {Path(path).name}", STATUS_MS)
+    def _preset_dir(self) -> Path:
+        """Return the remembered preset directory, or the project default."""
+        stored = self._settings.value("preset_dir")
+        return Path(stored) if stored else PRESET_DIR
 
     def _on_mode(self, mode: str) -> None:
         """Switch the preview canvas to the given mode."""

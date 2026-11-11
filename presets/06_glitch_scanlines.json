@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "pre_effects": [
+    {
+      "effect_id": "glow",
+      "params": {
+        "threshold": 0.6,
+        "radius": 12.0,
+        "intensity": 1.2
+      },
+      "enabled": true
+    }
+  ],
+  "brightness": 0.0,
+  "contrast": 0.0,
+  "gamma": 1.0,
+  "pixel_size": 2,
+  "algorithm_id": "floyd_steinberg",
+  "algorithm_params": {},
+  "palette": {
+    "source": "builtin",
+    "name": "pico8",
+    "colors": [],
+    "extract_k": 8,
+    "extract_method": "kmeans"
+  },
+  "post_effects": [
+    {
+      "effect_id": "scanlines",
+      "params": {
+        "spacing": 3,
+        "thickness": 1,
+        "darkness": 0.45
+      },
+      "enabled": true
+    }
+  ],
+  "seed": 0
+}
