@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import string
 from pathlib import Path
 
@@ -14,6 +15,9 @@ MIN_COLORS = 2
 MAX_COLORS = 256
 _GPL_HEADER = "GIMP Palette"
 _GPL_KEYS = ("Name:", "Columns:")
+_HEADER = re.compile(r"^[A-Za-z][A-Za-z ]*:")
+_HASHED = re.compile(r"#([0-9A-Fa-f]{6})(?![0-9A-Fa-f])")
+_BARE = re.compile(r"(?<![0-9A-Za-z])([0-9A-Fa-f]{6})(?![0-9A-Za-z])")
 
 
 def _to_rgb8(p: Palette) -> np.ndarray:
@@ -44,8 +48,29 @@ def from_hex_list(values: list[str]) -> Palette:
     return np.array(colors, dtype=np.float32).reshape(-1, 3)
 
 
+def from_hex_text(text: str) -> Palette:
+    """Parse a pasted list of hex colours, ignoring any surrounding prose.
+
+    Hashed codes ("#RRGGBB") win when the text contains any, so a sentence that
+    happens to hold a six-letter word is not read as a colour. Otherwise bare
+    "RRGGBB" tokens delimited by non-alphanumerics are used.
+    """
+    hashed = _HASHED.findall(text)
+    tokens = hashed if hashed else _BARE.findall(text)
+    if not MIN_COLORS <= len(tokens) <= MAX_COLORS:
+        raise ValueError(
+            f"a palette needs {MIN_COLORS} to {MAX_COLORS} colours, got {len(tokens)}"
+        )
+    return np.array([_parse_hex(token, "pasted text") for token in tokens], dtype=np.float32)
+
+
 def _read_hex(path: Path) -> list[list[float]]:
-    """Parse a .hex file, tolerating a leading "#", blank lines, ";" comments and CRLF."""
+    """Parse a .hex file, tolerating headers, blank lines, "; " comments and CRLF.
+
+    A line is a colour when it starts with a hex triplet, optionally followed by a
+    tab-separated name. A "#" line whose body starts with a "key:" header is a
+    comment, which is how the library files carry their source and licence.
+    """
     colors: list[list[float]] = []
     for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
         text = line.strip()
@@ -53,10 +78,21 @@ def _read_hex(path: Path) -> list[list[float]]:
             continue
         if text.startswith("#"):
             text = text[1:].strip()
-            if not text:
+            if not text or _HEADER.match(text):
                 continue
-        colors.append(_parse_hex(text, f"{path}: line {number}"))
+        colors.append(_parse_color_line(text, f"{path}: line {number}"))
     return colors
+
+
+def _parse_color_line(text: str, where: str) -> list[float]:
+    """Parse "RRGGBB" or "R G B" followed by an optional name into a float colour."""
+    parts = text.split()
+    if len(parts) >= 3 and all(part.isdigit() for part in parts[:3]):
+        channels = [int(part) for part in parts[:3]]
+        if any(channel > 255 for channel in channels):
+            raise ValueError(f"{where}: channel outside 0..255 in {text!r}")
+        return [channel / 255.0 for channel in channels]
+    return _parse_hex(parts[0], where)
 
 
 def _read_gpl(path: Path) -> list[list[float]]:

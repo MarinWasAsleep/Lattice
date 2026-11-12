@@ -12,7 +12,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
-from PySide6.QtCore import Qt  # noqa: E402
+from PySide6.QtCore import QMimeData, Qt  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
@@ -20,8 +20,9 @@ from lattice_dither.core.pipeline import PaletteSpec, PipelineSpec, render  # no
 from lattice_dither.palettes.builtin import builtin_names  # noqa: E402
 from lattice_dither.palettes.extract import extract_palette  # noqa: E402
 from lattice_dither.palettes.io import MAX_COLORS, hex_list, load_palette  # noqa: E402
+from lattice_dither.palettes.library import get_library, library_names  # noqa: E402
 from lattice_dither.ui import worker as worker_module  # noqa: E402
-from lattice_dither.ui.palette_panel import PalettePanel  # noqa: E402
+from lattice_dither.ui.palette_panel import SWATCH_MIME, PalettePanel  # noqa: E402
 
 import lattice_dither.algorithms  # noqa: E402, F401  isort:skip
 
@@ -396,3 +397,117 @@ def test_applied_specs_render_for_every_source(panel: PalettePanel) -> None:
         rgb8 = render(img, applied)
         assert rgb8.shape == img.shape
         assert rgb8.dtype == np.uint8
+
+
+def test_middle_click_toggles_the_lock(panel: PalettePanel) -> None:
+    """A middle click locks a swatch and a second one unlocks it."""
+    panel.load_from(_spec(source="custom", colors=CUSTOM))
+    calls = _counter(panel)
+    QTest.mouseClick(panel.swatches[1], Qt.MouseButton.MiddleButton)
+    assert panel.locked() == [1]
+    assert panel.swatches[1].is_locked()
+    assert calls
+    QTest.mouseClick(panel.swatches[1], Qt.MouseButton.MiddleButton)
+    assert panel.locked() == []
+    assert not panel.swatches[1].is_locked()
+
+
+def test_lock_survives_a_round_trip(panel: PalettePanel) -> None:
+    """locked and order are written into the spec and read back unchanged."""
+    panel.load_from(_spec(source="custom", colors=CUSTOM, locked=[0, 2], order=[2, 0, 1]))
+    applied = _applied(panel)
+    assert applied.locked == [0, 2]
+    assert applied.order == [2, 0, 1]
+    panel.load_from(_spec(source="custom", colors=CUSTOM))
+    panel.load_from(PipelineSpec(palette=applied))
+    assert panel.locked() == [0, 2]
+    assert panel.order() == [2, 0, 1]
+
+
+def test_removing_a_swatch_shifts_the_locks(panel: PalettePanel) -> None:
+    """Removing a colour drops its lock and renumbers the ones above it."""
+    panel.load_from(_spec(source="custom", colors=CUSTOM, locked=[0, 2]))
+    QTest.mouseClick(panel.swatches[0], Qt.MouseButton.RightButton)
+    assert panel.locked() == [1]
+
+
+def test_reorder_changes_order_but_not_the_render(panel: PalettePanel) -> None:
+    """Dragging a swatch permutes order and leaves the rendered image identical."""
+    img = _quad_image()
+    panel.load_from(_spec(source="custom", colors=CUSTOM))
+    before = render(img, PipelineSpec(palette=_applied(panel)))
+    panel._on_swatch_dropped(0, 2)
+    assert panel.order() == [1, 2, 0]
+    assert panel.colors() == CUSTOM
+    after = render(img, PipelineSpec(palette=_applied(panel)))
+    assert np.array_equal(before, after)
+
+
+def test_display_indices_follow_the_order(panel: PalettePanel) -> None:
+    """The grid shows the colours in display order, not in natural order."""
+    panel.load_from(_spec(source="custom", colors=CUSTOM, order=[2, 0, 1]))
+    assert panel.display_indices() == [2, 0, 1]
+    assert [swatch.color() for swatch in panel.swatches] == [CUSTOM[2], CUSTOM[0], CUSTOM[1]]
+
+
+def test_invalid_order_falls_back_to_natural(panel: PalettePanel) -> None:
+    """A spec whose order is not a permutation is shown in natural order."""
+    panel.load_from(_spec(source="custom", colors=CUSTOM, order=[0, 0, 1]))
+    assert panel.order() == []
+    assert panel.display_indices() == [0, 1, 2]
+
+
+def test_library_combo_lists_every_palette(panel: PalettePanel) -> None:
+    """The library picker offers a placeholder plus every shipped palette."""
+    names = [panel.library_combo.itemData(i) for i in range(panel.library_combo.count())]
+    assert names[0] == ""
+    assert names[1:] == library_names()
+
+
+def test_library_picker_adopts_the_palette(panel: PalettePanel) -> None:
+    """Choosing a library palette switches the panel to Custom with its colours."""
+    index = panel.library_combo.findData("nord")
+    panel._on_library_chosen(index)
+    assert panel.source_buttons["custom"].isChecked()
+    assert panel.colors() == hex_list(get_library("nord"))
+    assert panel.library_combo.currentIndex() == 0
+
+
+class _FakeDrop:
+    """Minimal stand-in for a QDropEvent carrying a swatch payload."""
+
+    def __init__(self, payload: bytes | None) -> None:
+        self._mime = QMimeData()
+        if payload is not None:
+            self._mime.setData(SWATCH_MIME, payload)
+        self.accepted = False
+
+    def mimeData(self) -> QMimeData:
+        """Return the carried mime data."""
+        return self._mime
+
+    def acceptProposedAction(self) -> None:
+        """Record that the drop was accepted."""
+        self.accepted = True
+
+
+def test_drop_event_reports_the_source_position(panel: PalettePanel) -> None:
+    """A dropped swatch payload is decoded into the display position it came from."""
+    panel.load_from(_spec(source="custom", colors=CUSTOM))
+    seen: list[int] = []
+    panel.swatches[2].dropped.connect(seen.append)
+    event = _FakeDrop(b"0")
+    panel.swatches[2].dropEvent(event)
+    assert seen == [0]
+    assert event.accepted
+
+
+def test_drop_event_ignores_foreign_payloads(panel: PalettePanel) -> None:
+    """A drop that does not carry a swatch is ignored."""
+    panel.load_from(_spec(source="custom", colors=CUSTOM))
+    seen: list[int] = []
+    panel.swatches[2].dropped.connect(seen.append)
+    event = _FakeDrop(None)
+    panel.swatches[2].dropEvent(event)
+    assert seen == []
+    assert not event.accepted

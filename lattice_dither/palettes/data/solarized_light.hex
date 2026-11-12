@@ -1,0 +1,20 @@
+# source: https://ethanschoonover.com/solarized/
+# licence: MIT
+# copyright: Ethan Schoonover
+
+FDF6E3	base3
+EEE8D5	base2
+93A1A1	base1
+839496	base0
+657B83	base00
+586E75	base01
+073642	base02
+002B36	base03
+B58900	yellow
+CB4B16	orange
+DC322F	red
+D33682	magenta
+6C71C4	violet
+268BD2	blue
+2AA198	cyan
+859900	green

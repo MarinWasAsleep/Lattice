@@ -6,9 +6,10 @@ import logging
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QSignalBlocker, Qt, Signal
-from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPixmap
+from PySide6.QtCore import QMimeData, QSignalBlocker, Qt, Signal
+from PySide6.QtGui import QColor, QDrag, QMouseEvent, QPainter, QPixmap
 from PySide6.QtWidgets import (
+    QApplication,
     QButtonGroup,
     QColorDialog,
     QComboBox,
@@ -36,6 +37,7 @@ from lattice_dither.palettes.io import (
     load_palette,
     save_palette,
 )
+from lattice_dither.palettes.library import get_library, library_names
 from lattice_dither.ui.worker import PaletteExtraction
 
 LOGGER = logging.getLogger(__name__)
@@ -50,6 +52,9 @@ METHODS: tuple[str, ...] = ("kmeans", "median_cut")
 PALETTE_FILTER = "Palettes (*.hex *.gpl);;All files (*)"
 DEFAULT_BUILTIN, DEFAULT_K, NEW_COLOR = "bw", 8, "#000000"
 SWATCH_SIZE, GRID_COLUMNS, ICON_WIDTH, ICON_HEIGHT = 22, 8, 64, 16
+SWATCH_MIME = "application/x-lattice-swatch"
+LOCK_BORDER = "3px solid #FFD166"
+PLAIN_BORDER = "1px solid #141414"
 
 
 def _normalise_colors(values: list[str]) -> list[str]:
@@ -61,6 +66,13 @@ def _normalise_colors(values: list[str]) -> list[str]:
         except ValueError:
             continue
     return colors[:MAX_COLORS]
+
+
+def _valid_order(order: list[int], size: int) -> list[int]:
+    """Return order when it is a permutation of range(size), otherwise the natural order."""
+    if sorted(order) == list(range(size)):
+        return list(order)
+    return []
 
 
 def _swatch_pixmap(colors: list[str]) -> QPixmap:
@@ -79,27 +91,90 @@ def _swatch_pixmap(colors: list[str]) -> QPixmap:
 
 
 class SwatchButton(QPushButton):
-    """Colour square: a left click edits the colour, a right click removes it."""
+    """Colour square: left click edits, right click removes, middle click locks.
+
+    Dragging a swatch onto another one reorders the display order of the palette.
+    """
 
     remove_requested = Signal()
+    lock_toggled = Signal()
+    dropped = Signal(int)
 
-    def __init__(self, color: str, parent: QWidget | None = None) -> None:
+    def __init__(self, color: str, position: int, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._color = color
+        self._position = position
+        self._locked = False
+        self._press: object | None = None
         self.setFixedSize(SWATCH_SIZE, SWATCH_SIZE)
-        self.setToolTip(f"{color} (click to edit, right click to remove)")
-        self.setStyleSheet(f"background-color: {color}; border: 1px solid #141414;")
+        self.setAcceptDrops(True)
+        self._restyle()
 
     def color(self) -> str:
         """Return the colour shown by this swatch."""
         return self._color
 
+    def position(self) -> int:
+        """Return the display position of this swatch in the grid."""
+        return self._position
+
+    def is_locked(self) -> bool:
+        """Return whether this swatch is locked against extraction."""
+        return self._locked
+
+    def set_locked(self, locked: bool) -> None:
+        """Show or hide the lock marker."""
+        self._locked = locked
+        self._restyle()
+
+    def _restyle(self) -> None:
+        """Apply the colour and the lock marker to the widget."""
+        border = LOCK_BORDER if self._locked else PLAIN_BORDER
+        self.setStyleSheet(f"background-color: {self._color}; border: {border};")
+        state = "locked" if self._locked else "unlocked"
+        self.setToolTip(
+            f"{self._color} ({state}; click to edit, right click to remove, "
+            "middle click to lock, drag to reorder)"
+        )
+
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        """Emit remove_requested on a right click and behave normally otherwise."""
+        """Route the three buttons and remember where a drag would start."""
         if event.button() == Qt.MouseButton.RightButton:
             self.remove_requested.emit()
             return
+        if event.button() == Qt.MouseButton.MiddleButton:
+            self.lock_toggled.emit()
+            return
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._press = event.position().toPoint()
         super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        """Start a drag once the pointer has travelled far enough."""
+        if self._press is None or not event.buttons() & Qt.MouseButton.LeftButton:
+            return
+        travelled = (event.position().toPoint() - self._press).manhattanLength()
+        if travelled < QApplication.startDragDistance():
+            return
+        self._press = None
+        drag = QDrag(self)
+        payload = QMimeData()
+        payload.setData(SWATCH_MIME, str(self._position).encode())
+        drag.setMimeData(payload)
+        drag.exec(Qt.DropAction.MoveAction)
+
+    def dragEnterEvent(self, event: object) -> None:
+        """Accept a swatch dragged from another position."""
+        if event.mimeData().hasFormat(SWATCH_MIME):
+            event.acceptProposedAction()
+
+    def dropEvent(self, event: object) -> None:
+        """Report the display position the dragged swatch came from."""
+        if not event.mimeData().hasFormat(SWATCH_MIME):
+            return
+        source = int(bytes(event.mimeData().data(SWATCH_MIME)).decode())
+        event.acceptProposedAction()
+        self.dropped.emit(source)
 
 
 class PalettePanel(QWidget):
@@ -113,6 +188,8 @@ class PalettePanel(QWidget):
         self._source = "builtin"
         self._builtin_name = DEFAULT_BUILTIN
         self._colors: list[str] = []
+        self._locked: list[int] = []
+        self._order: list[int] = []
         self.swatches: list[SwatchButton] = []
         self._image: Image | None = None
         self._build_ui()
@@ -121,6 +198,18 @@ class PalettePanel(QWidget):
     def colors(self) -> list[str]:
         """Return the custom colours as uppercase "#RRGGBB" strings."""
         return list(self._colors)
+
+    def locked(self) -> list[int]:
+        """Return the indices locked against extraction, in ascending order."""
+        return sorted(self._locked)
+
+    def order(self) -> list[int]:
+        """Return the display permutation, or an empty list for the natural order."""
+        return list(self._order)
+
+    def display_indices(self) -> list[int]:
+        """Return the natural index shown at each grid position."""
+        return list(self._order) if self._order else list(range(len(self._colors)))
 
     def set_source_image(self, img: Image) -> None:
         """Store the image used by Extract and enable the button."""
@@ -139,6 +228,8 @@ class PalettePanel(QWidget):
             known = palette.name in builtin_names()
             self._builtin_name = palette.name if known else DEFAULT_BUILTIN
             self._colors = _normalise_colors(list(palette.colors))
+            self._locked = sorted({i for i in palette.locked if 0 <= i < len(self._colors)})
+            self._order = _valid_order(palette.order, len(self._colors))
             self.extract_k.setValue(max(MIN_K, min(MAX_K, int(palette.extract_k))))
             index = self.extract_method.findText(str(palette.extract_method))
             self.extract_method.setCurrentIndex(max(0, index))
@@ -153,6 +244,8 @@ class PalettePanel(QWidget):
         palette.source = self._source
         palette.name = self._builtin_name
         palette.colors = list(self._colors)
+        palette.locked = sorted(self._locked)
+        palette.order = list(self._order)
         palette.extract_k = int(self.extract_k.value())
         palette.extract_method = str(self.extract_method.currentText())
 
@@ -231,6 +324,14 @@ class PalettePanel(QWidget):
             self.builtin_combo.addItem(_swatch_pixmap(hex_list(get_builtin(name))), name)
         self.builtin_combo.currentIndexChanged.connect(self._on_builtin_changed)
         column.addWidget(self.builtin_combo)
+        self.library_combo = QComboBox(box)
+        self.library_combo.setObjectName("library_combo")
+        self.library_combo.setIconSize(QPixmap(ICON_WIDTH, ICON_HEIGHT).size())
+        self.library_combo.addItem("Load from library...", "")
+        for name in library_names():
+            self.library_combo.addItem(_swatch_pixmap(hex_list(get_library(name))), name, name)
+        self.library_combo.activated.connect(self._on_library_chosen)
+        column.addWidget(self.library_combo)
         return box
 
     def _build_extract_box(self) -> QGroupBox:
@@ -285,6 +386,8 @@ class PalettePanel(QWidget):
         self._loading = True
         try:
             self._colors = list(colors)
+            self._locked = []
+            self._order = []
             self._source = "custom"
             self.source_buttons["custom"].setChecked(True)
             self._refresh()
@@ -311,6 +414,37 @@ class PalettePanel(QWidget):
         self._refresh()
         self.changed.emit()
 
+    def _on_library_chosen(self, index: int) -> None:
+        """Adopt the library palette picked in the combo, then reset the combo."""
+        name = str(self.library_combo.itemData(index) or "")
+        self.library_combo.setCurrentIndex(0)
+        if not name:
+            return
+        self._adopt_custom(hex_list(get_library(name)))
+
+    def _on_swatch_lock_toggled(self, index: int) -> None:
+        """Toggle the lock of one swatch."""
+        if self._loading or not 0 <= index < len(self._colors):
+            return
+        if index in self._locked:
+            self._locked.remove(index)
+        else:
+            self._locked.append(index)
+        self._refresh()
+        self.changed.emit()
+
+    def _on_swatch_dropped(self, source: int, target: int) -> None:
+        """Move the swatch at display position source to display position target."""
+        if self._loading or source == target:
+            return
+        order = self.display_indices()
+        if not 0 <= source < len(order) or not 0 <= target < len(order):
+            return
+        order.insert(target, order.pop(source))
+        self._order = order
+        self._refresh()
+        self.changed.emit()
+
     def _on_swatch_clicked(self, index: int) -> None:
         """Ask for a new colour for one swatch."""
         if self._loading or not 0 <= index < len(self._colors):
@@ -331,6 +465,8 @@ class PalettePanel(QWidget):
             self._set_error("A palette needs at least two colours.")
             return
         del self._colors[index]
+        self._locked = sorted(i - 1 if i > index else i for i in self._locked if i != index)
+        self._order = []
         self._set_error()
         self._refresh()
         self.changed.emit()
@@ -340,6 +476,7 @@ class PalettePanel(QWidget):
         if self._loading or len(self._colors) >= MAX_COLORS:
             return
         self._colors.append(NEW_COLOR)
+        self._order = []
         self._set_error()
         self._refresh()
         self.changed.emit()
@@ -366,18 +503,21 @@ class PalettePanel(QWidget):
         self._update_enabled()
 
     def _rebuild_grid(self) -> None:
-        """Rebuild the swatch grid for the current custom colours."""
+        """Rebuild the swatch grid in display order."""
         while self.grid_layout.count():
             item = self.grid_layout.takeAt(0)
             widget = item.widget()
             if widget is not None and widget is not self.add_button:
                 widget.deleteLater()
         self.swatches = []
-        for index, color in enumerate(self._colors):
-            swatch = SwatchButton(color, self)
+        for position, index in enumerate(self.display_indices()):
+            swatch = SwatchButton(self._colors[index], position, self)
+            swatch.set_locked(index in self._locked)
             swatch.clicked.connect(lambda _c=False, i=index: self._on_swatch_clicked(i))
             swatch.remove_requested.connect(lambda i=index: self._on_swatch_removed(i))
-            self.grid_layout.addWidget(swatch, index // GRID_COLUMNS, index % GRID_COLUMNS)
+            swatch.lock_toggled.connect(lambda i=index: self._on_swatch_lock_toggled(i))
+            swatch.dropped.connect(lambda s, t=position: self._on_swatch_dropped(s, t))
+            self.grid_layout.addWidget(swatch, position // GRID_COLUMNS, position % GRID_COLUMNS)
             self.swatches.append(swatch)
         row, column = divmod(len(self._colors), GRID_COLUMNS)
         self.grid_layout.addWidget(self.add_button, row, column)
@@ -386,6 +526,7 @@ class PalettePanel(QWidget):
         """Enable only the controls that belong to the selected source."""
         builtin, extracted, custom = (self._source == name for name in SOURCES)
         self.builtin_combo.setEnabled(builtin)
+        self.library_combo.setEnabled(True)
         self.extract_k.setEnabled(extracted)
         self.extract_method.setEnabled(extracted)
         self.extract_button.setEnabled(extracted and self._image is not None)
