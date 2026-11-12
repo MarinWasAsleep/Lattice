@@ -16,8 +16,8 @@ from PySide6.QtWidgets import (  # noqa: E402
     QSpinBox,
 )
 
-from dithercraft.core.types import ParamSpec  # noqa: E402
-from dithercraft.ui.param_form import ParamForm  # noqa: E402
+from lattice_dither.core.types import ParamSpec  # noqa: E402
+from lattice_dither.ui.param_form import ParamForm  # noqa: E402
 
 SPECS: tuple[ParamSpec, ...] = (
     ParamSpec(

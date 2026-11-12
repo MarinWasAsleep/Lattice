@@ -68,7 +68,7 @@ class _SmokeStub:
     def render_document(self) -> Image.Image:
         return Image.new("RGB", (4, 4))
 
-    def place_as_layer(self, img: Image.Image, layer_name: str = "DitherCraft") -> int:
+    def place_as_layer(self, img: Image.Image, layer_name: str = "Lattice Dither") -> int:
         if self.grow:
             self.layers = [*(self.layers or []), {"id": 7, "name": layer_name, "kind": "pixel"}]
         return 7
@@ -78,7 +78,7 @@ class _SmokeStub:
     ("layers", "grow", "hide", "step"),
     [
         (None, True, False, 7),
-        ([{"id": 7, "name": "DitherCraft smoke", "kind": "pixel"}], False, False, 8),
+        ([{"id": 7, "name": "Lattice Dither smoke", "kind": "pixel"}], False, False, 8),
         ([{"id": 3, "name": "Background", "kind": "pixel"}], True, True, 5),
         ([{"id": 3, "name": "Background", "kind": "pixel"}], True, False, 0),
     ],

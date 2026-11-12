@@ -1,15 +1,15 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    Create or remove the DitherCraft Desktop and Start Menu shortcuts.
+    Create or remove the Lattice Dither Desktop and Start Menu shortcuts.
 .DESCRIPTION
-    Creates exactly two shortcuts, both starting DitherCraft with the project virtual
-    environment: <Desktop>\DitherCraft.lnk and <Start Menu>\Programs\DitherCraft.lnk.
+    Creates exactly two shortcuts, both starting Lattice Dither with the project virtual
+    environment: <Desktop>\Lattice Dither.lnk and <Start Menu>\Programs\Lattice Dither.lnk.
     The script is idempotent: a shortcut that already points at the right interpreter and
     launcher is left untouched. It never creates a PhotoCraft shortcut; the existing
-    "PhotoCraft (DitherCraft)" Desktop shortcut is only checked and reported.
+    "PhotoCraft (Lattice Dither)" Desktop shortcut is only checked and reported.
 .PARAMETER Uninstall
-    Remove the two DitherCraft shortcuts instead of creating them.
+    Remove the two Lattice Dither shortcuts instead of creating them.
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install_shortcuts.ps1 -WhatIf
 .EXAMPLE
@@ -25,15 +25,22 @@ $ErrorActionPreference = 'Stop'
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $PythonwPath = Join-Path $ProjectRoot '.venv\Scripts\pythonw.exe'
-$LauncherPath = Join-Path $ProjectRoot 'DitherCraft.pyw'
-$IconPath = Join-Path $ProjectRoot 'assets\dithercraft.ico'
+$LauncherPath = Join-Path $ProjectRoot 'LatticeDither.pyw'
+$IconPath = Join-Path $ProjectRoot 'assets\lattice_dither.ico'
 $DesktopDir = [Environment]::GetFolderPath('Desktop')
 $ProgramsDir = [Environment]::GetFolderPath('Programs')
-$PhotoCraftShortcut = Join-Path $DesktopDir 'PhotoCraft (DitherCraft).lnk'
+$PhotoCraftShortcutNames = @('PhotoCraft (Lattice Dither).lnk', 'PhotoCraft (DitherCraft).lnk')
+$PhotoCraftShortcut = $PhotoCraftShortcutNames |
+    ForEach-Object { Join-Path $DesktopDir $_ } |
+    Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+    Select-Object -First 1
+if (-not $PhotoCraftShortcut) {
+    $PhotoCraftShortcut = Join-Path $DesktopDir $PhotoCraftShortcutNames[0]
+}
 $ShortcutArguments = '"{0}"' -f $LauncherPath
 $Shortcuts = @(
-    [pscustomobject]@{ Name = 'Desktop'; Path = (Join-Path $DesktopDir 'DitherCraft.lnk') }
-    [pscustomobject]@{ Name = 'Start Menu'; Path = (Join-Path $ProgramsDir 'DitherCraft.lnk') }
+    [pscustomobject]@{ Name = 'Desktop'; Path = (Join-Path $DesktopDir 'Lattice Dither.lnk') }
+    [pscustomobject]@{ Name = 'Start Menu'; Path = (Join-Path $ProgramsDir 'Lattice Dither.lnk') }
 )
 
 function Get-Shortcut {
@@ -54,8 +61,8 @@ function Test-Prerequisites {
     $ok = $true
     foreach ($item in @(
         @{ Path = $PythonwPath; Label = 'pythonw.exe' },
-        @{ Path = $LauncherPath; Label = 'DitherCraft.pyw' },
-        @{ Path = $IconPath; Label = 'dithercraft.ico' }
+        @{ Path = $LauncherPath; Label = 'LatticeDither.pyw' },
+        @{ Path = $IconPath; Label = 'lattice_dither.ico' }
     )) {
         if (Test-Path -LiteralPath $item.Path -PathType Leaf) { continue }
         $ok = $false
@@ -76,7 +83,7 @@ function Test-Prerequisites {
 function Test-ShortcutCurrent {
     <#
     .SYNOPSIS
-        Return $true when Path is a shortcut that already starts DitherCraft correctly.
+        Return $true when Path is a shortcut that already starts Lattice Dither correctly.
     #>
     param(
         [Parameter(Mandatory)][string]$Path,
@@ -91,10 +98,10 @@ function Test-ShortcutCurrent {
     return $sameTarget -and $sameArguments -and $sameDirectory
 }
 
-function New-DitherCraftShortcut {
+function New-LatticeDitherShortcut {
     <#
     .SYNOPSIS
-        Write the shortcut at Path so that it starts DitherCraft with pythonw.exe.
+        Write the shortcut at Path so that it starts Lattice Dither with pythonw.exe.
     #>
     param([Parameter(Mandatory)][string]$Path)
     $link = Get-Shortcut -Path $Path
@@ -102,7 +109,7 @@ function New-DitherCraftShortcut {
     $link.Arguments = $ShortcutArguments
     $link.WorkingDirectory = $ProjectRoot
     $link.IconLocation = "$IconPath,0"
-    $link.Description = 'DitherCraft - dithering tool for PhotoCraft'
+    $link.Description = 'Lattice Dither - dithering tool for PhotoCraft'
     $link.WindowStyle = 1
     $link.Save()
 }
@@ -111,7 +118,7 @@ if ([string]::IsNullOrEmpty($DesktopDir) -or [string]::IsNullOrEmpty($ProgramsDi
     throw 'Could not resolve the Desktop or the Start Menu folder.'
 }
 
-Write-Host 'DitherCraft shortcuts'
+Write-Host 'Lattice Dither shortcuts'
 Write-Host "  project root : $ProjectRoot"
 Write-Host "  interpreter  : $PythonwPath"
 Write-Host "  launcher     : $LauncherPath"
@@ -121,7 +128,7 @@ $ready = Test-Prerequisites
 if (Test-Path -LiteralPath $PhotoCraftShortcut -PathType Leaf) {
     Write-Host "  PhotoCraft   : present ($PhotoCraftShortcut)"
 } else {
-    Write-Warning "PhotoCraft shortcut missing: $PhotoCraftShortcut (DitherCraft does not create it)"
+    Write-Warning "PhotoCraft shortcut missing: $PhotoCraftShortcut (Lattice Dither does not create it)"
 }
 
 foreach ($shortcut in $Shortcuts) {
@@ -145,7 +152,7 @@ foreach ($shortcut in $Shortcuts) {
         Write-Host "$($shortcut.Name): would create $($shortcut.Path) -> $PythonwPath $ShortcutArguments"
     }
     if ($PSCmdlet.ShouldProcess($shortcut.Path, "Create shortcut to $PythonwPath $ShortcutArguments")) {
-        New-DitherCraftShortcut -Path $shortcut.Path
+        New-LatticeDitherShortcut -Path $shortcut.Path
         Write-Host "$($shortcut.Name): created $($shortcut.Path)"
     }
 }

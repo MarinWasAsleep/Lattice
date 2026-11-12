@@ -13,8 +13,8 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from dithercraft.bridge import photocraft
-from dithercraft.bridge.photocraft import BridgeError, PhotoCraftClient
+from lattice_dither.bridge import photocraft
+from lattice_dither.bridge.photocraft import BridgeError, PhotoCraftClient
 
 TOKEN = "a" * 64
 ROOT = Path(__file__).resolve().parents[1]
@@ -267,7 +267,7 @@ def test_place_as_layer_follows_step_order(exchange: Path, server) -> None:
     handler = PlaceHandler(exchange)
     fake = server(handler)
     layer_id = PhotoCraftClient(fake.port, TOKEN).place_as_layer(
-        Image.new("RGB", (4, 4), (1, 2, 3)), "DitherCraft"
+        Image.new("RGB", (4, 4), (1, 2, 3)), "Lattice Dither"
     )
     assert layer_id == 24
     assert _sequence(fake) == [
@@ -277,7 +277,7 @@ def test_place_as_layer_follows_step_order(exchange: Path, server) -> None:
     ]
     activate, opened, _, copy, close, _ = fake.requests[1:]
     assert activate["params"]["params"] == {"offset": 0}
-    assert copy["params"]["params"] == {"document": 1, "center": True, "name": "DitherCraft"}
+    assert copy["params"]["params"] == {"document": 1, "center": True, "name": "Lattice Dither"}
     assert close["params"]["params"] == {"document": 2, "save": "discard"}
     assert handler.png_present_at_open
     assert "\\" not in opened["params"]["path"]

@@ -8,16 +8,16 @@ import types
 import numpy as np
 import pytest
 
-from dithercraft.core import color, pipeline, registry
-from dithercraft.core.pipeline import (
+from lattice_dither.core import color, pipeline, registry
+from lattice_dither.core.pipeline import (
     EffectInstance,
     PaletteSpec,
     PipelineSpec,
     render,
     resolve_palette,
 )
-from dithercraft.core.registry import AlgorithmInfo, EffectInfo
-from dithercraft.core.types import ParamSpec
+from lattice_dither.core.registry import AlgorithmInfo, EffectInfo
+from lattice_dither.core.types import ParamSpec
 
 BW = PaletteSpec(source="custom", colors=["#000000", "#FFFFFF"])
 GREYS = [f"#{value:02X}{value:02X}{value:02X}" for value in range(256)]
@@ -287,9 +287,9 @@ def test_resolve_palette_unknown_source():
 
 def test_resolve_palette_builtin_is_lazy(monkeypatch):
     """The builtin palette module is imported inside resolve_palette, not at import time."""
-    fake = types.ModuleType("dithercraft.palettes.builtin")
+    fake = types.ModuleType("lattice_dither.palettes.builtin")
     fake.get_builtin = lambda name: np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], np.float32)
-    monkeypatch.setitem(sys.modules, "dithercraft.palettes.builtin", fake)
+    monkeypatch.setitem(sys.modules, "lattice_dither.palettes.builtin", fake)
     palette = resolve_palette(PaletteSpec(source="builtin", name="bw"), _image())
     assert palette.shape == (2, 3)
     assert "get_builtin" not in vars(pipeline)
@@ -298,14 +298,14 @@ def test_resolve_palette_builtin_is_lazy(monkeypatch):
 def test_resolve_palette_extracted(monkeypatch):
     """The extracted source forwards k and method to the extraction module."""
     calls: dict = {}
-    fake = types.ModuleType("dithercraft.palettes.extract")
+    fake = types.ModuleType("lattice_dither.palettes.extract")
 
     def extract_palette(img, k, method, seed=0):
         calls["args"] = (img.shape, k, method)
         return np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], np.float32)
 
     fake.extract_palette = extract_palette
-    monkeypatch.setitem(sys.modules, "dithercraft.palettes.extract", fake)
+    monkeypatch.setitem(sys.modules, "lattice_dither.palettes.extract", fake)
     spec = PaletteSpec(source="extracted", extract_k=4, extract_method="median_cut")
     palette = resolve_palette(spec, np.zeros((5, 7, 3), dtype=np.float32))
     assert calls["args"] == ((5, 7, 3), 4, "median_cut")
@@ -326,14 +326,14 @@ def test_custom_palette_drives_render(test_registry):
 def test_extract_palette_receives_the_downscaled_image(test_registry, monkeypatch):
     """Step 5 extracts from the image produced by step 4, not from the source."""
     seen: dict = {}
-    fake = types.ModuleType("dithercraft.palettes.extract")
+    fake = types.ModuleType("lattice_dither.palettes.extract")
 
     def extract_palette(img, k, method, seed=0):
         seen["shape"] = img.shape
         return np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], np.float32)
 
     fake.extract_palette = extract_palette
-    monkeypatch.setitem(sys.modules, "dithercraft.palettes.extract", fake)
+    monkeypatch.setitem(sys.modules, "lattice_dither.palettes.extract", fake)
     spec = _spec(pixel_size=3, palette=PaletteSpec(source="extracted", extract_k=4))
     out = render(_image(), spec)
     assert seen["shape"] == (13, 8, 3)

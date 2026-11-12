@@ -20,21 +20,21 @@ from PySide6.QtWidgets import (  # noqa: E402
     QTabWidget,
 )
 
-from dithercraft.bridge.photocraft import PhotoCraftClient  # noqa: E402
-from dithercraft.ui import main_window as mw  # noqa: E402
-from dithercraft.ui import worker as worker_module  # noqa: E402
-from dithercraft.ui.algorithm_panel import AlgorithmPanel  # noqa: E402
-from dithercraft.ui.app import create_application, dark_palette, main  # noqa: E402
-from dithercraft.ui.canvas import PreviewCanvas  # noqa: E402
-from dithercraft.ui.effects_panel import EffectsPanel  # noqa: E402
-from dithercraft.ui.main_window import PANEL_TABS, MainWindow  # noqa: E402
-from dithercraft.ui.palette_panel import PalettePanel  # noqa: E402
+from lattice_dither.bridge.photocraft import PhotoCraftClient  # noqa: E402
+from lattice_dither.ui import main_window as mw  # noqa: E402
+from lattice_dither.ui import worker as worker_module  # noqa: E402
+from lattice_dither.ui.algorithm_panel import AlgorithmPanel  # noqa: E402
+from lattice_dither.ui.app import create_application, dark_palette, main  # noqa: E402
+from lattice_dither.ui.canvas import PreviewCanvas  # noqa: E402
+from lattice_dither.ui.effects_panel import EffectsPanel  # noqa: E402
+from lattice_dither.ui.main_window import PANEL_TABS, MainWindow  # noqa: E402
+from lattice_dither.ui.palette_panel import PalettePanel  # noqa: E402
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
-REGISTRY_KEY = r"Software\DitherCraft\DitherCraft"
+REGISTRY_KEY = r"Software\LatticeDither\LatticeDither"
 
 
 class FakeSettings:
@@ -136,7 +136,7 @@ def test_main_window_builds_offscreen(
     window = MainWindow()
     window.show()
     QApplication.processEvents()
-    assert window.windowTitle() == "DitherCraft"
+    assert window.windowTitle() == "Lattice Dither"
     assert isinstance(window.centralWidget(), PreviewCanvas)
     assert window.dock.isVisible()
     assert window.dockWidgetArea(window.dock) == Qt.DockWidgetArea.RightDockWidgetArea

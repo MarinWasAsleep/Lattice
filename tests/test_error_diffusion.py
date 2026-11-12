@@ -7,10 +7,10 @@ import time
 import numpy as np
 import pytest
 
-from dithercraft.algorithms.error_diffusion import KERNELS
-from dithercraft.core.color import nearest_index
-from dithercraft.core.registry import get_algorithm, resolve_params
-from dithercraft.core.types import Image, Palette
+from lattice_dither.algorithms.error_diffusion import KERNELS
+from lattice_dither.core.color import nearest_index
+from lattice_dither.core.registry import get_algorithm, resolve_params
+from lattice_dither.core.types import Image, Palette
 
 KERNEL_IDS = tuple(KERNELS)
 EXPECTED_IDS = {

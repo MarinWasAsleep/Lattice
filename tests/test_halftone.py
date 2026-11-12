@@ -5,9 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from dithercraft.algorithms import halftone  # noqa: F401
-from dithercraft.core.registry import get_algorithm, resolve_params
-from dithercraft.core.types import Image, Palette
+from lattice_dither.algorithms import halftone  # noqa: F401
+from lattice_dither.core.registry import get_algorithm, resolve_params
+from lattice_dither.core.types import Image, Palette
 
 IDS = ("halftone_dots", "halftone_squares", "halftone_lines")
 

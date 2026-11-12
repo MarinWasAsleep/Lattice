@@ -1,7 +1,7 @@
 """Manual smoke test of the PhotoCraft bridge (CONTRACT §8.6).
 
 Never run by the gates. Requires PhotoCraft started from the Desktop shortcut
-"PhotoCraft (DitherCraft)" so that the control server and both automation roots
+"PhotoCraft (Lattice Dither)" so that the control server and both automation roots
 are configured. The tool only touches the test document it opens itself.
 """
 
@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np  # noqa: E402
 from PIL import Image  # noqa: E402
 
-from dithercraft.bridge.photocraft import (  # noqa: E402
+from lattice_dither.bridge.photocraft import (  # noqa: E402
     EXCHANGE_DIR,
     BridgeError,
     PhotoCraftClient,
@@ -25,7 +25,7 @@ from dithercraft.bridge.photocraft import (  # noqa: E402
     version_status,
 )
 
-LAYER_NAME = "DitherCraft smoke"
+LAYER_NAME = "Lattice Dither smoke"
 TEST_SIZE = (64, 48)
 
 
@@ -35,7 +35,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         prog="smoke_photocraft.py",
         description=(
             "Manual smoke test of the PhotoCraft bridge (CONTRACT §8.6). "
-            "Launch PhotoCraft from the 'PhotoCraft (DitherCraft)' shortcut first."
+            "Launch PhotoCraft from the 'PhotoCraft (Lattice Dither)' shortcut first."
         ),
     )
     parser.add_argument("--keep", action="store_true", help="keep the generated test PNG")
@@ -150,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
         if client is None:
             raise BridgeError(
                 "control server not reachable; launch PhotoCraft from the "
-                "'PhotoCraft (DitherCraft)' shortcut"
+                "'PhotoCraft (Lattice Dither)' shortcut"
             )
         installed = installed_photocraft_version() or "unknown"
         print(f"installed PhotoCraft: {installed} ({version_status()})")

@@ -9,14 +9,14 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import dithercraft.effects  # noqa: F401
-from dithercraft.algorithms import dbs, dot_diffusion, ostromoukhov, ostromoukhov_table, yliluoma
-from dithercraft.algorithms.error_diffusion import KERNELS
-from dithercraft.core.color import nearest_index
-from dithercraft.core.pipeline import PaletteSpec, PipelineSpec, render
-from dithercraft.core.presets import load_preset
-from dithercraft.core.registry import get_algorithm, resolve_params
-from dithercraft.core.types import Image, Palette
+import lattice_dither.effects  # noqa: F401
+from lattice_dither.algorithms import dbs, dot_diffusion, ostromoukhov, ostromoukhov_table, yliluoma
+from lattice_dither.algorithms.error_diffusion import KERNELS
+from lattice_dither.core.color import nearest_index
+from lattice_dither.core.pipeline import PaletteSpec, PipelineSpec, render
+from lattice_dither.core.presets import load_preset
+from lattice_dither.core.registry import get_algorithm, resolve_params
+from lattice_dither.core.types import Image, Palette
 
 PRESET_DIR = Path(__file__).resolve().parents[1] / "presets"
 

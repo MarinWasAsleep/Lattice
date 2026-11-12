@@ -7,9 +7,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from dithercraft.core.types import Palette
-from dithercraft.palettes.builtin import BUILTIN, builtin_names, get_builtin
-from dithercraft.palettes.io import from_hex_list, hex_list, load_palette, save_palette
+from lattice_dither.core.types import Palette
+from lattice_dither.palettes.builtin import BUILTIN, builtin_names, get_builtin
+from lattice_dither.palettes.io import from_hex_list, hex_list, load_palette, save_palette
 
 EXPECTED_COUNTS = {
     "bw": 2,

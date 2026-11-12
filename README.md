@@ -1,7 +1,10 @@
-# DitherCraft
+# Lattice Dither
 
 A desktop dithering studio: 33 dithering algorithms, 9 image effects, 11 built-in palettes and a
 live preview, with a one-click round trip to PhotoCraft as a new layer.
+
+Lattice Dither is the first application of the **Lattice** suite, a family of free, open-source
+image-transformation tools that share one engine and each run standalone.
 
 ![Twelve dithering algorithms applied to the same test image](docs/algorithms.png)
 
@@ -11,7 +14,7 @@ Halftone Dots, Dot Diffusion, Direct Binary Search.*
 
 ## Why
 
-Most dithering tools give you Floyd-Steinberg and a Bayer matrix. DitherCraft is built to compare
+Most dithering tools give you Floyd-Steinberg and a Bayer matrix. Lattice Dither is built to compare
 methods side by side: pick an algorithm, a palette and a pixel size, and the preview updates while
 you drag a slider. When a result is good, send it back to PhotoCraft as a new layer on top of the
 original.
@@ -49,8 +52,8 @@ Sharpen.
 ## Download
 
 A prebuilt Windows executable is attached to the
-[latest release](https://github.com/MarinWasAsleep/DitherCraft/releases/latest): download
-`DitherCraft.exe` and run it, no Python installation needed. It is a PyInstaller bundle of about
+[latest release](https://github.com/MarinWasAsleep/lattice-dither/releases/latest): download
+`LatticeDither.exe` and run it, no Python installation needed. It is a PyInstaller bundle of about
 110 MB, so the first window takes a few seconds to appear while it unpacks.
 
 ## Install
@@ -58,8 +61,8 @@ A prebuilt Windows executable is attached to the
 Windows 11, Python 3.13 or newer.
 
 ```powershell
-git clone https://github.com/MarinWasAsleep/DitherCraft.git
-cd DitherCraft
+git clone https://github.com/MarinWasAsleep/lattice-dither.git
+cd lattice-dither
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
@@ -67,11 +70,11 @@ python -m venv .venv
 ## Run
 
 ```powershell
-.\.venv\Scripts\python.exe -m dithercraft
+.\.venv\Scripts\python.exe -m lattice_dither
 ```
 
-Or double-click `DitherCraft.pyw`, which starts the GUI without a console window. To get Desktop and
-Start Menu shortcuts:
+Or double-click `LatticeDither.pyw`, which starts the GUI without a console window. To get Desktop
+and Start Menu shortcuts:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install_shortcuts.ps1
@@ -81,12 +84,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install_shortcuts.ps
 
 ## PhotoCraft integration
 
-DitherCraft talks to a running PhotoCraft desktop app over its local control server (TCP on
+Lattice Dither talks to a running PhotoCraft desktop app over its local control server (TCP on
 `127.0.0.1:47600`, one JSON object per line, token-authenticated). PhotoCraft must be started with
 automation roots pointing at a shared exchange directory:
 
 ```
-photocraft.exe --control 47600 --control-token-file "%LOCALAPPDATA%\DitherCraft\control.token" ^
+photocraft.exe --control 47600 --control-token-file "%LOCALAPPDATA%\LatticeDither\control.token" ^
   --automation-read-root <EXCHANGE_DIR> --automation-write-root <EXCHANGE_DIR>
 ```
 
@@ -94,6 +97,9 @@ photocraft.exe --control 47600 --control-token-file "%LOCALAPPDATA%\DitherCraft\
 it. **Send to PhotoCraft** writes the render there and places it as a new layer above the current
 one. The document itself is never modified in place, and layers, masks and blend modes are not
 carried over — the bridge works on flattened pixels.
+
+Setups created before the rename keep working: the token file and the exchange directory are still
+read from `%LOCALAPPDATA%\DitherCraft\` when the new location is absent.
 
 Without PhotoCraft, everything else works: open an image from disk and export a PNG.
 
@@ -137,7 +143,7 @@ arrow keys) to step through them.
 Algorithms are registered by decorator, so a new one is a single function plus one line of import:
 
 ```python
-from dithercraft.core.registry import register_algorithm
+from lattice_dither.core.registry import register_algorithm
 
 @register_algorithm("my_method", "My Method", "error_diffusion", params=())
 def my_method(img, palette, params):
@@ -162,7 +168,7 @@ live PhotoCraft connection.
 ## Layout
 
 ```
-dithercraft/
+lattice_dither/
   algorithms/   error diffusion, ordered, halftone, search-based
   effects/      tone and glitch effects
   palettes/     built-in palettes, extraction, file IO

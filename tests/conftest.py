@@ -1,11 +1,11 @@
-"""Shared fixtures for the DitherCraft test suite."""
+"""Shared fixtures for the Lattice Dither test suite."""
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from dithercraft.core.types import Image, Palette
+from lattice_dither.core.types import Image, Palette
 
 
 @pytest.fixture

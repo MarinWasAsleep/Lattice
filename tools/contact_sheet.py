@@ -11,9 +11,9 @@ from PIL import ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import dithercraft.algorithms  # noqa: F401
-import dithercraft.effects  # noqa: F401
-from dithercraft.core.pipeline import PaletteSpec, PipelineSpec, render
+import lattice_dither.algorithms  # noqa: F401
+import lattice_dither.effects  # noqa: F401
+from lattice_dither.core.pipeline import PaletteSpec, PipelineSpec, render
 
 SIZE = 200
 CELL = 200

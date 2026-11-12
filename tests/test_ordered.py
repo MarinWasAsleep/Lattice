@@ -7,10 +7,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from dithercraft.algorithms import ordered
-from dithercraft.core.color import nearest_index
-from dithercraft.core.registry import get_algorithm, resolve_params
-from dithercraft.core.types import Image, Palette
+from lattice_dither.algorithms import ordered
+from lattice_dither.core.color import nearest_index
+from lattice_dither.core.registry import get_algorithm, resolve_params
+from lattice_dither.core.types import Image, Palette
 
 MATRIX_IDS = tuple(ordered._MATRICES)
 SQUARE_IDS = (

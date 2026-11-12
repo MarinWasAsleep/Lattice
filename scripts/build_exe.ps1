@@ -1,9 +1,9 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Build the standalone DitherCraft.exe with PyInstaller.
+    Build the standalone LatticeDither.exe with PyInstaller.
 .DESCRIPTION
-    Produces dist\DitherCraft.exe, a single windowed executable that bundles the
+    Produces dist\LatticeDither.exe, a single windowed executable that bundles the
     interpreter, PySide6, numpy, numba and llvmlite, plus data\, presets\ and assets\.
     PyInstaller is a build-time tool only: it is not in requirements.txt and the
     application never imports it.
@@ -23,8 +23,8 @@ $ErrorActionPreference = 'Stop'
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $Python = Join-Path $ProjectRoot '.venv\Scripts\python.exe'
-$Launcher = Join-Path $ProjectRoot 'DitherCraft.pyw'
-$Icon = Join-Path $ProjectRoot 'assets\dithercraft.ico'
+$Launcher = Join-Path $ProjectRoot 'LatticeDither.pyw'
+$Icon = Join-Path $ProjectRoot 'assets\lattice_dither.ico'
 
 if (-not (Test-Path -LiteralPath $Python -PathType Leaf)) {
     throw "interpreter not found: $Python"
@@ -40,7 +40,7 @@ $arguments = @(
     '--noconfirm'
     '--clean'
     '--windowed'
-    '--name', 'DitherCraft'
+    '--name', 'LatticeDither'
     '--icon', $Icon
     '--add-data', 'data;data'
     '--add-data', 'presets;presets'
@@ -71,9 +71,9 @@ try {
 }
 
 $output = if ($NoOneFile) {
-    Join-Path $ProjectRoot 'dist\DitherCraft\DitherCraft.exe'
+    Join-Path $ProjectRoot 'dist\LatticeDither\LatticeDither.exe'
 } else {
-    Join-Path $ProjectRoot 'dist\DitherCraft.exe'
+    Join-Path $ProjectRoot 'dist\LatticeDither.exe'
 }
 if (-not (Test-Path -LiteralPath $output -PathType Leaf)) {
     throw "build finished but $output is missing"

@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from PIL import Image as PILImage
 
-from dithercraft.core import color
+from lattice_dither.core import color
 
 
 def test_to_float_composites_transparent_pixel_over_white():

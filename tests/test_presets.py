@@ -7,10 +7,10 @@ import json
 import numpy as np
 import pytest
 
-from dithercraft.core import registry
-from dithercraft.core.pipeline import EffectInstance, PaletteSpec, PipelineSpec
-from dithercraft.core.presets import from_json, load_preset, save_preset, to_json
-from dithercraft.core.registry import AlgorithmInfo, EffectInfo
+from lattice_dither.core import registry
+from lattice_dither.core.pipeline import EffectInstance, PaletteSpec, PipelineSpec
+from lattice_dither.core.presets import from_json, load_preset, save_preset, to_json
+from lattice_dither.core.registry import AlgorithmInfo, EffectInfo
 
 
 def _nearest(img, palette, params):

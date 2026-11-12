@@ -8,8 +8,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from dithercraft.core import registry
-from dithercraft.core.types import ParamSpec
+from lattice_dither.core import registry
+from lattice_dither.core.types import ParamSpec
 
 
 def _noop_algorithm(img, palette, params):

@@ -17,10 +17,10 @@ from PySide6.QtWidgets import (  # noqa: E402
     QSpinBox,
 )
 
-from dithercraft.core import registry  # noqa: E402
-from dithercraft.core.pipeline import EffectInstance, PipelineSpec  # noqa: E402
-from dithercraft.core.types import ParamSpec  # noqa: E402
-from dithercraft.ui.effects_panel import (  # noqa: E402
+from lattice_dither.core import registry  # noqa: E402
+from lattice_dither.core.pipeline import EffectInstance, PipelineSpec  # noqa: E402
+from lattice_dither.core.types import ParamSpec  # noqa: E402
+from lattice_dither.ui.effects_panel import (  # noqa: E402
     NO_SELECTION_TEXT,
     PARAMS_TITLE,
     POST_TITLE,

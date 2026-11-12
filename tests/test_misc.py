@@ -5,10 +5,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from dithercraft.algorithms import misc  # noqa: F401
-from dithercraft.core.color import nearest_index
-from dithercraft.core.registry import get_algorithm, resolve_params
-from dithercraft.core.types import Image, Palette
+from lattice_dither.algorithms import misc  # noqa: F401
+from lattice_dither.core.color import nearest_index
+from lattice_dither.core.registry import get_algorithm, resolve_params
+from lattice_dither.core.types import Image, Palette
 
 
 def _run(algorithm_id: str, img: Image, palette: Palette, **params) -> np.ndarray:

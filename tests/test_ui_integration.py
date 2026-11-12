@@ -17,15 +17,15 @@ from PySide6.QtCore import QSize, QThread  # noqa: E402
 from PySide6.QtGui import QImage  # noqa: E402
 from PySide6.QtWidgets import QApplication, QGraphicsPixmapItem  # noqa: E402
 
-from dithercraft.bridge.photocraft import PhotoCraftClient  # noqa: E402
-from dithercraft.core.pipeline import render  # noqa: E402
-from dithercraft.core.registry import list_algorithms, list_effects  # noqa: E402
-from dithercraft.ui import main_window as mw  # noqa: E402
-from dithercraft.ui import worker as worker_module  # noqa: E402
-from dithercraft.ui.algorithm_panel import AlgorithmPanel  # noqa: E402
-from dithercraft.ui.effects_panel import EffectsPanel  # noqa: E402
-from dithercraft.ui.palette_panel import PalettePanel  # noqa: E402
-from dithercraft.ui.worker import PREVIEW_MAX_SIDE, PreviewResult  # noqa: E402
+from lattice_dither.bridge.photocraft import PhotoCraftClient  # noqa: E402
+from lattice_dither.core.pipeline import render  # noqa: E402
+from lattice_dither.core.registry import list_algorithms, list_effects  # noqa: E402
+from lattice_dither.ui import main_window as mw  # noqa: E402
+from lattice_dither.ui import worker as worker_module  # noqa: E402
+from lattice_dither.ui.algorithm_panel import AlgorithmPanel  # noqa: E402
+from lattice_dither.ui.effects_panel import EffectsPanel  # noqa: E402
+from lattice_dither.ui.palette_panel import PalettePanel  # noqa: E402
+from lattice_dither.ui.worker import PREVIEW_MAX_SIDE, PreviewResult  # noqa: E402
 
 PREVIEW_TIMEOUT = 2.0
 RENDER_TIMEOUT = 5.0
@@ -74,7 +74,7 @@ class FakeClient:
     def __init__(self) -> None:
         self.placed: list[tuple[PILImage.Image, str]] = []
 
-    def place_as_layer(self, img: PILImage.Image, layer_name: str = "DitherCraft") -> int:
+    def place_as_layer(self, img: PILImage.Image, layer_name: str = "Lattice Dither") -> int:
         """Record the image and return a fixed layer id."""
         self.placed.append((img, layer_name))
         return 7
@@ -279,7 +279,7 @@ def test_send_places_one_png_with_a_fake_bridge(
     assert _wait_until(lambda: client.placed, timeout=RENDER_TIMEOUT)
     assert len(client.placed) == 1
     image, name = client.placed[0]
-    assert name == "DitherCraft"
+    assert name == "Lattice Dither"
     assert image.size == (64, 48)
     assert np.array_equal(np.asarray(image), render(window.source, window.spec))
     assert _wait_until(lambda: "layer 7" in window.statusBar().currentMessage())
