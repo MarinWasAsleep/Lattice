@@ -13,8 +13,13 @@ from PIL import Image as PILImage
 import lattice_dither.algorithms  # noqa: F401  (importing the package registers every algorithm)
 import lattice_dither.effects  # noqa: F401  (importing the package registers every effect)
 from lattice_dither.core import color
+from lattice_dither.core.animation import render_sequence
 from lattice_dither.core.pipeline import PipelineSpec, render
 from lattice_dither.core.presets import load_preset
+from lattice_dither.core.types import RGB8
+from lattice_dither.export.print import export_print
+from lattice_dither.export.svg import export_svg
+from lattice_dither.export.video import export_gif, export_video
 
 EXIT_OK = 0
 EXIT_USAGE = 1
@@ -23,6 +28,8 @@ EXIT_RENDER = 3
 
 DEFAULT_EXTENSIONS = "png,jpg,jpeg"
 OUTPUT_SUFFIX = ".png"
+GIF_SUFFIX = ".gif"
+PRINT_OPTIONS = ("dpi", "bleed_mm", "crop_marks", "separations")
 
 
 class InputError(Exception):
@@ -64,15 +71,20 @@ def _load_image(path: str | Path) -> color.Image:
         raise InputError(f"cannot read image {target}: {exc}") from None
 
 
+def _render_rgb8(spec: PipelineSpec, source: Path, max_side: int | None = None) -> RGB8:
+    """Render one image through the pipeline, raising RenderError on failure."""
+    image = _load_image(source)
+    try:
+        return render(image, spec, max_side=max_side)
+    except Exception as exc:  # noqa: BLE001 - any pipeline failure is a render error
+        raise RenderError(f"render failed for {source}: {exc}") from None
+
+
 def _render_file(
     spec: PipelineSpec, source: Path, target: Path, max_side: int | None = None
 ) -> None:
     """Render one image through the pipeline and write it as PNG."""
-    image = _load_image(source)
-    try:
-        rgb8 = render(image, spec, max_side=max_side)
-    except Exception as exc:  # noqa: BLE001 - any pipeline failure is a render error
-        raise RenderError(f"render failed for {source}: {exc}") from None
+    rgb8 = _render_rgb8(spec, source, max_side)
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
         color.to_pil(rgb8).save(target, format="PNG")
@@ -176,6 +188,11 @@ def _cmd_render(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _extensions(text: str) -> set[str]:
+    """Return the lower-case extensions listed in a comma-separated string."""
+    return {part.strip().lower().lstrip(".") for part in text.split(",") if part}
+
+
 def _batch_inputs(source: Path, extensions: set[str]) -> list[Path]:
     """Return the input files of a directory, sorted, filtered by extension."""
     if not source.is_dir():
@@ -191,7 +208,7 @@ def _cmd_batch(args: argparse.Namespace) -> int:
     """Render every image of a directory with one preset."""
     try:
         spec = _load_spec(args.preset)
-        extensions = {part.strip().lower().lstrip(".") for part in args.ext.split(",") if part}
+        extensions = _extensions(args.ext)
         inputs = _batch_inputs(Path(args.input_dir), extensions)
     except InputError as exc:
         _note(str(exc))
@@ -243,8 +260,73 @@ def _cmd_info(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _load_frames(source: Path) -> list[color.Image]:
+    """Load a directory of frames in sorted order, or a single image as one frame."""
+    if not source.is_dir():
+        return [_load_image(source)]
+    paths = _batch_inputs(source, _extensions(DEFAULT_EXTENSIONS))
+    if not paths:
+        raise InputError(f"no frames in {source}")
+    return [_load_image(path) for path in paths]
+
+
+def _render_frames(spec: PipelineSpec, source: Path) -> list[RGB8]:
+    """Render a frame sequence through the pipeline, raising RenderError on failure."""
+    frames = _load_frames(source)
+    try:
+        return render_sequence(frames, spec)
+    except Exception as exc:  # noqa: BLE001 - any pipeline failure is a render error
+        raise RenderError(f"render failed for {source}: {exc}") from None
+
+
+def _run_export(args: argparse.Namespace) -> list[Path]:
+    """Render the input and write it in the format the subcommand names."""
+    spec = _load_spec(args.preset)
+    target = Path(args.output)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if args.command == "export-anim":
+        frames = _render_frames(spec, Path(args.input))
+        if target.suffix.lower() == GIF_SUFFIX:
+            export_gif(frames, target, fps=args.fps, loop=args.loop)
+        elif not export_video(frames, target, fps=args.fps):
+            raise RenderError(f"no ffmpeg available to write {target}")
+        return [target]
+    rgb8 = _render_rgb8(spec, Path(args.input), args.max_side)
+    if args.command == "export-svg":
+        export_svg(rgb8, target, cell=args.cell, background=args.background)
+        return [target]
+    return export_print(rgb8, target, **{name: getattr(args, name) for name in PRINT_OPTIONS})
+
+
+def _cmd_export(args: argparse.Namespace) -> int:
+    """Run one export subcommand, mapping every failure to a §17 exit code."""
+    try:
+        files = _run_export(args)
+    except (InputError, RenderError, OSError, ValueError) as exc:
+        message = f"cannot write {args.output}: {exc}" if isinstance(exc, OSError) else str(exc)
+        _note(message)
+        _emit(args, False, [], [message])
+        if isinstance(exc, InputError):
+            return EXIT_INPUT
+        return EXIT_USAGE if isinstance(exc, ValueError) else EXIT_RENDER
+    for path in files:
+        _note(f"wrote {path}")
+    _emit(args, True, [str(path) for path in files], [])
+    return EXIT_OK
+
+
+def _add_export_common(parser: argparse.ArgumentParser) -> None:
+    """Add the options shared by the three export subcommands."""
+    parser.add_argument("--preset", required=True, help="preset JSON file")
+    parser.add_argument("--in", dest="input", required=True, help="input image or frame directory")
+    parser.add_argument("--out", dest="output", required=True, help="output file")
+    parser.add_argument("--max-side", type=int, default=None, help="downscale proxy size")
+    parser.add_argument("--json", action="store_true", help="print a JSON summary")
+    parser.set_defaults(handler=_cmd_export)
+
+
 def _build_parser() -> argparse.ArgumentParser:
-    """Return the argument parser with the three subcommands of §17."""
+    """Return the argument parser with the six subcommands of §17 and §19 to §21."""
     parser = _Parser(prog="lattice_dither.cli", description="Lattice Dither command line.")
     subparsers = parser.add_subparsers(dest="command", required=True, parser_class=_Parser)
 
@@ -273,6 +355,23 @@ def _build_parser() -> argparse.ArgumentParser:
     info_parser.add_argument("--preset", required=True, help="preset JSON file")
     info_parser.add_argument("--json", action="store_true", help="print a JSON description")
     info_parser.set_defaults(handler=_cmd_info)
+
+    svg_parser = subparsers.add_parser("export-svg", help="export one render as SVG")
+    _add_export_common(svg_parser)
+    svg_parser.add_argument("--cell", type=int, default=1, help="SVG cell size")
+    svg_parser.add_argument("--background", default=None, help="background colour, #RRGGBB")
+
+    print_parser = subparsers.add_parser("export-print", help="export one render for print")
+    _add_export_common(print_parser)
+    print_parser.add_argument("--dpi", type=int, default=300, help="print resolution")
+    print_parser.add_argument("--bleed-mm", dest="bleed_mm", type=float, default=0.0, help="bleed")
+    print_parser.add_argument("--crop-marks", dest="crop_marks", action="store_true", help="marks")
+    print_parser.add_argument("--separations", action="store_true", help="write CMYK plates")
+
+    anim_parser = subparsers.add_parser("export-anim", help="export a frame sequence")
+    _add_export_common(anim_parser)
+    anim_parser.add_argument("--fps", type=int, default=12, help="frames per second")
+    anim_parser.add_argument("--loop", type=int, default=0, help="GIF loop count")
     return parser
 
 
