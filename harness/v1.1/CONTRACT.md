@@ -127,12 +127,16 @@ greyscale.
 Amends §6 and §7. `PaletteSpec` gains:
 
 ```python
-locked: list[int] = field(default_factory=list)   # indices preserved by extraction
+locked: list[str] = field(default_factory=list)   # colours preserved by extraction
 order: list[int] = field(default_factory=list)    # display order, empty = natural
 ```
 
-- `locked` indices are seeded into the extraction result and never merged or dropped. If more than
-  `extract_k` indices are locked, extraction raises `ValueError`.
+- `locked` holds `#RRGGBB` colours, not indices: at extraction time no palette exists yet, so an
+  index would have nothing to point into. The locked colours are seeded at the front of the
+  extraction result and never merged or dropped. `extract_k - len(locked)` colours are extracted,
+  never fewer than `MIN_K`; when `len(locked) == extract_k` no extraction runs at all. Duplicate
+  locked colours collapse to one slot. If more than `extract_k` distinct colours are locked, or an
+  entry is not a colour, extraction raises `ValueError`.
 - `order` is a permutation of `range(K)`; an invalid permutation raises `ValueError` at
   `resolve_palette` time. It affects display and export order only, never the rendered image.
 - New module `dithercraft/palettes/library.py`:

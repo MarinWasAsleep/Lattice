@@ -19,6 +19,7 @@ POST_EFFECT_SEED_OFFSET = 1000
 COLOR_METRICS = ("srgb", "linear", "oklab", "lab2000")
 PRESET_VERSION = 2
 RESERVED_METRIC = "_color_metric"
+_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
 
 
 @dataclass
@@ -50,7 +51,7 @@ class PaletteSpec:
     colors: list[str] = field(default_factory=list)
     extract_k: int = 8
     extract_method: str = "kmeans"
-    locked: list[int] = field(default_factory=list)
+    locked: list[str] = field(default_factory=list)
     order: list[int] = field(default_factory=list)
 
 
@@ -92,14 +93,21 @@ def _palette_for(spec: PaletteSpec, img: Image) -> Palette:
     if spec.source == "custom":
         return _palette_from_hex(spec.colors)
     if spec.source == "extracted":
-        from lattice_dither.palettes.extract import extract_palette
+        from lattice_dither.palettes.extract import MAX_K, MIN_K, extract_palette
 
-        if len(spec.locked) > int(spec.extract_k):
-            raise ValueError(
-                f"{len(spec.locked)} locked colours exceed extract_k={spec.extract_k}"
-            )
-        palette = extract_palette(img, int(spec.extract_k), spec.extract_method)
-        return np.ascontiguousarray(palette, dtype=np.float32)
+        k = int(spec.extract_k)
+        if not MIN_K <= k <= MAX_K:
+            raise ValueError(f"extract_k must be in [{MIN_K}, {MAX_K}], got {k}")
+        locked = _locked_colors(spec.locked)
+        if len(locked) > k:
+            raise ValueError(f"{len(locked)} locked colours exceed extract_k={k}")
+        if len(locked) == k:
+            return _palette_from_hex(locked)
+        wanted = max(MIN_K, k - len(locked))
+        palette = extract_palette(img, wanted, spec.extract_method)
+        rows = [_hex_row(entry) for entry in locked]
+        rows.extend(np.asarray(palette, dtype=np.float32)[: k - len(locked)].tolist())
+        return np.ascontiguousarray(np.array(rows, dtype=np.float32))
     raise ValueError(f"unknown palette source: {spec.source!r}")
 
 
@@ -187,19 +195,35 @@ def _apply_effects(img: Image, instances: list[EffectInstance], seed: int, offse
     return out
 
 
+def _hex_text(entry: object) -> str:
+    """Return entry as an uppercase "#RRGGBB" string, or raise ValueError."""
+    text = str(entry).strip().lstrip("#")
+    if len(text) != 6 or not _HEX_DIGITS.issuperset(text):
+        raise ValueError(f"invalid palette colour: {entry!r}")
+    return "#" + text.upper()
+
+
+def _hex_row(entry: object) -> list[float]:
+    """Parse one colour into a float32 RGB row."""
+    text = _hex_text(entry)[1:]
+    return [int(text[i : i + 2], 16) / 255.0 for i in (0, 2, 4)]
+
+
+def _locked_colors(values: list[str]) -> list[str]:
+    """Return the locked colours as unique uppercase "#RRGGBB" strings, in order."""
+    unique: list[str] = []
+    for entry in values:
+        text = _hex_text(entry)
+        if text not in unique:
+            unique.append(text)
+    return unique
+
+
 def _palette_from_hex(colors: list[str]) -> Palette:
     """Parse "#RRGGBB" strings into a float32 palette, validating count and syntax."""
     if not MIN_PALETTE_SIZE <= len(colors) <= MAX_PALETTE_SIZE:
         raise ValueError(
             f"a palette needs {MIN_PALETTE_SIZE} to {MAX_PALETTE_SIZE} colours, got {len(colors)}"
         )
-    rows = []
-    for entry in colors:
-        text = str(entry).strip().lstrip("#")
-        if len(text) != 6:
-            raise ValueError(f"invalid palette colour: {entry!r}")
-        try:
-            rows.append([int(text[i : i + 2], 16) / 255.0 for i in (0, 2, 4)])
-        except ValueError as exc:
-            raise ValueError(f"invalid palette colour: {entry!r}") from exc
+    rows = [_hex_row(entry) for entry in colors]
     return np.ascontiguousarray(np.array(rows, dtype=np.float32))

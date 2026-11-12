@@ -404,7 +404,7 @@ def test_middle_click_toggles_the_lock(panel: PalettePanel) -> None:
     panel.load_from(_spec(source="custom", colors=CUSTOM))
     calls = _counter(panel)
     QTest.mouseClick(panel.swatches[1], Qt.MouseButton.MiddleButton)
-    assert panel.locked() == [1]
+    assert panel.locked() == ["#00FF00"]
     assert panel.swatches[1].is_locked()
     assert calls
     QTest.mouseClick(panel.swatches[1], Qt.MouseButton.MiddleButton)
@@ -414,21 +414,40 @@ def test_middle_click_toggles_the_lock(panel: PalettePanel) -> None:
 
 def test_lock_survives_a_round_trip(panel: PalettePanel) -> None:
     """locked and order are written into the spec and read back unchanged."""
-    panel.load_from(_spec(source="custom", colors=CUSTOM, locked=[0, 2], order=[2, 0, 1]))
+    locked = ["#FF0000", "#0000FF"]
+    panel.load_from(_spec(source="custom", colors=CUSTOM, locked=locked, order=[2, 0, 1]))
     applied = _applied(panel)
-    assert applied.locked == [0, 2]
+    assert applied.locked == locked
     assert applied.order == [2, 0, 1]
     panel.load_from(_spec(source="custom", colors=CUSTOM))
     panel.load_from(PipelineSpec(palette=applied))
-    assert panel.locked() == [0, 2]
+    assert panel.locked() == locked
     assert panel.order() == [2, 0, 1]
 
 
-def test_removing_a_swatch_shifts_the_locks(panel: PalettePanel) -> None:
-    """Removing a colour drops its lock and renumbers the ones above it."""
-    panel.load_from(_spec(source="custom", colors=CUSTOM, locked=[0, 2]))
+def test_removing_a_swatch_drops_its_lock(panel: PalettePanel) -> None:
+    """Removing a colour drops its lock and keeps the locks of the other colours."""
+    panel.load_from(_spec(source="custom", colors=CUSTOM, locked=["#FF0000", "#0000FF"]))
     QTest.mouseClick(panel.swatches[0], Qt.MouseButton.RightButton)
-    assert panel.locked() == [1]
+    assert panel.locked() == ["#0000FF"]
+
+
+def test_a_duplicated_locked_colour_keeps_its_lock(panel: PalettePanel) -> None:
+    """Removing one of two identical swatches leaves the colour locked."""
+    colors = ["#FF0000", "#FF0000", "#0000FF"]
+    panel.load_from(_spec(source="custom", colors=colors, locked=["#FF0000"]))
+    QTest.mouseClick(panel.swatches[0], Qt.MouseButton.RightButton)
+    assert panel.locked() == ["#FF0000"]
+    assert panel.swatches[0].is_locked()
+
+
+def test_editing_a_locked_swatch_moves_the_lock(panel: PalettePanel, monkeypatch) -> None:
+    """Recolouring a locked swatch locks the new colour and releases the old one."""
+    panel.load_from(_spec(source="custom", colors=CUSTOM, locked=["#FF0000"]))
+    monkeypatch.setattr(panel, "_ask_color", lambda _initial: "#123456")
+    panel._on_swatch_clicked(0)
+    assert panel.locked() == ["#123456"]
+    assert panel.swatches[0].is_locked()
 
 
 def test_reorder_changes_order_but_not_the_render(panel: PalettePanel) -> None:

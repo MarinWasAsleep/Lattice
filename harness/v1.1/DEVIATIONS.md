@@ -35,18 +35,28 @@ carried over.
 _No entry yet._
 
 ### DEV-101
-- class: E1 | task: T17 | contract: 1.1.0 | status: open
+- class: E1 | task: T17 | contract: 1.1.0 | status: resolved
 - raised by: coder | date: 2026-11-12
-- facts: §16 types `PaletteSpec.locked` as `list[int]` and says the locked indices are "seeded into
+- facts: §16 typed `PaletteSpec.locked` as `list[int]` and said the locked indices are "seeded into
   the extraction result". At extraction time no palette exists yet, so there is nothing for an index
-  to point into. The contract never says which palette the indices refer to.
-- assumption / proposal: T17 ships the field, its serialisation and the count validation
-  (`len(locked) > extract_k` raises `ValueError`). The seeding itself is not implemented, because
-  implementing it would mean inventing the colour source. Proposal: either define `locked` as
+  to point into. The contract never said which palette the indices refer to.
+- assumption / proposal: T17 shipped the field, its serialisation and the count validation
+  (`len(locked) > extract_k` raises `ValueError`). The seeding itself was not implemented, because
+  implementing it would have meant inventing the colour source. Proposal: either define `locked` as
   indices into the palette currently loaded in the UI, or change the type to a list of `#RRGGBB`
   colours.
-- decision: | by:
-- impact: T21 (palette authoring) cannot complete the lock feature until this is decided.
+- decision: **`locked` becomes `list[str]` of `#RRGGBB` colours**, seeded at the front of the
+  extraction result. Indices into the UI palette were rejected because the render would then depend
+  on hidden UI state: the same preset would render differently depending on what was on screen
+  before, and the lock would silently do nothing in the CLI or a fresh session, breaking the
+  invariant that a preset is a complete description of a render. Indices into `PaletteSpec.colors`
+  were rejected as coherent but useless, since `colors` is empty or stale in the extracted workflow,
+  which is exactly where locking matters. `locked` and `order` therefore address differently,
+  colours and indices, each right for its job. | by: human
+- impact: §16 amended in place, no version bump: no shipped preset used `locked`, so the reader
+  change is a one-liner and no migration is needed. `core/pipeline.py` seeds the colours,
+  `core/presets.py` reads them as strings, `ui/palette_panel.py` keys the lock on the colour instead
+  of the index. T21's sixth accept item is now implemented.
 
 ### DEV-102
 - class: E1 | task: T17 | contract: 1.1.0 | status: resolved

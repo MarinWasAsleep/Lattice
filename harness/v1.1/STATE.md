@@ -19,7 +19,7 @@ last_update: 2026-11-12
 | T18 | 4 | done | 0 | 0 | 3f5fbad | colour metrics; DEV-102 wired |
 | T19 | 4 | done | 0 | 0 | d7c0624 | strength on all 33 algorithms |
 | T20 | 4 | done | 0 | 0 | 3faf7fb | halftone v2 + CMYK effect |
-| T21 | 4 | done | 0 | 0 | 87badc4 | library, hex import, lock, reorder; seeding blocked |
+| T21 | 4 | done | 0 | 0 | 87badc4 | library, hex import, lock, reorder; DEV-101 resolved |
 | T22 | 5 | done | 0 | 0 | 452da4e | CLI + batch; G6 green |
 | T23 | 5 | todo | 0 | 0 | | SVG export |
 | T24 | 5 | todo | 0 | 0 | | print export |
@@ -105,10 +105,21 @@ last_update: 2026-11-12
 - 2026-11-12: the library hex values were transcribed from each project's published palette. The
   tests check the structure of every file, not the exact colours; a maintainer should diff them
   against upstream before a release.
-- 2026-11-12: T21's sixth accept item, "locked swatches survive extraction unchanged", is **not**
-  implemented. DEV-101 is still open: the contract never says which palette a `locked` index points
-  into. The panel stores, serialises, round-trips and displays the lock, so the field is usable as
-  soon as the decision lands; only the seeding is missing.
+- 2026-11-12: T21's sixth accept item, "locked swatches survive extraction unchanged", was **not**
+  implemented at first. DEV-101 was open: the contract never said which palette a `locked` index
+  pointed into. The panel stored, serialised, round-tripped and displayed the lock, so the field was
+  usable as soon as the decision landed; only the seeding was missing.
+- 2026-11-12: **DEV-101 is resolved.** `PaletteSpec.locked` is a `list[str]` of `#RRGGBB` colours,
+  seeded at the front of the extraction result. Indices into the UI palette were rejected because
+  the render would then depend on hidden UI state, so the same preset would render differently
+  depending on what was on screen before, and the lock would silently do nothing in the CLI.
+  Indices into `PaletteSpec.colors` were rejected as coherent but useless, since `colors` is empty
+  or stale in the extracted workflow. §16 was amended in place with no version bump: no shipped
+  preset used `locked`, so there is nothing to migrate. `extract_k - len(locked)` colours are
+  extracted, never fewer than `MIN_K`; `len(locked) == extract_k` skips extraction entirely;
+  duplicate locked colours collapse to one slot. The panel now keys the lock on the colour, so
+  removing one of two identical swatches keeps the colour locked and recolouring a locked swatch
+  moves the lock to the new colour.
 - 2026-11-12: reordering permutes `PaletteSpec.order` and leaves the colours in natural order, so
   the rendered image is byte-identical before and after. The panel resets `order` when the palette
   changes size, because a permutation of the old size would fail `_validate_order`.
@@ -126,9 +137,8 @@ last_update: 2026-11-12
 ## Next
 
 - NEXT: wave 4 is complete. T23 (SVG export) and T24 (print export) open wave 5.
-- DEV-101 still blocks the extraction seeding of `locked`. It needs a human decision: either
-  `locked` indexes the palette currently loaded in the UI, or the field becomes a list of
-  `#RRGGBB` colours. The second is the cleaner type and the one to prefer.
+- DEV-101 is resolved, so no deviation blocks a task. DEV-104 and DEV-105 stay open as accepted
+  readings of §14 and §15.1 and need no action before wave 5.
 - H5 (read and freeze CONTRACT 1.1) is still pending and should be taken before wave 5.
 - H6 (judge output on three real images) can now be taken: T17 to T21 are in, so conditioning,
   colour metrics, strength, both halftones and the palette library are usable from the GUI.

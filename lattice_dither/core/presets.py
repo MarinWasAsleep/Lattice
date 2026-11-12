@@ -188,7 +188,7 @@ def _palette(value: object) -> PaletteSpec:
     if "extract_method" in data:
         spec.extract_method = str(data["extract_method"])
     if "locked" in data:
-        spec.locked = [_as_int(entry, "locked") for entry in _as_list(data["locked"], "locked")]
+        spec.locked = [str(entry) for entry in _as_list(data["locked"], "locked")]
     if "order" in data:
         spec.order = [_as_int(entry, "order") for entry in _as_list(data["order"], "order")]
     return spec

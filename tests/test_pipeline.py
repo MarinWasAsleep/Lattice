@@ -305,6 +305,7 @@ def test_resolve_palette_extracted(monkeypatch):
         return np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], np.float32)
 
     fake.extract_palette = extract_palette
+    fake.MIN_K, fake.MAX_K = 2, 32
     monkeypatch.setitem(sys.modules, "lattice_dither.palettes.extract", fake)
     spec = PaletteSpec(source="extracted", extract_k=4, extract_method="median_cut")
     palette = resolve_palette(spec, np.zeros((5, 7, 3), dtype=np.float32))
@@ -333,6 +334,7 @@ def test_extract_palette_receives_the_downscaled_image(test_registry, monkeypatc
         return np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], np.float32)
 
     fake.extract_palette = extract_palette
+    fake.MIN_K, fake.MAX_K = 2, 32
     monkeypatch.setitem(sys.modules, "lattice_dither.palettes.extract", fake)
     spec = _spec(pixel_size=3, palette=PaletteSpec(source="extracted", extract_k=4))
     out = render(_image(), spec)

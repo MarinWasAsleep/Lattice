@@ -60,7 +60,7 @@ def _full_spec() -> PipelineSpec:
         algorithm_params={"level": 0.25},
         palette=PaletteSpec(
             source="custom", name="mine", colors=["#000000", "#FF0000"], extract_k=6,
-            extract_method="median_cut", locked=[0], order=[1, 0],
+            extract_method="median_cut", locked=["#FF0000"], order=[1, 0],
         ),
         post_effects=[EffectInstance("test_invert", {"amount": 1.0}, True)],
         seed=42,
@@ -215,7 +215,9 @@ def test_partial_meta_keeps_defaults(test_registry):
 
 def test_locked_and_order_round_trip(test_registry):
     """The palette lock list and display order survive a round trip."""
-    palette = PaletteSpec(source="custom", colors=["#000000", "#FFFFFF"], locked=[1], order=[1, 0])
+    palette = PaletteSpec(
+        source="custom", colors=["#000000", "#FFFFFF"], locked=["#FFFFFF"], order=[1, 0]
+    )
     spec = PipelineSpec(algorithm_id="test_nearest", palette=palette)
     assert from_json(to_json(spec)).palette == palette
 

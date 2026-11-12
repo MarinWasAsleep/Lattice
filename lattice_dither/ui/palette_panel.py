@@ -68,6 +68,19 @@ def _normalise_colors(values: list[str]) -> list[str]:
     return colors[:MAX_COLORS]
 
 
+def _normalise_locked(values: list[str]) -> list[str]:
+    """Return the locked colours as unique uppercase "#RRGGBB", dropping unparsable entries."""
+    locked: list[str] = []
+    for value in values:
+        try:
+            text = hex_list(from_hex_list([str(value)]))[0]
+        except ValueError:
+            continue
+        if text not in locked:
+            locked.append(text)
+    return locked
+
+
 def _valid_order(order: list[int], size: int) -> list[int]:
     """Return order when it is a permutation of range(size), otherwise the natural order."""
     if sorted(order) == list(range(size)):
@@ -188,7 +201,7 @@ class PalettePanel(QWidget):
         self._source = "builtin"
         self._builtin_name = DEFAULT_BUILTIN
         self._colors: list[str] = []
-        self._locked: list[int] = []
+        self._locked: list[str] = []
         self._order: list[int] = []
         self.swatches: list[SwatchButton] = []
         self._image: Image | None = None
@@ -199,9 +212,9 @@ class PalettePanel(QWidget):
         """Return the custom colours as uppercase "#RRGGBB" strings."""
         return list(self._colors)
 
-    def locked(self) -> list[int]:
-        """Return the indices locked against extraction, in ascending order."""
-        return sorted(self._locked)
+    def locked(self) -> list[str]:
+        """Return the colours locked against extraction, in the order they were locked."""
+        return list(self._locked)
 
     def order(self) -> list[int]:
         """Return the display permutation, or an empty list for the natural order."""
@@ -228,7 +241,7 @@ class PalettePanel(QWidget):
             known = palette.name in builtin_names()
             self._builtin_name = palette.name if known else DEFAULT_BUILTIN
             self._colors = _normalise_colors(list(palette.colors))
-            self._locked = sorted({i for i in palette.locked if 0 <= i < len(self._colors)})
+            self._locked = _normalise_locked(list(palette.locked))
             self._order = _valid_order(palette.order, len(self._colors))
             self.extract_k.setValue(max(MIN_K, min(MAX_K, int(palette.extract_k))))
             index = self.extract_method.findText(str(palette.extract_method))
@@ -244,7 +257,7 @@ class PalettePanel(QWidget):
         palette.source = self._source
         palette.name = self._builtin_name
         palette.colors = list(self._colors)
-        palette.locked = sorted(self._locked)
+        palette.locked = list(self._locked)
         palette.order = list(self._order)
         palette.extract_k = int(self.extract_k.value())
         palette.extract_method = str(self.extract_method.currentText())
@@ -423,13 +436,14 @@ class PalettePanel(QWidget):
         self._adopt_custom(hex_list(get_library(name)))
 
     def _on_swatch_lock_toggled(self, index: int) -> None:
-        """Toggle the lock of one swatch."""
+        """Toggle the lock of one swatch, keyed on its colour."""
         if self._loading or not 0 <= index < len(self._colors):
             return
-        if index in self._locked:
-            self._locked.remove(index)
+        color = self._colors[index]
+        if color in self._locked:
+            self._locked.remove(color)
         else:
-            self._locked.append(index)
+            self._locked.append(color)
         self._refresh()
         self.changed.emit()
 
@@ -452,7 +466,11 @@ class PalettePanel(QWidget):
         chosen = self._ask_color(self._colors[index])
         if chosen is None:
             return
+        previous = self._colors[index]
         self._colors[index] = chosen
+        if previous in self._locked:
+            self._locked = [chosen if color == previous else color for color in self._locked]
+            self._locked = _normalise_locked(self._locked)
         self._set_error()
         self._refresh()
         self.changed.emit()
@@ -465,7 +483,7 @@ class PalettePanel(QWidget):
             self._set_error("A palette needs at least two colours.")
             return
         del self._colors[index]
-        self._locked = sorted(i - 1 if i > index else i for i in self._locked if i != index)
+        self._locked = [color for color in self._locked if color in self._colors]
         self._order = []
         self._set_error()
         self._refresh()
@@ -512,7 +530,7 @@ class PalettePanel(QWidget):
         self.swatches = []
         for position, index in enumerate(self.display_indices()):
             swatch = SwatchButton(self._colors[index], position, self)
-            swatch.set_locked(index in self._locked)
+            swatch.set_locked(self._colors[index] in self._locked)
             swatch.clicked.connect(lambda _c=False, i=index: self._on_swatch_clicked(i))
             swatch.remove_requested.connect(lambda i=index: self._on_swatch_removed(i))
             swatch.lock_toggled.connect(lambda i=index: self._on_swatch_lock_toggled(i))

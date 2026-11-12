@@ -139,6 +139,69 @@ def test_palette_order_does_not_change_the_palette():
 
 def test_locked_beyond_extract_k_raises():
     """More locked colours than extract_k is rejected before extraction runs."""
-    spec = PaletteSpec(source="extracted", extract_k=4, locked=[0, 1, 2, 3, 4])
+    spec = PaletteSpec(
+        source="extracted",
+        extract_k=4,
+        locked=["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF"],
+    )
     with pytest.raises(ValueError, match="locked"):
+        resolve_palette(spec, _image())
+
+
+def test_locked_colours_survive_extraction_unchanged():
+    """Locked colours are seeded at the front of the extraction result, bit for bit."""
+    spec = PaletteSpec(source="extracted", extract_k=6, locked=["#FF0000", "#00FF00"])
+    palette = resolve_palette(spec, _image())
+    assert palette.shape == (6, 3)
+    assert palette.dtype == np.float32
+    assert palette[0].tolist() == [1.0, 0.0, 0.0]
+    assert palette[1].tolist() == [0.0, 1.0, 0.0]
+
+
+def test_locked_colours_are_normalised_before_seeding():
+    """A lowercase or hashless locked colour is accepted and seeded in canonical form."""
+    spec = PaletteSpec(source="extracted", extract_k=4, locked=["ff0000", "#00ff00"])
+    palette = resolve_palette(spec, _image())
+    assert palette[0].tolist() == [1.0, 0.0, 0.0]
+    assert palette[1].tolist() == [0.0, 1.0, 0.0]
+
+
+def test_locked_duplicates_collapse_to_one_slot():
+    """Two spellings of the same colour take a single palette slot."""
+    spec = PaletteSpec(source="extracted", extract_k=4, locked=["#FF0000", "#ff0000"])
+    palette = resolve_palette(spec, _image())
+    assert palette.shape == (4, 3)
+    assert palette[0].tolist() == [1.0, 0.0, 0.0]
+
+
+def test_every_slot_locked_skips_extraction():
+    """When locked fills extract_k, no extraction runs at all."""
+    locked = ["#FF0000", "#00FF00", "#0000FF"]
+    spec = PaletteSpec(source="extracted", extract_k=3, locked=locked)
+    empty = np.zeros((0, 0, 3), dtype=np.float32)
+    palette = resolve_palette(spec, empty)
+    assert palette.shape == (3, 3)
+    assert palette[0].tolist() == [1.0, 0.0, 0.0]
+
+
+def test_locked_leaves_room_for_the_minimum_extraction():
+    """extract_k - len(locked) below MIN_K still yields a full palette of extract_k."""
+    spec = PaletteSpec(source="extracted", extract_k=3, locked=["#FF0000", "#00FF00"])
+    palette = resolve_palette(spec, _image())
+    assert palette.shape == (3, 3)
+    assert palette[0].tolist() == [1.0, 0.0, 0.0]
+    assert palette[1].tolist() == [0.0, 1.0, 0.0]
+
+
+def test_locked_rejects_a_malformed_colour():
+    """A locked entry that is not a colour raises ValueError naming the entry."""
+    spec = PaletteSpec(source="extracted", extract_k=4, locked=["nope"])
+    with pytest.raises(ValueError, match="invalid palette colour"):
+        resolve_palette(spec, _image())
+
+
+def test_extract_k_outside_the_range_raises():
+    """extract_k is validated even when locked colours would skip extraction."""
+    spec = PaletteSpec(source="extracted", extract_k=1, locked=["#FF0000"])
+    with pytest.raises(ValueError, match="extract_k"):
         resolve_palette(spec, _image())
