@@ -18,6 +18,7 @@ MAX_PIXEL_SIZE = 32
 POST_EFFECT_SEED_OFFSET = 1000
 COLOR_METRICS = ("srgb", "linear", "oklab", "lab2000")
 PRESET_VERSION = 2
+RESERVED_METRIC = "_color_metric"
 
 
 @dataclass
@@ -134,7 +135,11 @@ def render(src: Image, spec: PipelineSpec, *, max_side: int | None = None) -> RG
     palette = resolve_palette(spec.palette, work)
     info = get_algorithm(spec.algorithm_id)
     params = resolve_params(info.params, spec.algorithm_params)
-    indices = info.fn(work, palette, params)
+    code = color.metric_code(spec.color_metric)
+    params[RESERVED_METRIC] = code
+    indices = info.fn(
+        color.to_working_space(work, code), color.to_working_space(palette, code), params
+    )
     work = color.apply_palette(indices, palette)
     work = color.upscale_nearest(work, factor, target)
     work = _apply_effects(work, spec.post_effects, spec.seed, POST_EFFECT_SEED_OFFSET)

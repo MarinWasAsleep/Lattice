@@ -11,6 +11,17 @@ from lattice_dither.core.types import RGB8, Image, Indices, Palette
 _CHUNK_BYTES = 256 * 1024 * 1024
 _BYTES_PER_PALETTE_ENTRY = 16
 
+METRIC_SRGB = 0
+METRIC_LINEAR = 1
+METRIC_OKLAB = 2
+METRIC_LAB2000 = 3
+METRIC_CODES: dict[str, int] = {
+    "srgb": METRIC_SRGB,
+    "linear": METRIC_LINEAR,
+    "oklab": METRIC_OKLAB,
+    "lab2000": METRIC_LAB2000,
+}
+
 
 def to_float(img: PILImage.Image) -> Image:
     """Convert any Pillow image to float32 RGB in [0, 1], compositing alpha over white."""
@@ -40,8 +51,20 @@ def luminance(img: Image) -> np.ndarray:
     )
 
 
-def nearest_index(img: Image, palette: Palette) -> Indices:
-    """Return the index of the closest palette colour for every pixel."""
+def nearest_index(img: Image, palette: Palette, metric: str = "srgb") -> Indices:
+    """Return the index of the closest palette colour for every pixel, under metric."""
+    code = metric_code(metric)
+    if code == METRIC_SRGB:
+        return _nearest_euclidean(img, palette)
+    work = to_working_space(img, code)
+    converted = to_working_space(palette, code)
+    if code == METRIC_LAB2000:
+        return _nearest_lab2000(work, converted)
+    return _nearest_euclidean(work, converted)
+
+
+def _nearest_euclidean(img: Image, palette: Palette) -> Indices:
+    """Return the index of the closest palette colour by squared euclidean distance."""
     height, width = img.shape[:2]
     flat = np.ascontiguousarray(img, dtype=np.float32).reshape(-1, 3)
     k = palette.shape[0]
@@ -53,6 +76,165 @@ def nearest_index(img: Image, palette: Palette) -> Indices:
         dist = np.einsum("ijk,ijk->ij", diff, diff)
         out[start : start + step] = np.argmin(dist, axis=1)
     return out.reshape(height, width)
+
+
+def metric_code(metric: str | int) -> int:
+    """Return the kernel code of a colour metric name, or pass an int code through."""
+    if isinstance(metric, int):
+        if metric not in METRIC_CODES.values():
+            raise ValueError(f"unknown colour metric code: {metric}")
+        return metric
+    try:
+        return METRIC_CODES[metric]
+    except KeyError as exc:
+        raise ValueError(f"unknown colour metric: {metric!r}") from exc
+
+
+def to_working_space(img: Image, metric: str | int) -> Image:
+    """Convert an sRGB image or palette to the space the metric compares in."""
+    code = metric_code(metric)
+    values = np.asarray(img, dtype=np.float32)
+    if code == METRIC_SRGB:
+        return np.ascontiguousarray(values)
+    if code == METRIC_LINEAR:
+        return srgb_to_linear(values)
+    if code == METRIC_OKLAB:
+        return srgb_to_oklab(values)
+    return srgb_to_lab(values)
+
+
+def srgb_to_oklab(img: Image) -> Image:
+    """Convert sRGB values in [0, 1] to Oklab (Ottosson's matrices, no axis scaling)."""
+    linear = srgb_to_linear(img)
+    red, green, blue = linear[..., 0], linear[..., 1], linear[..., 2]
+    long_ = np.float32(0.4122214708) * red + np.float32(0.5363325363) * green
+    long_ = long_ + np.float32(0.0514459929) * blue
+    medium = np.float32(0.2119034982) * red + np.float32(0.6806995451) * green
+    medium = medium + np.float32(0.1073969566) * blue
+    short = np.float32(0.0883024619) * red + np.float32(0.2817188376) * green
+    short = short + np.float32(0.6299787005) * blue
+    l_root, m_root, s_root = np.cbrt(long_), np.cbrt(medium), np.cbrt(short)
+    lightness = np.float32(0.2104542553) * l_root + np.float32(0.7936177850) * m_root
+    lightness = lightness - np.float32(0.0040720468) * s_root
+    axis_a = np.float32(1.9779984951) * l_root - np.float32(2.4285922050) * m_root
+    axis_a = axis_a + np.float32(0.4505937099) * s_root
+    axis_b = np.float32(0.0259040371) * l_root + np.float32(0.7827717662) * m_root
+    axis_b = axis_b - np.float32(0.8086757660) * s_root
+    return np.ascontiguousarray(np.stack([lightness, axis_a, axis_b], axis=-1), dtype=np.float32)
+
+
+def srgb_to_lab(img: Image) -> Image:
+    """Convert sRGB values in [0, 1] to CIELAB under the D65 white point."""
+    linear = srgb_to_linear(img)
+    red, green, blue = linear[..., 0], linear[..., 1], linear[..., 2]
+    x = np.float32(0.4124564) * red + np.float32(0.3575761) * green
+    x = x + np.float32(0.1804375) * blue
+    y = np.float32(0.2126729) * red + np.float32(0.7151522) * green
+    y = y + np.float32(0.0721750) * blue
+    z = np.float32(0.0193339) * red + np.float32(0.1191920) * green
+    z = z + np.float32(0.9503041) * blue
+    fx = _lab_curve(x / np.float32(0.95047))
+    fy = _lab_curve(y)
+    fz = _lab_curve(z / np.float32(1.08883))
+    lightness = np.float32(116.0) * fy - np.float32(16.0)
+    axis_a = np.float32(500.0) * (fx - fy)
+    axis_b = np.float32(200.0) * (fy - fz)
+    return np.ascontiguousarray(np.stack([lightness, axis_a, axis_b], axis=-1), dtype=np.float32)
+
+
+def _lab_curve(values: np.ndarray) -> np.ndarray:
+    """Apply the CIELAB companding function to normalised tristimulus values."""
+    delta = np.float32(6.0 / 29.0)
+    linear = values / (np.float32(3.0) * delta * delta) + np.float32(4.0 / 29.0)
+    return np.where(values > delta**3, np.cbrt(values), linear)
+
+
+@njit(cache=True)
+def _ciede2000(lab1: np.ndarray, lab2: np.ndarray) -> float:
+    """Return the CIEDE2000 colour difference between two CIELAB triples."""
+    l1, a1, b1 = lab1[0], lab1[1], lab1[2]
+    l2, a2, b2 = lab2[0], lab2[1], lab2[2]
+    c1 = np.sqrt(a1 * a1 + b1 * b1)
+    c2 = np.sqrt(a2 * a2 + b2 * b2)
+    c_bar = (c1 + c2) / 2.0
+    c_bar7 = c_bar**7
+    g = 0.5 * (1.0 - np.sqrt(c_bar7 / (c_bar7 + 25.0**7)))
+    a1p = (1.0 + g) * a1
+    a2p = (1.0 + g) * a2
+    c1p = np.sqrt(a1p * a1p + b1 * b1)
+    c2p = np.sqrt(a2p * a2p + b2 * b2)
+    h1p = _hue_degrees(b1, a1p)
+    h2p = _hue_degrees(b2, a2p)
+    delta_l = l2 - l1
+    delta_c = c2p - c1p
+    if c1p * c2p == 0.0:
+        delta_h_angle = 0.0
+    else:
+        delta_h_angle = h2p - h1p
+        if delta_h_angle > 180.0:
+            delta_h_angle -= 360.0
+        elif delta_h_angle < -180.0:
+            delta_h_angle += 360.0
+    delta_h = 2.0 * np.sqrt(c1p * c2p) * np.sin(np.radians(delta_h_angle) / 2.0)
+    l_bar = (l1 + l2) / 2.0
+    c_bar_p = (c1p + c2p) / 2.0
+    if c1p * c2p == 0.0:
+        h_bar = h1p + h2p
+    else:
+        h_bar = (h1p + h2p) / 2.0
+        if abs(h1p - h2p) > 180.0:
+            if h1p + h2p < 360.0:
+                h_bar += 180.0
+            else:
+                h_bar -= 180.0
+    t = (
+        1.0
+        - 0.17 * np.cos(np.radians(h_bar - 30.0))
+        + 0.24 * np.cos(np.radians(2.0 * h_bar))
+        + 0.32 * np.cos(np.radians(3.0 * h_bar + 6.0))
+        - 0.20 * np.cos(np.radians(4.0 * h_bar - 63.0))
+    )
+    delta_theta = 30.0 * np.exp(-(((h_bar - 275.0) / 25.0) ** 2))
+    c_bar_p7 = c_bar_p**7
+    r_c = 2.0 * np.sqrt(c_bar_p7 / (c_bar_p7 + 25.0**7))
+    l_offset = (l_bar - 50.0) ** 2
+    s_l = 1.0 + (0.015 * l_offset) / np.sqrt(20.0 + l_offset)
+    s_c = 1.0 + 0.045 * c_bar_p
+    s_h = 1.0 + 0.015 * c_bar_p * t
+    r_t = -np.sin(np.radians(2.0 * delta_theta)) * r_c
+    term_l = delta_l / s_l
+    term_c = delta_c / s_c
+    term_h = delta_h / s_h
+    return np.sqrt(term_l * term_l + term_c * term_c + term_h * term_h + r_t * term_c * term_h)
+
+
+@njit(cache=True)
+def _hue_degrees(b: float, a: float) -> float:
+    """Return the hue angle in degrees, in [0, 360), and 0 when the chroma is zero."""
+    if a == 0.0 and b == 0.0:
+        return 0.0
+    angle = np.degrees(np.arctan2(b, a))
+    if angle < 0.0:
+        angle += 360.0
+    return angle
+
+
+@njit(cache=True)
+def _nearest_lab2000(lab_img: np.ndarray, palette_lab: np.ndarray) -> np.ndarray:
+    """Return the CIEDE2000-nearest palette index for every pixel of a CIELAB image."""
+    height, width = lab_img.shape[0], lab_img.shape[1]
+    out = np.empty((height, width), dtype=np.int32)
+    for y in range(height):
+        for x in range(width):
+            best = 0
+            best_distance = np.inf
+            for index in range(palette_lab.shape[0]):
+                distance = _ciede2000(lab_img[y, x], palette_lab[index])
+                if distance < best_distance:
+                    best_distance = distance
+                    best = index
+            out[y, x] = best
+    return out
 
 
 def apply_palette(idx: Indices, palette: Palette) -> Image:
@@ -171,10 +353,23 @@ def upscale_nearest(img: Image, factor: int, shape: tuple[int, int]) -> Image:
 
 
 @njit(cache=True)
-def nearest_index_px(r: float, g: float, b: float, palette: np.ndarray) -> int:
-    """Return the index of the palette colour closest to (r, g, b); numba kernel."""
+def nearest_index_px(r: float, g: float, b: float, palette: np.ndarray, metric: int = 0) -> int:
+    """Return the index of the palette colour closest to (r, g, b); numba kernel.
+
+    The pixel and the palette are expected in the working space of the metric: squared
+    euclidean distance for codes 0 to 2, CIEDE2000 on CIELAB for code 3.
+    """
     best = 0
     best_dist = np.inf
+    if metric == 3:
+        lab = np.empty(3, dtype=np.float64)
+        lab[0], lab[1], lab[2] = r, g, b
+        for i in range(palette.shape[0]):
+            dist = _ciede2000(lab, palette[i])
+            if dist < best_dist:
+                best_dist = dist
+                best = i
+        return best
     for i in range(palette.shape[0]):
         dr = r - palette[i, 0]
         dg = g - palette[i, 1]
