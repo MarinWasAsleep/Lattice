@@ -7,4 +7,3 @@ build/
 dist/
 *.spec
 harness/
-docs/market-research.md
