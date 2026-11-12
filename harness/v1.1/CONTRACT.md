@@ -61,8 +61,11 @@ New normative order (replaces §7 steps 1 to 9):
 11. `to_rgb8`. Output shape = S.
 
 `adjust` signature becomes `adjust(img, brightness, contrast, gamma, saturation=0.0)`. Saturation is
-applied in linear light around the luminance, `out = lum + (c - lum) * (1 + saturation)` for
-saturation in [-1, 0], and a lerp toward the fully saturated colour for [0, 1]. Clipped to [0, 1].
+applied in linear light around the luminance, `out = lum + (c - lum) * (1 + saturation)` over the
+whole range [-1, 1]. The same multiplicative form is used on both sides: at `saturation = 1` the
+distance to the luminance doubles, at `-1` it cancels. A lerp toward the fully saturated colour was
+rejected for [0, 1] because it normalises the chroma vector, so a nearly grey pixel reaches full
+saturation at a tiny `saturation` and the control jumps. Clipped to [0, 1].
 
 `auto_levels` computes percentiles on the **downscaled proxy** when `max_side` is set, so that the
 preview and the full render agree.
@@ -76,13 +79,19 @@ Semantics, by family:
 
 - **error_diffusion**: the propagated error is multiplied by `strength`.
 - **ordered**: the threshold amplitude is multiplied by `strength`.
-- **halftone**: the spot threshold is pulled toward 0.5 by `strength`.
+- **halftone, yliluoma, dbs**: the result is blended in colour space toward the nearest-colour map,
+  `out = palette[algo] * s + palette[nearest] * (1 - s)`, then re-quantised. The per-family wording
+  of the first draft (spot threshold pulled toward 0.5, candidate search scaled, search radius
+  scaled) describes what `strength = 1` looks like, not the interpolation. It was dropped because
+  none of the three degenerates to `nearest_index` at 0 under the literal reading, which would break
+  the invariant below.
 - **other**: the result is blended toward `nearest_index` by `strength` (index-wise: where the
   blend crosses 0.5, take the nearest index).
 
 **Invariant, tested for every registered algorithm**: `strength = 0` produces exactly the output of
 `nearest_index(img, palette, metric)`. This is the contract's strongest guarantee and the reason the
-parameter is uniform.
+parameter is uniform. It is also why the three families above use the blend rather than their own
+degenerate form.
 
 ## §15 Halftone v2
 
@@ -102,6 +111,11 @@ strength: float = 1.0       # §14
 `per_channel = True` applies the screen to R, G and B separately with angles offset by 0°, 30° and
 60° from `angle`, then recombines. This is the colour-halftone look without leaving the palette
 model.
+
+`dot_shape` defaults to the shape the algorithm's name promises: `round` for `halftone_dots`,
+`square` for `halftone_squares`, `line` for `halftone_lines`. A single shared default would make
+`squares` and `lines` render exactly what `dots` renders, and would move the 1.0 output of two
+algorithms. All six shapes stay reachable from every algorithm through the parameter.
 
 ### §15.2 CMYK halftone (effect, not algorithm)
 
@@ -194,7 +208,9 @@ class PresetMeta:
 raises `ValueError` naming it. Unknown keys are still ignored, as in 1.0.
 
 Preset search order for the GUI: `presets/` (shipped, read-only) then
-`%APPDATA%/DitherCraft/presets/` (user). Saving always targets the user directory.
+`%APPDATA%/LatticeDither/presets/` (user). Saving always targets the user directory. The application
+directory is `LatticeDither`, not the pre-rename `DitherCraft`; the bridge keeps a legacy fallback
+for its exchange directory only.
 
 ## §19 Vector export
 
@@ -205,12 +221,16 @@ def export_svg(rgb8: RGB8, path: Path, *, cell: int = 1, background: str | None 
 ```
 
 - One `<path>` element per distinct colour, `fill` set to the hex code, `shape-rendering="crispEdges"`.
-- Cells of the same colour are merged into horizontal runs before being emitted, so a 1024×1024
-  image with 16 colours stays well under 8 MB.
+- Cells of the same colour are merged into horizontal runs before being emitted. The file size
+  follows the number of runs, not the number of colours: flat artwork produces few runs, a dithered
+  render produces about one run per pixel.
 - `cell` multiplies the coordinate system (a 1-pixel cell becomes `cell` units), so the SVG scales
   cleanly.
 - The document has `width`/`height` in pixels and a `viewBox` in cell units.
-- Budget: 2048×2048, 16 colours, under 8 MB and under 5 s.
+- Budget: 2048×2048, 16 colours, **on a dithered render**, under 50 MB and under 5 s. The reference
+  content is the worst case, a Floyd-Steinberg render, because that is what the tool produces by
+  default and a budget measured on flat artwork would not protect the real output. Measured: 46.45 MB
+  in 2.66 s. Flat artwork stays far below (0.49 MB in 0.30 s) and is not the reference.
 
 ## §20 Print export
 
@@ -266,7 +286,7 @@ def export_video(frames: list[RGB8], path: Path, *, fps: int = 12) -> bool
 New module `dithercraft/ui/gallery.py`. A grid of thumbnails, one per registered algorithm,
 rendered at 96×96 from a fixed test image (the same synthetic image as `tools/contact_sheet.py`),
 with the algorithm name underneath and a search box filtering by name and family. Thumbnails are
-cached in `%LOCALAPPDATA%/DitherCraft/thumbs/` keyed by `(algorithm_id, params_hash, palette_hash)`
+cached in `%LOCALAPPDATA%/LatticeDither/thumbs/` keyed by `(algorithm_id, params_hash, palette_hash)`
 and regenerated when the key changes.
 
 ### §22.2 Undo, shortcuts, drag and drop, recent files

@@ -78,7 +78,7 @@ _No entry yet._
 - impact: none outstanding. A preset carrying `color_metric: "oklab"` now renders in Oklab.
 
 ### DEV-104
-- class: E1 | task: T19 | contract: 1.1.0 | status: open
+- class: E1 | task: T19 | contract: 1.1.0 | status: resolved
 - raised by: coder | date: 2026-11-12
 - facts: §14 gives each family its own `strength` semantics and requires `strength = 0` to equal
   `nearest_index` for all of them. For halftone the two cannot both hold: the card scales the spot
@@ -91,11 +91,15 @@ _No entry yet._
   the card's literal per-family wording is not implemented for these three. Proposal: rewrite §14
   to state the blend as the normative definition, and keep the per-family wording as a description
   of what `strength = 1` looks like.
-- decision: | by:
-- impact: none on the tests. A product decision if the literal per-family behaviour was intended.
+- decision: **the blend is the normative definition**, and the per-family wording is kept as a
+  description of what `strength = 1` looks like. The invariant is the contract's strongest guarantee
+  and the reason the parameter is uniform across 33 algorithms; a per-family degenerate form would
+  have carved three exceptions into it for a difference no user can see at `strength = 1`.
+  | by: human
+- impact: §14 amended in place, no version bump. No code change: T19 already ships the blend.
 
 ### DEV-105
-- class: E6 | task: T20 | contract: 1.1.0 | status: open
+- class: E6 | task: T20 | contract: 1.1.0 | status: resolved
 - raised by: coder | date: 2026-11-12
 - facts: §15.1 gives one parameter block to `halftone_dots`, `halftone_squares` and
   `halftone_lines`, with `dot_shape: str = "round"`. Taken literally, all three algorithms default
@@ -106,11 +110,14 @@ _No entry yet._
 - assumption / proposal: each algorithm keeps the shape its name promises as its default
   (`round`, `square`, `line`). The six shapes are all reachable from every algorithm through the
   parameter, so nothing is lost. Proposal: write the per-algorithm default into §15.1.
-- decision: | by:
-- impact: none on the tests. G5 stays green because the defaults do not move.
+- decision: **each algorithm keeps the default its name promises**, written into §15.1. A shared
+  default would have made two of the three algorithms indistinguishable from the third at their
+  defaults, and would have broken G5. | by: human
+- impact: §15.1 amended in place, no version bump. No code change: T20 already ships the
+  per-algorithm defaults, and G5 stays green because the defaults do not move.
 
 ### DEV-103
-- class: E1 | task: T17 | contract: 1.1.0 | status: open
+- class: E1 | task: T17 | contract: 1.1.0 | status: resolved
 - raised by: coder | date: 2026-11-12
 - facts: §13 gives an explicit formula for saturation in `[-1, 0]`
   (`out = lum + (c - lum) * (1 + saturation)`) and only the words "a lerp toward the fully saturated
@@ -120,8 +127,12 @@ _No entry yet._
 - assumption / proposal: the same multiplicative form is used on both sides, so `saturation = 1`
   doubles the distance to the luminance. It is smooth, monotone, and satisfies every acceptance item
   of the card. Proposal: write the formula for `[0, 1]` into §13 so no coder has to choose.
-- decision: | by:
-- impact: none on the tests; a product decision if the harsher look was intended.
+- decision: **the multiplicative form is used over the whole range [-1, 1]**, written into §13. The
+  literal lerp was rejected because a control that saturates a nearly grey pixel at 0.05 is not a
+  control: the slider would do nothing over most of its travel and everything at the end.
+  | by: human
+- impact: §13 amended in place, no version bump. No code change: T17 already ships the
+  multiplicative form.
 
 ## Amendments
 
@@ -153,7 +164,7 @@ _No entry yet._
   `tests/test_algorithms_extra.py`. No other change.
 
 ### DEV-106
-- class: E1 | task: T23 | contract: 1.1.0 | status: open
+- class: E1 | task: T23 | contract: 1.1.0 | status: resolved
 - raised by: coder | date: 2026-11-12
 - facts: §19 budgets "2048×2048, 16 colours, under 8 MB and under 5 s", and its rationale sentence
   speaks of "a 1024×1024 image with 16 colours". With one `<path>` per colour and horizontal run
@@ -169,9 +180,12 @@ _No entry yet._
   §19. If it is flat artwork the budget holds as written; if it is a dithered render the budget must
   rise to about 50 MB, or the export must refuse above a size threshold instead of silently writing
   a 50 MB file.
-- decision: | by:
-- impact: T23's fourth accept item is met for low-entropy content only. No code change is needed
-  until the contract names the reference content.
+- decision: **the reference content is a dithered render, and the budget rises to 50 MB.** A budget
+  measured on flat artwork would not protect the output the tool actually produces: the default
+  pipeline is error diffusion, so the common case is the 46 MB one. 50 MB leaves headroom over the
+  measured 46.45 MB without pretending the file is small. | by: human
+- impact: §19 amended in place, no version bump. No code change: T23 already meets the new budget.
+  T23's fourth accept item is now met on the reference content.
 
 ### DEV-107
 - class: E1 | task: T25 | contract: 1.1.0 | status: resolved

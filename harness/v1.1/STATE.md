@@ -34,6 +34,8 @@ last_update: 2026-11-12
 | T30 | 7 | todo | 0 | 0 | | Pixel Snapper + descreen |
 | T31 | 7 | todo | 0 | 0 | | bridge v2 |
 | T32 | 7 | todo | 0 | 0 | | integration + acceptance |
+| T33 | 6 | todo | 0 | 0 | | export dialog + CLI subcommands |
+| T34 | 6 | todo | 0 | 0 | | preset search order, two tiers |
 
 `g` = gate retries used (max 3), `r` = review cycles used (max 2).
 
@@ -180,12 +182,25 @@ last_update: 2026-11-12
   is a convenience for a poster or a zine, not a prepress workflow. A consequence worth knowing: a
   render whose palette has no colour with green below its maximum produces an all-zero M plate,
   which is correct and reads as black in a greyscale viewer.
+- 2026-11-12: **H5 review opened four decisions, all taken by the human.** §19's budget is measured
+  on a dithered render and rises to 50 MB, because a budget measured on flat artwork would not
+  protect the output the default pipeline produces. §14's colour-space blend becomes the normative
+  definition of `strength` for halftone, yliluoma and dbs, so the `strength = 0` invariant holds for
+  all 33 algorithms. §13's multiplicative saturation is written in for the whole range [-1, 1], and
+  §15.1's per-algorithm `dot_shape` defaults are written in. DEV-103, DEV-104, DEV-105 and DEV-106
+  are resolved, so no deviation is open.
+- 2026-11-12: the H5 review also found two clauses with no card behind them. The four exports were
+  reachable from neither `ui/` nor `cli.py`; T32 was to add the toolbar buttons but nothing specified
+  the dialog or the CLI side, so T33 now owns the export surface. §18's two-tier preset search order
+  was not implemented at all, so T34 owns it. §18 and §22.1 also still named `DitherCraft` for the data
+  directories; they now name `LatticeDither`, matching the code, with the bridge keeping its legacy
+  fallback.
 
 ## Human checkpoints
 
 | Id | When | Status |
 |---|---|---|
-| H5 | after T17 | pending — read and freeze CONTRACT 1.1 |
+| H5 | after T17 | in progress — reviewed, six amendments applied, freeze pending |
 | H6 | after wave 4 | pending — judge output on three real images |
 | H7 | after wave 5 | pending — run the CLI and the print export |
 | H8 | after wave 6 | pending — use it for a week |
@@ -193,12 +208,14 @@ last_update: 2026-11-12
 
 ## Next
 
-- NEXT: wave 5 is complete. T26 (algorithm gallery) opens wave 6.
-- DEV-101 and DEV-108 are resolved, so no deviation blocks a task. DEV-104 and DEV-105 stay open as
-  accepted readings of §14 and §15.1. DEV-106 needs a human decision on the reference content of
-  §19's size budget; it blocks nothing.
-- H5 (read and freeze CONTRACT 1.1) is still pending and should be taken before wave 6.
+- NEXT: wave 5 is complete. T26 (algorithm gallery) opens wave 6, which now also holds T33 (export
+  surface) and T34 (preset search order).
+- No deviation is open. DEV-101, DEV-103, DEV-104, DEV-105, DEV-106, DEV-107 and DEV-108 are all
+  resolved, so nothing blocks a task.
+- H5 is reviewed and amended but not frozen: the six amendments are in, and the freeze is the human's
+  word. It should be taken before wave 6 starts.
 - H6 (judge output on three real images) can now be taken: T17 to T21 are in, so conditioning,
   colour metrics, strength, both halftones and the palette library are usable from the GUI.
 - H7 (run the CLI and the print export) is now fully ready: the CLI, the SVG export, the print
-  export and the video export are all in, and ffmpeg is installed.
+  export and the video export are all in, and ffmpeg is installed. The exports are still only
+  reachable from Python until T33 lands.

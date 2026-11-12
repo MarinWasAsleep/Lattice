@@ -282,15 +282,15 @@ pairs sit in different waves and are never concurrent.
   - the 5 s / 60 s timeouts are applied (assert on the socket timeout argument).
 
 ## T32 · Integration and acceptance
-- wave: 7 · deps: T17 to T31 · executor: DeepSeek · review: strict · size: L
+- wave: 7 · deps: T17 to T31, T33, T34 · executor: DeepSeek · review: strict · size: L
 - owns: dithercraft/ui/main_window.py, dithercraft/ui/algorithm_panel.py,
   dithercraft/ui/effects_panel.py, dithercraft/ui/palette_panel.py,
   tests/test_ui_integration.py, tests/manual/CHECKLIST.md
 - context: §7 §9 §12 §13 §14 §15 §16 §17 §19 §20 §21 §22 §23 §24
 - spec: wire everything. The algorithm panel exposes `color_metric`, `strength`, the halftone
   parameters and the conditioning strip; the palette panel exposes the library, lock and order; the
-  effects panel lists `halftone_cmyk`; the toolbar gains Export SVG, Export print, Export animation,
-  and a "Prepare source" toggle backed by T30. Convert the remaining UI strings through `tr()`.
+  effects panel lists `halftone_cmyk`; the toolbar gains a "Prepare source" toggle backed by T30. The
+  export buttons come from T33, which runs first. Convert the remaining UI strings through `tr()`.
   `tests/manual/CHECKLIST.md` is the H9 recipe.
 - accept:
   - every new parameter is reachable from the UI and round-trips through a preset.
@@ -300,3 +300,41 @@ pairs sit in different waves and are never concurrent.
   - G5 and G6 pass.
   - the checklist covers: three source types (photo, existing pixel art, scan), every export path,
     the CLI, both languages, undo/redo, and the PhotoCraft round trip.
+
+## T33 · Export surface: dialog and CLI
+- wave: 6 · deps: T23, T24, T25 · executor: DeepSeek · review: full · size: M
+- owns: dithercraft/ui/export_dialog.py, dithercraft/cli.py, tests/test_ui_export.py,
+  tests/test_cli_export.py
+- context: §17 §19 §20 §21
+- spec: the four exports exist and are tested, but no user can reach them: `export_svg`,
+  `export_print`, `export_gif` and `export_video` are called from neither `ui/` nor `cli.py`. Add one
+  dialog covering all four formats and the matching CLI subcommands. The dialog offers SVG (`cell`,
+  `background`), print PNG (`dpi`, `bleed_mm`, `crop_marks`, `separations`), GIF (`fps`, `loop`) and
+  video (`fps`), remembers the last directory in `QSettings`, and reports the files written. The CLI
+  gains `export-svg`, `export-print` and `export-anim`, each taking `--preset`, `--in`, `--out` and
+  the format's own options, with the §17 exit codes and `--json` support.
+- accept:
+  - each of the four formats is reachable from the dialog and writes the expected files.
+  - the dialog's defaults match the contract defaults (`cell=1`, `dpi=300`, `bleed_mm=0`,
+    `crop_marks=False`, `separations=False`, `fps=12`).
+  - `export-svg`, `export-print` and `export-anim` produce byte-identical files to the same call made
+    from Python.
+  - a missing input file exits 2 with a one-line message, never a traceback.
+  - `--json` prints `{"ok": bool, "files": [...], "errors": [...]}`.
+  - the last export directory survives a restart.
+
+## T34 · Preset search order
+- wave: 6 · deps: T17 · executor: DeepSeek · review: full · size: S
+- owns: dithercraft/core/presets.py, dithercraft/ui/preset_browser.py,
+  dithercraft/ui/main_window.py, tests/test_presets.py, tests/test_ui_presets.py
+- context: §18
+- spec: §18 asks for two tiers, `presets/` shipped read-only then
+  `%APPDATA%/LatticeDither/presets/` for the user, with saving always targeting the user directory.
+  The browser currently scans one directory remembered in `QSettings`. Scan both, shipped first, and
+  mark the shipped ones read-only in the UI. Create the user directory on first save, not at import.
+- accept:
+  - a preset present in both tiers resolves to the user one.
+  - the browser lists the shipped presets when the user directory is empty or absent.
+  - saving writes into `%APPDATA%/LatticeDither/presets/` and never into `presets/`.
+  - the user directory is created on first save, not at import time.
+  - the shipped directory is never written to, even when it is the only one that exists.
