@@ -27,15 +27,15 @@ last_update: 2026-11-12
 | T23 | 5 | done | 0 | 0 | | SVG export; DEV-106 on the size budget |
 | T24 | 5 | done | 0 | 0 | | print export, bleed, crop marks, separations |
 | T25 | 5 | done | 0 | 0 | | animation + video; DEV-107 adds imageio-ffmpeg |
-| T26 | 6 | todo | 0 | 0 | | algorithm gallery |
-| T27 | 6 | todo | 0 | 0 | | undo, shortcuts, drag and drop |
-| T28 | 6 | todo | 0 | 0 | | i18n + French catalogue |
-| T29 | 6 | todo | 0 | 0 | | performance, large images |
+| T26 | 6 | done | 0 | 0 | afc9dbc | algorithm gallery, off-thread thumbnails |
+| T27 | 6 | done | 0 | 0 | ad4ddc1 | undo, shortcuts, drag and drop, recent files |
+| T28 | 6 | done | 0 | 0 | 28232e5 | i18n + French catalogue, 160 keys |
+| T29 | 6 | done | 0 | 0 | 76fc68f | progressive preview, 8000 px guard |
 | T30 | 7 | todo | 0 | 0 | | Pixel Snapper + descreen |
 | T31 | 7 | todo | 0 | 0 | | bridge v2 |
 | T32 | 7 | todo | 0 | 0 | | integration + acceptance |
-| T33 | 6 | todo | 0 | 0 | | export dialog + CLI subcommands |
-| T34 | 6 | todo | 0 | 0 | | preset search order, two tiers |
+| T33 | 6 | done | 0 | 0 | 939d0b5 | export dialog + CLI subcommands |
+| T34 | 6 | done | 0 | 0 | 1182a55 | preset search order, two tiers |
 
 `g` = gate retries used (max 3), `r` = review cycles used (max 2).
 
@@ -199,6 +199,37 @@ last_update: 2026-11-12
   the document is normative as it stands. From here a change is a version bump, not an edit: PATCH
   for a clarification, MINOR for an addition, MAJOR only with human approval. The header's section
   range was corrected to §12 to §25, since §25 (the gates) is part of this document.
+- 2026-11-12: **wave 6 is complete**, run as two parallel batches because two cards shared a file.
+  Batch A was T28, T29, T33 and T34; batch B was T26 and T27, which needed T29's worker and T34's
+  `main_window.py` in place first. T27 and T34 both own `main_window.py`, so they could not overlap.
+- 2026-11-12: T28 keys the catalogue on the English source string, gettext style, so a missing key
+  falls back to readable text rather than a dotted id. The catalogue is deliberately wider than the
+  two files the card converts (160 keys), because T32 does not own the JSON and could not add keys.
+  The grep test runs four detectors with positive and negative controls; six mutations were applied
+  and caught.
+- 2026-11-12: T29 renders each preview stage from a cached proxy rather than from the source, so a
+  large image never reaches the pipeline at full resolution: a 6000×4000 preview peaks at 45.5 MB
+  instead of 296 MB. The card's "12× the proxy size" is undefined; the proxy's float32 working
+  footprint is used, and a second assertion (`peak < source.nbytes / 4`) proves independence from
+  source size. The stricter uint8 reading is unreachable, because one float32 pass in
+  `pipeline._prepare` already peaks at 24 MB.
+- 2026-11-12: T33's `export-anim` takes a directory of frames or a single image, and the output
+  suffix picks the writer. A missing ffmpeg exits 3, not 2: the input was fine, the export did not
+  happen. Out-of-range options exit 1, matching §17's usage/input split.
+- 2026-11-12: T34 redirects any save target inside the shipped tier to the user tier, so the shipped
+  directory is unreachable for writes in every case. A path the user explicitly picks outside both
+  tiers is honoured, which is the 1.0 behaviour. The user directory is created when the save dialog
+  opens, so a fresh install opens inside it.
+- 2026-11-12: T26 holds its thumbnail worker in a module-level set until the thread finishes,
+  mirroring `_ACTIVE_EXTRACTIONS` in `worker.py`. Dropping the last reference before the thread
+  stopped caused an intermittent access violation in `shutdown()`, one run in eight.
+- 2026-11-12: T27 binds `Ctrl+E` to T33's dialog and exports the last rendered preview rather than
+  starting a fresh full-resolution render, which would freeze the UI. For sources at or below
+  1024 px the preview is full resolution. `Left`/`Right` stay on the preset event filter: binding
+  them as action shortcuts would double-step and steal the arrows from a focused spin box.
+- 2026-11-12: the i18n JSON is data, not a module, so the frozen exe would have raised
+  `FileNotFoundError` at startup. `scripts/build_exe.ps1` now collects `lattice_dither.i18n`. The
+  `.spec` is a build artifact and is gitignored, so the script is the durable fix.
 
 ## Human checkpoints
 
@@ -212,14 +243,16 @@ last_update: 2026-11-12
 
 ## Next
 
-- NEXT: wave 5 is complete. T26 (algorithm gallery) opens wave 6, which now also holds T33 (export
-  surface) and T34 (preset search order).
-- No deviation is open. DEV-101, DEV-103, DEV-104, DEV-105, DEV-106, DEV-107 and DEV-108 are all
-  resolved, so nothing blocks a task.
-- H5 is done: CONTRACT 1.1.0 is frozen, so wave 6 can start. A change to the contract from here is a
-  version bump, not an edit.
+- NEXT: wave 6 is complete. Wave 7 opens with T30 (Pixel Snapper and descreen), then T31 (bridge v2),
+  then T32 (integration and acceptance).
+- No deviation is open. DEV-101 and DEV-103 to DEV-108 are all resolved, so nothing blocks a task.
 - H6 (judge output on three real images) can now be taken: T17 to T21 are in, so conditioning,
   colour metrics, strength, both halftones and the palette library are usable from the GUI.
-- H7 (run the CLI and the print export) is now fully ready: the CLI, the SVG export, the print
-  export and the video export are all in, and ffmpeg is installed. The exports are still only
-  reachable from Python until T33 lands.
+- H7 (run the CLI and the print export) is ready and now reachable by a user: T33 added the export
+  dialog and the three CLI subcommands, so the SVG, print, GIF and video exports no longer need
+  Python.
+- H8 (use it for a week) can start now that wave 6 is in: the gallery, undo, shortcuts, drag and
+  drop, recent files, both languages and the export surface are all wired.
+- T32 must convert the remaining `ui/` files through `tr()` and add `export_dialog.py`, `gallery.py`
+  and `commands.py` to its literal-string check. The catalogue already holds every key those three
+  files use.
