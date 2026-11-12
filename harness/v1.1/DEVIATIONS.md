@@ -49,7 +49,7 @@ _No entry yet._
 - impact: T21 (palette authoring) cannot complete the lock feature until this is decided.
 
 ### DEV-102
-- class: E1 | task: T17 | contract: 1.1.0 | status: open
+- class: E1 | task: T17 | contract: 1.1.0 | status: resolved
 - raised by: coder | date: 2026-11-12
 - facts: §13 puts `color_metric` on `PipelineSpec`, but the algorithm signature is
   `fn(img, palette, params)` and every algorithm calls `color.nearest_index(img, palette)` or
@@ -60,9 +60,29 @@ _No entry yet._
   until it is wired. Proposal: add `color_metric` to the algorithm call, either as a fourth
   positional argument or by injecting it into `params` after `resolve_params`. The second keeps the
   signature stable but needs a reserved key.
+- decision: the second option, taken by T18 and T19. `render` converts the image and the palette to
+  the metric's working space once, then sets `params["_color_metric"]` after `resolve_params`. The
+  key is reserved: it starts with an underscore, so it cannot collide with a `ParamSpec` id, and
+  `resolve_params` never sees it. Algorithms read it through `metric_of(params)`, which defaults to
+  sRGB when the key is absent, so a direct call in a test still works. | by: orchestrator
+- impact: none outstanding. A preset carrying `color_metric: "oklab"` now renders in Oklab.
+
+### DEV-104
+- class: E1 | task: T19 | contract: 1.1.0 | status: open
+- raised by: coder | date: 2026-11-12
+- facts: §14 gives each family its own `strength` semantics and requires `strength = 0` to equal
+  `nearest_index` for all of them. For halftone the two cannot both hold: the card scales the spot
+  threshold, and a threshold scaled to 0.5 produces two colours, not K. The same problem hits
+  yliluoma (the card scales the candidate search) and dbs (the card scales the search radius):
+  neither degenerates to the nearest-colour map at 0.
+- assumption / proposal: those three families blend in colour space toward the nearest-colour map,
+  `out = palette[algo] * s + palette[nearest] * (1 - s)`, then re-quantise. The invariant holds
+  exactly, the control is smooth and monotone, and `strength = 1` is untouched. The cost is that
+  the card's literal per-family wording is not implemented for these three. Proposal: rewrite §14
+  to state the blend as the normative definition, and keep the per-family wording as a description
+  of what `strength = 1` looks like.
 - decision: | by:
-- impact: T18 and T19 must wire it; until then a preset carrying `color_metric: "oklab"` renders
-  in sRGB without warning.
+- impact: none on the tests. A product decision if the literal per-family behaviour was intended.
 
 ### DEV-103
 - class: E1 | task: T17 | contract: 1.1.0 | status: open
@@ -96,3 +116,13 @@ _No entry yet._
   step 5 has no home in the card's `owns` list. `core/color.py` is listed as T18's file.
 - contract change: T17's `owns` gains `lattice_dither/core/color.py` and
   `tests/test_ui_algorithm.py`. T18 runs after T17, so the two never overlap in time.
+
+### AMD-103
+- task: T19 | contract: 1.1.0 | date: 2026-11-12
+- section: §14
+- discovered: the card's `owns` lists the eight algorithm modules and `tests/test_strength.py`, but
+  the shared blend helper has no home, and four existing test files assert the exact default
+  parameter dict of their algorithms, which gains `strength`.
+- contract change: T19's `owns` gains `lattice_dither/algorithms/_strength.py`,
+  `tests/test_ordered.py`, `tests/test_halftone.py`, `tests/test_misc.py` and
+  `tests/test_algorithms_extra.py`. No other change.

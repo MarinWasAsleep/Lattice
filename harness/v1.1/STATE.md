@@ -3,7 +3,7 @@
 contract_version: 1.1.0-draft
 base_contract: 1.0.0 (harness/CONTRACT.md, §1 to §11, frozen)
 max_concurrency: 4
-last_update: 2026-11-11
+last_update: 2026-11-12
 
 ## Environment (inherited from 1.0, unchanged)
 
@@ -16,8 +16,8 @@ last_update: 2026-11-11
 | Task | Wave | Status | g | r | Commit | Notes |
 |---|---|---|---|---|---|---|
 | T17 | 4 | done | 0 | 0 | 502ea80 | spec v2, preset v2, conditioning; G5 green |
-| T18 | 4 | todo | 0 | 0 | | colour metrics |
-| T19 | 4 | todo | 0 | 0 | | strength invariant |
+| T18 | 4 | done | 0 | 0 | 3f5fbad | colour metrics; DEV-102 wired |
+| T19 | 4 | done | 0 | 0 | d7c0624 | strength on all 33 algorithms |
 | T20 | 4 | todo | 0 | 0 | | halftone v2 + CMYK effect |
 | T21 | 4 | todo | 0 | 0 | | palette authoring + library |
 | T22 | 5 | todo | 0 | 0 | | CLI + batch |
@@ -64,6 +64,21 @@ last_update: 2026-11-11
   (AMD-102). Three deviations opened: DEV-101 (`locked` has no colour source), DEV-102
   (`color_metric` has no path to the algorithms), DEV-103 (the positive saturation formula is
   undefined).
+- 2026-11-12: **DEV-102 is resolved.** The pipeline converts the image and the palette to the
+  metric's working space once, then injects the metric code into `params["_color_metric"]` after
+  `resolve_params`. The reserved key cannot collide with a `ParamSpec` id, and the algorithm
+  signature stays `fn(img, palette, params)`. Algorithms read it through `metric_of(params)`.
+- 2026-11-12: CIEDE2000 was verified exact against all 34 Sharma et al. reference pairs (worst
+  error 4.95e-05). Measured cost for a 1024² image at K=16: srgb 191 ms, linear 223 ms, oklab
+  291 ms, lab2000 1498 ms. All four miss the 150 ms budget of §12; the perf test is informative,
+  not a gate, and the 33³ LUT that would fix it is deferred to T29.
+- 2026-11-12: T19's `owns` was extended to `algorithms/_strength.py` and the four algorithm test
+  files (AMD-103). The `strength=1` invariant is checked against digests captured from a worktree
+  at `3f5fbad`, not against a re-derivation, so the test proves the output did not move.
+- 2026-11-12: the per-family `strength` semantics of §14 cannot all be satisfied literally. A
+  halftone spot threshold scaled to 0.5 yields two colours, not K, so `strength=0` would not equal
+  `nearest_index`. Halftone, yliluoma and dbs therefore blend in colour space toward the
+  nearest-colour map (DEV-104).
 
 ## Human checkpoints
 
@@ -77,8 +92,8 @@ last_update: 2026-11-11
 
 ## Next
 
-- NEXT: T18 (colour metrics) and T19 (strength) can run in parallel: their `owns` sets are disjoint
-  (`core/color.py` + `tests/test_color.py` against the eight algorithm modules +
-  `tests/test_strength.py`). T20 and T21 follow, also disjoint. Max concurrency 4.
-- T18 and T19 must resolve DEV-102: `color_metric` is inert until it reaches the kernels.
+- NEXT: T20 (halftone v2 + CMYK effect) and T22 (CLI + batch, gate G6) are the next unblocked
+  cards. T21 (palette authoring) is blocked by DEV-101: the lock feature has no colour source.
 - H5 (read and freeze CONTRACT 1.1) is still pending and should be taken before wave 5.
+- H6 (judge output on three real images) can now be taken: T17 to T19 are in, so conditioning,
+  colour metrics and strength are all usable from the GUI.
