@@ -46,6 +46,13 @@ Sharpen.
 `bw`, `grey_4`, `grey_8`, `grey_16`, `gameboy`, `pico8`, `cga_0_high`, `cga_1_high`, `ega`,
 `cmyk_5`, `rgb_8` — plus extraction and custom palettes.
 
+## Download
+
+A prebuilt Windows executable is attached to the
+[latest release](https://github.com/MarinWasAsleep/DitherCraft/releases/latest): download
+`DitherCraft.exe` and run it, no Python installation needed. It is a PyInstaller bundle of about
+110 MB, so the first window takes a few seconds to appear while it unpacks.
+
 ## Install
 
 Windows 11, Python 3.13 or newer.
@@ -150,8 +157,7 @@ applies to effects (`register_effect`) and palettes.
 ```
 
 `tools/contact_sheet.py` renders an algorithm comparison grid, `tools/smoke_photocraft.py` checks a
-live PhotoCraft connection, and `harness/` holds the technical contract, the task breakdown and the
-recorded deviations that the project was built against.
+live PhotoCraft connection.
 
 ## Layout
 
@@ -165,7 +171,6 @@ dithercraft/
   ui/           PySide6 window, panels, canvas, render worker
 presets/        starter presets
 tools/          contract check, contact sheet, smoke test, icon and noise generators
-harness/        contract, tasks, state, deviations
 tests/          622 tests
 ```
 
