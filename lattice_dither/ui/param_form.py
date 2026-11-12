@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from lattice_dither.core.types import ParamSpec
+from lattice_dither.i18n import tr
 
 SLIDER_STEPS = 1000
 MAX_SLIDER_STEPS = 10000
@@ -95,7 +96,7 @@ class ParamForm(QWidget):
             for spec in self._specs:
                 editor = self._build_editor(spec)
                 self._editors[spec.id] = editor
-                self._form.addRow(spec.label, editor)
+                self._form.addRow(tr(spec.label), editor)
         finally:
             self._loading = False
 

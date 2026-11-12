@@ -8,6 +8,7 @@ import sys
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
 
+from lattice_dither.i18n import init_language, tr
 from lattice_dither.ui.main_window import MainWindow
 
 LOGGER = logging.getLogger(__name__)
@@ -51,8 +52,9 @@ def create_application(argv: list[str] | None = None) -> QApplication:
         app = existing
     else:
         app = QApplication(list(argv) if argv is not None else list(sys.argv))
-    app.setApplicationName("Lattice Dither")
-    app.setApplicationDisplayName("Lattice Dither")
+    init_language()
+    app.setApplicationName(tr("Lattice Dither"))
+    app.setApplicationDisplayName(tr("Lattice Dither"))
     app.setStyle("Fusion")
     app.setPalette(dark_palette())
     return app
