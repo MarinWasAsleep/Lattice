@@ -83,6 +83,8 @@ class MainWindow(QMainWindow):
         self._version_warned = False
         self._last_image: RGB8 | None = None
         self.canvas = PreviewCanvas(self)
+        self.canvas.setAcceptDrops(False)
+        self.canvas.viewport().setAcceptDrops(False)
         self.setCentralWidget(self.canvas)
         self.actions: dict[str, QAction] = {}
         self._build_actions()
@@ -106,6 +108,7 @@ class MainWindow(QMainWindow):
             action.setShortcut(shortcut)
         action.triggered.connect(slot)
         self.actions[key] = action
+        self.addAction(action)
         return action
 
     def _build_actions(self) -> None:

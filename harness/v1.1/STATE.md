@@ -238,7 +238,7 @@ last_update: 2026-11-12
 | H5 | after T17 | done — CONTRACT 1.1.0 frozen on 2026-11-12 |
 | H6 | after wave 4 | pending — judge output on three real images |
 | H7 | after wave 5 | pending — run the CLI and the print export |
-| H8 | after wave 6 | pending — use it for a week |
+| H8 | after wave 6 | in progress — DEV-109 found and fixed |
 | H9 | T32 | pending — acceptance in PhotoCraft |
 
 ## Next
@@ -256,3 +256,9 @@ last_update: 2026-11-12
 - T32 must convert the remaining `ui/` files through `tr()` and add `export_dialog.py`, `gallery.py`
   and `commands.py` to its literal-string check. The catalogue already holds every key those three
   files use.
+- T32 must also expose `color_metric` in the algorithm panel. H8 confirmed it is absent from `ui/`
+  entirely: `strength` reaches the user through the generic param form because it is an algorithm
+  parameter, but `color_metric` is a `PipelineSpec` field with no control, so the four metrics are
+  unreachable from the GUI.
+- H8 is in progress. It found DEV-109 (dead F5 and Space, swallowed drops), now fixed. The gallery
+  is still unwired, so it cannot be judged until T32.

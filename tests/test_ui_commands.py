@@ -15,7 +15,7 @@ import pytest  # noqa: E402
 from PIL import Image as PILImage  # noqa: E402
 from PySide6.QtCore import QEvent, QMimeData, QPointF, Qt, QUrl  # noqa: E402
 from PySide6.QtGui import QDragEnterEvent, QDropEvent  # noqa: E402
-from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
+from PySide6.QtWidgets import QApplication, QMessageBox, QWidget  # noqa: E402
 
 from lattice_dither.bridge.photocraft import PhotoCraftClient  # noqa: E402
 from lattice_dither.core.pipeline import PipelineSpec  # noqa: E402
@@ -467,6 +467,29 @@ def test_every_contract_shortcut_is_bound(window: mw.MainWindow) -> None:
         assert bound == list(sequences)
     for key in cmd.FILTERED_SHORTCUTS:
         assert window.actions[key].shortcuts() == []
+
+
+def test_every_shortcut_action_is_attached_to_the_window(window: mw.MainWindow) -> None:
+    """Every action carrying a shortcut is attached, so the key is live without a menu.
+
+    An action that is in no menu and not added to the window has an inert shortcut: Qt only
+    routes a key to an action that some widget owns. F5 and Space were dead for exactly that
+    reason, and triggering the action directly in a test cannot see it.
+    """
+    attached = {action.objectName() for action in QWidget.actions(window)}
+    for key in cmd.SHORTCUTS:
+        assert window.actions[key].objectName() in attached, key
+
+
+def test_the_canvas_does_not_swallow_drops(window: mw.MainWindow) -> None:
+    """The preview canvas refuses drops so the window's dropEvent is the one that runs.
+
+    QGraphicsView accepts drops on itself and on its viewport, which stops the event from
+    reaching the parent. The window would then never see a dropped file.
+    """
+    assert window.acceptDrops() is True
+    assert window.canvas.acceptDrops() is False
+    assert window.canvas.viewport().acceptDrops() is False
 
 
 def test_undo_and_redo_actions_round_trip_the_window(window: mw.MainWindow) -> None:

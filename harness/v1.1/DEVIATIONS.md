@@ -230,3 +230,26 @@ _No entry yet._
   the tool does not serve. | by: human
 - impact: §20 amended in place, no version bump. No code change. A prepress user who needs
   plate-to-print registration would need a new card.
+
+### DEV-109
+- class: E7 | task: T27 | contract: 1.1.0 | status: resolved
+- raised by: human | date: 2026-11-12
+- facts: H8 found two defects the suite could not see. (1) F5 and Space did nothing: `_add_action`
+  created the QAction but never called `addAction`, so the shortcut was inert unless a menu attached
+  the action. `undo`, `redo`, `open_image`, `export_png` and `export_dialog` worked by accident
+  because `_build_menus` attaches them; `rerender` and `toggle_before_after` are in no menu and were
+  dead. Measured: `QWidget.actions(window)` was empty. (2) Dropping a file did nothing:
+  `PreviewCanvas` is a `QGraphicsView`, which accepts drops on itself and on its viewport, so the
+  event never reached `MainWindow.dropEvent`. Measured: `canvas.acceptDrops()` and
+  `canvas.viewport().acceptDrops()` both True.
+- assumption / proposal: the card's accept item read "every shortcut in §22.2 is bound and triggers
+  its action (assert on the action, not the key)", which invites a test that triggers the QAction
+  directly and therefore cannot see an inert shortcut. Proposal: attach every action to the window in
+  `_add_action`, refuse drops on the canvas and its viewport, and add two tests that assert the
+  attachment and the refusal rather than the effect.
+- decision: **fixed directly, not deferred to a card.** Both are two-line changes in files T27
+  already owns, and the regression tests fail against the pre-fix source. | by: orchestrator
+- impact: `main_window.py` gains `self.addAction(action)` and two `setAcceptDrops(False)` calls.
+  `tests/test_ui_commands.py` gains two tests, both verified to fail without the fix. The card's
+  accept criterion is the real defect: "assert on the action, not the key" should read "assert the
+  action is reachable from the window, then assert its effect".
