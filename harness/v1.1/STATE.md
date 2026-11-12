@@ -15,7 +15,7 @@ last_update: 2026-11-11
 
 | Task | Wave | Status | g | r | Commit | Notes |
 |---|---|---|---|---|---|---|
-| T17 | 4 | todo | 0 | 0 | | spec v2, preset v2, conditioning; critical path |
+| T17 | 4 | done | 0 | 0 | 502ea80 | spec v2, preset v2, conditioning; G5 green |
 | T18 | 4 | todo | 0 | 0 | | colour metrics |
 | T19 | 4 | todo | 0 | 0 | | strength invariant |
 | T20 | 4 | todo | 0 | 0 | | halftone v2 + CMYK effect |
@@ -49,6 +49,21 @@ last_update: 2026-11-11
   touches the pipeline and adds a second render path. Both are gates, not informative tests.
 - 2026-11-11: the project name is not changed in 1.1. Decision deferred by the user; it has no code
   impact.
+- 2026-11-12: **the harness 1.1 is executed before the Lattice harness 0.1**, by human decision. The
+  Lattice contract inherits §12 and §13, so those sections must exist in code before `lattice-core`
+  is extracted. Lattice's L1 to L22 wait.
+- 2026-11-12: the environment was rebuilt from scratch (`.venv`, Python 3.13.18, the pinned
+  requirements). The baseline was **620 passed, 2 failed**, not the 622 the harness claimed. Both
+  failures were test-harness defects, not product defects: the fake PhotoCraft server's accept loop
+  died after 20 ms because `socket.timeout` is an `OSError`, and the smoke test decoded the child's
+  locale-encoded stdout as UTF-8. Fixed in `f8ab012`; the baseline is now genuinely 622.
+- 2026-11-12: the three witness baselines were rendered from the committed `source.png`, not from
+  the float image `tools/contact_sheet.py` produces. Rendering from the float image made the
+  baselines unreproducible from the repository alone.
+- 2026-11-12: T17's `owns` was extended to `core/color.py` and `tests/test_ui_algorithm.py`
+  (AMD-102). Three deviations opened: DEV-101 (`locked` has no colour source), DEV-102
+  (`color_metric` has no path to the algorithms), DEV-103 (the positive saturation formula is
+  undefined).
 
 ## Human checkpoints
 
@@ -62,4 +77,8 @@ last_update: 2026-11-11
 
 ## Next
 
-- NEXT: T17 alone. Nothing else may start until it is done.
+- NEXT: T18 (colour metrics) and T19 (strength) can run in parallel: their `owns` sets are disjoint
+  (`core/color.py` + `tests/test_color.py` against the eight algorithm modules +
+  `tests/test_strength.py`). T20 and T21 follow, also disjoint. Max concurrency 4.
+- T18 and T19 must resolve DEV-102: `color_metric` is inert until it reaches the kernels.
+- H5 (read and freeze CONTRACT 1.1) is still pending and should be taken before wave 5.

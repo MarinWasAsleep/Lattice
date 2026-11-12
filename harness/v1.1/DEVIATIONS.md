@@ -33,3 +33,66 @@ carried over.
 ```
 
 _No entry yet._
+
+### DEV-101
+- class: E1 | task: T17 | contract: 1.1.0 | status: open
+- raised by: coder | date: 2026-11-12
+- facts: §16 types `PaletteSpec.locked` as `list[int]` and says the locked indices are "seeded into
+  the extraction result". At extraction time no palette exists yet, so there is nothing for an index
+  to point into. The contract never says which palette the indices refer to.
+- assumption / proposal: T17 ships the field, its serialisation and the count validation
+  (`len(locked) > extract_k` raises `ValueError`). The seeding itself is not implemented, because
+  implementing it would mean inventing the colour source. Proposal: either define `locked` as
+  indices into the palette currently loaded in the UI, or change the type to a list of `#RRGGBB`
+  colours.
+- decision: | by:
+- impact: T21 (palette authoring) cannot complete the lock feature until this is decided.
+
+### DEV-102
+- class: E1 | task: T17 | contract: 1.1.0 | status: open
+- raised by: coder | date: 2026-11-12
+- facts: §13 puts `color_metric` on `PipelineSpec`, but the algorithm signature is
+  `fn(img, palette, params)` and every algorithm calls `color.nearest_index(img, palette)` or
+  `nearest_index_px(r, g, b, palette)` internally. The contract defines no path from the spec field
+  to the kernel, and `resolve_params` rejects any parameter not declared in the algorithm's
+  `params` tuple.
+- assumption / proposal: T17 stores, validates and serialises `color_metric`; the field is inert
+  until it is wired. Proposal: add `color_metric` to the algorithm call, either as a fourth
+  positional argument or by injecting it into `params` after `resolve_params`. The second keeps the
+  signature stable but needs a reserved key.
+- decision: | by:
+- impact: T18 and T19 must wire it; until then a preset carrying `color_metric: "oklab"` renders
+  in sRGB without warning.
+
+### DEV-103
+- class: E1 | task: T17 | contract: 1.1.0 | status: open
+- raised by: coder | date: 2026-11-12
+- facts: §13 gives an explicit formula for saturation in `[-1, 0]`
+  (`out = lum + (c - lum) * (1 + saturation)`) and only the words "a lerp toward the fully saturated
+  colour" for `[0, 1]`. A literal lerp toward the fully saturated colour normalises the chroma
+  vector, which makes the control jump on nearly grey pixels: a pixel with a chroma of 0.05 reaches
+  full saturation at `saturation = 0.05`.
+- assumption / proposal: the same multiplicative form is used on both sides, so `saturation = 1`
+  doubles the distance to the luminance. It is smooth, monotone, and satisfies every acceptance item
+  of the card. Proposal: write the formula for `[0, 1]` into §13 so no coder has to choose.
+- decision: | by:
+- impact: none on the tests; a product decision if the harsher look was intended.
+
+## Amendments
+
+### AMD-101
+- task: T17 | contract: 1.1.0 | date: 2026-11-12
+- section: all cards
+- discovered: every 1.1 card names the package `dithercraft/`, but the application was renamed
+  Lattice Dither before this harness ran (AMD-001 of the Lattice harness). The package is
+  `lattice_dither/`, the distribution `lattice-dither`.
+- contract change: read every `dithercraft/` path in `TASKS.md` as `lattice_dither/`. No other
+  change.
+
+### AMD-102
+- task: T17 | contract: 1.1.0 | date: 2026-11-12
+- section: §13
+- discovered: T17 must change `adjust`, which lives in `core/color.py`, and the Gaussian blur of
+  step 5 has no home in the card's `owns` list. `core/color.py` is listed as T18's file.
+- contract change: T17's `owns` gains `lattice_dither/core/color.py` and
+  `tests/test_ui_algorithm.py`. T18 runs after T17, so the two never overlap in time.
