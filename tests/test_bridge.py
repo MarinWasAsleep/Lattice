@@ -71,6 +71,8 @@ class FakeDesktopServer:
         while not self._stop.is_set():
             try:
                 conn, _ = self._listener.accept()
+            except TimeoutError:
+                continue
             except OSError:
                 return
             with conn:
