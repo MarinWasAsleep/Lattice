@@ -172,3 +172,28 @@ _No entry yet._
 - decision: | by:
 - impact: T23's fourth accept item is met for low-entropy content only. No code change is needed
   until the contract names the reference content.
+
+### DEV-107
+- class: E1 | task: T25 | contract: 1.1.0 | status: resolved
+- raised by: human | date: 2026-11-12
+- facts: §21 said "No new dependency. ffmpeg is invoked as a subprocess if present", and the
+  decisions log of 2026-11-11 repeated it. That rule makes the video export depend on a system
+  install the project never declares: `pip install -r requirements.txt` produced an application
+  whose `export_video` silently returned `False`, and the PyInstaller bundle advertised "no Python
+  installation needed" while still needing ffmpeg on `PATH`. ffmpeg is a binary, not a Python
+  package, so it cannot be pinned in `requirements.txt` as it stands.
+- assumption / proposal: three ways to close the gap. `imageio-ffmpeg` ships a static ffmpeg inside
+  its wheel, so the dependency becomes a normal `pip install`; `static-ffmpeg` downloads at install
+  time, which is not reproducible; a documented system prerequisite plus an install script keeps the
+  rule but leaves a manual step.
+- decision: **`imageio-ffmpeg` becomes a project dependency**, pinned in `requirements.txt`.
+  `export_video` resolves the binary through `imageio_ffmpeg.get_ffmpeg_exe()` and falls back to
+  `shutil.which("ffmpeg")` when the dependency is absent, so a system ffmpeg still works. The
+  PyInstaller bundle ships the binary through `--hidden-import` and `--collect-data`. PhotoCraft
+  stays an integration, not a dependency: it is a separate application, detected at runtime.
+  | by: human
+- impact: §21 amended in place. `requirements.txt` gains one line; the wheel is 38.9 MB and carries
+  ffmpeg 9.0.2 (essentials build, 105 MB unpacked). The onefile bundle went from 110 MB to 145.6 MB,
+  measured. The "no new dependency" rule of 1.1 now reads "one new dependency, ffmpeg only". The
+  absent-ffmpeg tests patch `export.video._resolve_ffmpeg` instead of `shutil.which`, because
+  "absent" no longer means "not on PATH".

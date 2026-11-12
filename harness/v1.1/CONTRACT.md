@@ -248,9 +248,13 @@ def export_video(frames: list[RGB8], path: Path, *, fps: int = 12) -> bool
   to the frame), the palette is resolved once on the first frame and reused, and the error of frame
   n is not carried into frame n+1 (carrying is explicitly out of scope for 1.1).
 - `export_gif` uses Pillow only.
-- `export_video` returns `False` and writes nothing when ffmpeg is not on `PATH`; it never raises
-  for a missing ffmpeg. It returns `True` on success.
-- No new dependency. ffmpeg is invoked as a subprocess if present.
+- `export_video` returns `False` and writes nothing when no ffmpeg binary can be found; it never
+  raises for a missing ffmpeg. It returns `True` on success.
+- The ffmpeg binary comes from the `imageio-ffmpeg` dependency, which ships one inside the wheel, so
+  `pip install -r requirements.txt` is enough and no system step is needed. A system ffmpeg is the
+  fallback when the dependency is absent. This is the one dependency 1.1 adds; the 1.0 rule "no new
+  dependency" is amended here, by human decision, and the PyInstaller bundle ships the binary too.
+- No other new dependency. ffmpeg is still invoked as a subprocess, never linked.
 
 ## §22 Ergonomics
 

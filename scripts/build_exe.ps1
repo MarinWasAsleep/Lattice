@@ -4,7 +4,8 @@
     Build the standalone LatticeDither.exe with PyInstaller.
 .DESCRIPTION
     Produces dist\LatticeDither.exe, a single windowed executable that bundles the
-    interpreter, PySide6, numpy, numba and llvmlite, plus data\, presets\ and assets\.
+    interpreter, PySide6, numpy, numba and llvmlite, the ffmpeg binary shipped by
+    imageio-ffmpeg, plus data\, presets\ and assets\.
     PyInstaller is a build-time tool only: it is not in requirements.txt and the
     application never imports it.
 .PARAMETER OneFile
@@ -47,6 +48,8 @@ $arguments = @(
     '--add-data', 'assets;assets'
     '--collect-submodules', 'numba'
     '--collect-submodules', 'llvmlite'
+    '--hidden-import', 'imageio_ffmpeg'
+    '--collect-data', 'imageio_ffmpeg'
     '--exclude-module', 'numba.tests'
     '--exclude-module', 'llvmlite.tests'
     '--exclude-module', 'tkinter'

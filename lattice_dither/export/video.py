@@ -1,8 +1,12 @@
 """GIF and video export (CONTRACT §21).
 
-``export_gif`` uses Pillow only. ``export_video`` shells out to ffmpeg when it is on
-``PATH`` and returns ``False`` without writing anything when it is not, so a missing
-ffmpeg is a normal outcome rather than an error.
+``export_gif`` uses Pillow only. ``export_video`` shells out to ffmpeg and returns
+``False`` without writing anything when no binary can be found, so a missing ffmpeg is a
+normal outcome rather than an error.
+
+The binary comes from ``imageio-ffmpeg``, which ships one inside the wheel, so a plain
+``pip install -r requirements.txt`` is enough. A system ffmpeg is the fallback, for the
+case where the dependency is absent.
 """
 
 from __future__ import annotations
@@ -20,6 +24,18 @@ from lattice_dither.core.types import RGB8
 FFMPEG = "ffmpeg"
 FRAME_PATTERN = "frame_%06d.png"
 EVEN_PAD = "pad=ceil(iw/2)*2:ceil(ih/2)*2"
+
+
+def _resolve_ffmpeg() -> str | None:
+    """Return the ffmpeg binary to run, or None when none is available."""
+    try:
+        import imageio_ffmpeg
+    except ImportError:
+        return shutil.which(FFMPEG)
+    try:
+        return str(imageio_ffmpeg.get_ffmpeg_exe())
+    except (OSError, RuntimeError):
+        return shutil.which(FFMPEG)
 
 
 def _check(frames: list[RGB8], fps: int) -> int:
@@ -52,9 +68,9 @@ def export_gif(frames: list[RGB8], path: Path, *, fps: int = 12, loop: int = 0) 
 
 
 def export_video(frames: list[RGB8], path: Path, *, fps: int = 12) -> bool:
-    """Write frames to path through ffmpeg, returning False when ffmpeg is absent."""
+    """Write frames to path through ffmpeg, returning False when no ffmpeg is available."""
     _check(frames, fps)
-    binary = shutil.which(FFMPEG)
+    binary = _resolve_ffmpeg()
     if binary is None:
         return False
     target = Path(path)

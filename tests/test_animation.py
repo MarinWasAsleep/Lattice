@@ -20,6 +20,7 @@ from lattice_dither.core.pipeline import (
     prepare_image,
     resolve_palette,
 )
+from lattice_dither.export import video
 from lattice_dither.export.video import export_gif, export_video
 
 BW = ["#000000", "#FFFFFF"]
@@ -164,7 +165,7 @@ def test_export_gif_rejects_a_bad_fps(tmp_path: Path) -> None:
 
 def test_export_video_returns_false_without_ffmpeg(tmp_path: Path, monkeypatch) -> None:
     """A missing ffmpeg is a normal outcome, not an error."""
-    monkeypatch.setattr(shutil, "which", lambda _name: None)
+    monkeypatch.setattr(video, "_resolve_ffmpeg", lambda: None)
     target = tmp_path / "clip.mp4"
     assert export_video(_rgb_frames(), target) is False
     assert not target.exists()
@@ -172,14 +173,14 @@ def test_export_video_returns_false_without_ffmpeg(tmp_path: Path, monkeypatch) 
 
 def test_export_video_writes_nothing_without_ffmpeg(tmp_path: Path, monkeypatch) -> None:
     """No file and no leftover frame directory are produced without ffmpeg."""
-    monkeypatch.setattr(shutil, "which", lambda _name: None)
+    monkeypatch.setattr(video, "_resolve_ffmpeg", lambda: None)
     export_video(_rgb_frames(), tmp_path / "clip.mp4")
     assert list(tmp_path.iterdir()) == []
 
 
 def test_export_video_never_raises_without_ffmpeg(tmp_path: Path, monkeypatch) -> None:
     """The absent-ffmpeg path swallows nothing but also raises nothing."""
-    monkeypatch.setattr(shutil, "which", lambda _name: None)
+    monkeypatch.setattr(video, "_resolve_ffmpeg", lambda: None)
     assert export_video(_rgb_frames(), tmp_path / "clip.mp4", fps=24) is False
 
 
@@ -190,7 +191,7 @@ def test_export_video_rejects_an_empty_sequence(tmp_path: Path) -> None:
 
 
 needs_ffmpeg = pytest.mark.skipif(
-    shutil.which("ffmpeg") is None, reason="ffmpeg is not installed"
+    video._resolve_ffmpeg() is None, reason="no ffmpeg binary is available"
 )
 needs_ffprobe = pytest.mark.skipif(
     shutil.which("ffprobe") is None, reason="ffprobe is not installed"

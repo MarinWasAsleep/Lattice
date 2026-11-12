@@ -54,7 +54,8 @@ Sharpen.
 A prebuilt Windows executable is attached to the
 [latest release](https://github.com/MarinWasAsleep/lattice-dither/releases/latest): download
 `LatticeDither.exe` and run it, no Python installation needed. It is a PyInstaller bundle of about
-110 MB, so the first window takes a few seconds to appear while it unpacks.
+146 MB, so the first window takes a few seconds to appear while it unpacks. The bundle carries its
+own ffmpeg, so video export works out of the box.
 
 ## Install
 
@@ -66,6 +67,10 @@ cd lattice-dither
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
+
+That is the whole install. Video export needs ffmpeg, and `imageio-ffmpeg` ships one inside its
+wheel, so there is no separate system step. If you already have a newer ffmpeg on `PATH` and prefer
+it, uninstall the dependency and the export falls back to yours.
 
 ## Run
 

@@ -9,8 +9,9 @@ last_update: 2026-11-12
 
 - python: 3.15.2 · numpy 2.5.4 · numba 0.68.1 · Pillow 13.0.0 · PySide6 6.12.0 · pytest 9.2.0 · ruff 0.17.4
 - venv: `.venv` at the project root. No new dependency in 1.1.
-- ffmpeg: 9.0.2 (Gyan full build) on `PATH`, installed through winget. Optional at runtime: the
-  video export returns `False` when it is missing.
+- ffmpeg: provided by the `imageio-ffmpeg==0.8.1` dependency, which ships ffmpeg 9.0.2 (essentials
+  build) inside its wheel. A system ffmpeg on `PATH` is the fallback. The video export returns
+  `False` when neither is available.
 - Baseline before 1.1: 622 tests green, ruff clean, check_contract OK, commit `5e3c2dd`.
 
 ## Task table
@@ -25,7 +26,7 @@ last_update: 2026-11-12
 | T22 | 5 | done | 0 | 0 | 452da4e | CLI + batch; G6 green |
 | T23 | 5 | done | 0 | 0 | | SVG export; DEV-106 on the size budget |
 | T24 | 5 | done | 0 | 0 | | print export, bleed, crop marks, separations |
-| T25 | 5 | done | 0 | 0 | | animation + video; ffmpeg 9.0.2 verified |
+| T25 | 5 | done | 0 | 0 | | animation + video; DEV-107 adds imageio-ffmpeg |
 | T26 | 6 | todo | 0 | 0 | | algorithm gallery |
 | T27 | 6 | todo | 0 | 0 | | undo, shortcuts, drag and drop |
 | T28 | 6 | todo | 0 | 0 | | i18n + French catalogue |
@@ -46,7 +47,9 @@ last_update: 2026-11-12
 - 2026-11-11: CMYK halftone is an **effect**, not an algorithm, because it produces ink coverage
   rather than palette indices. Recorded in §15.2 so no coder has to invent it.
 - 2026-11-11: no new dependency in 1.1. ffmpeg is optional and detected at runtime; palette import
-  is file-based or pasted hex, never network in the core.
+  is file-based or pasted hex, never network in the core. **Amended on 2026-11-12 by DEV-107:**
+  `imageio-ffmpeg` is now a dependency, so ffmpeg ships with the project instead of being an
+  undeclared system step. The palette rule is unchanged.
 - 2026-11-11: two new gates, G5 (v1 preset compatibility) and G6 (CLI/GUI parity), because 1.1
   touches the pipeline and adds a second render path. Both are gates, not informative tests.
 - 2026-11-11: the project name is not changed in 1.1. Decision deferred by the user; it has no code
@@ -163,6 +166,14 @@ last_update: 2026-11-12
   `export_video` are now exercised. The success path is checked with `ffprobe`: h264, the frame
   dimensions and the requested rate all come back as written. The two tests skip themselves when
   ffmpeg or ffprobe is missing, so the suite stays green on a machine without them.
+- 2026-11-12: **DEV-107 is resolved, by human decision.** `imageio-ffmpeg==0.8.1` becomes a project
+  dependency, so `pip install -r requirements.txt` is the whole install and the video export no
+  longer depends on an undeclared system step. The wheel is 38.9 MB and carries ffmpeg 9.0.2
+  (essentials build, 105 MB unpacked). `export_video` resolves through
+  `imageio_ffmpeg.get_ffmpeg_exe()` and falls back to `shutil.which`, so a system ffmpeg still
+  works. The PyInstaller script gained `--hidden-import` and `--collect-data` for the package,
+  because the import is lazy and static analysis would miss it. PhotoCraft stays an integration:
+  it is a separate application, detected at runtime, never a dependency.
 
 ## Human checkpoints
 
