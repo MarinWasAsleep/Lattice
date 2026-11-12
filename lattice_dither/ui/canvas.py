@@ -41,20 +41,10 @@ def _as_rgb8(rgb8: RGB8) -> RGB8:
     return np.ascontiguousarray(array)
 
 
-def _to_qimage(rgb8: RGB8) -> QImage:
-    """Convert a contiguous uint8 RGB array into a QImage that owns its pixels."""
-    height, width = rgb8.shape[:2]
-    data = np.ascontiguousarray(rgb8, dtype=np.uint8)
-    image = QImage(data.data, width, height, 3 * width, QImage.Format.Format_RGB888)
-    return image.copy()
-
-
-def _split(after: RGB8, before: RGB8) -> RGB8:
-    """Return a copy of after whose left half is taken from before."""
-    out = after.copy()
-    half = out.shape[1] // 2
-    out[:, :half] = before[:, :half]
-    return out
+def _pixels(image: QImage) -> np.ndarray:
+    """Return a writable (height, bytesPerLine) uint8 view of the image pixels."""
+    height = image.height()
+    return np.frombuffer(image.bits(), dtype=np.uint8).reshape(height, image.bytesPerLine())
 
 
 class PreviewCanvas(QGraphicsView):
@@ -71,8 +61,10 @@ class PreviewCanvas(QGraphicsView):
         self._scene.addItem(self._item)
         self._after: RGB8 | None = None
         self._before: RGB8 | None = None
+        self._buffer: QImage | None = None
         self._mode: Mode = "after"
         self._zoom = 1.0
+        self._fitted = True
         self._panning = False
         self._pan_origin = QPoint()
         self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
@@ -86,10 +78,10 @@ class PreviewCanvas(QGraphicsView):
 
     def set_image(self, rgb8: RGB8) -> None:
         """Set the rendered (after) image and refresh the display."""
-        first = self._after is None
+        previous = None if self._after is None else self._after.shape
         self._after = _as_rgb8(rgb8)
         self._refresh()
-        if first:
+        if previous is None or (self._fitted and self._after.shape != previous):
             self.zoom_fit()
 
     def set_original(self, rgb8: RGB8 | None) -> None:
@@ -109,6 +101,10 @@ class PreviewCanvas(QGraphicsView):
         """Return the active preview mode."""
         return self._mode
 
+    def qimage(self) -> QImage | None:
+        """Return the QImage buffer the canvas displays, or None when it is empty."""
+        return self._buffer
+
     def zoom(self) -> float:
         """Return the current zoom factor (1.0 is one image pixel per screen pixel)."""
         return self._zoom
@@ -117,6 +113,7 @@ class PreviewCanvas(QGraphicsView):
         """Set the zoom factor, clamped to the supported range."""
         factor = float(min(max(float(f), MIN_ZOOM), MAX_ZOOM))
         self._zoom = factor
+        self._fitted = False
         self.setTransform(QTransform().scale(factor, factor))
         self.zoom_changed.emit(factor)
 
@@ -129,30 +126,51 @@ class PreviewCanvas(QGraphicsView):
         scale_x = (viewport.width() - FIT_MARGIN) / rect.width()
         scale_y = (viewport.height() - FIT_MARGIN) / rect.height()
         self.set_zoom(min(scale_x, scale_y))
+        self._fitted = True
 
     def _refresh(self) -> None:
         """Rebuild the displayed pixmap from the current images and mode."""
-        image = self._compose()
-        if image is None:
+        after = self._after
+        if after is None:
             self._item.setPixmap(QPixmap())
             self._scene.setSceneRect(QRectF())
             return
-        pixmap = QPixmap.fromImage(image)
+        self._compose(after)
+        pixmap = QPixmap.fromImage(self._buffer)
         self._item.setPixmap(pixmap)
         self._scene.setSceneRect(QRectF(pixmap.rect()))
 
-    def _compose(self) -> QImage | None:
-        """Return the QImage matching the current mode, or None without an image."""
-        after = self._after
+    def _compose(self, after: RGB8) -> None:
+        """Write the image matching the current mode into the display buffer."""
         before = self._before
-        if after is None:
-            return None
-        if before is not None and before.shape == after.shape:
-            if self._mode == "before":
-                return _to_qimage(before)
-            if self._mode == "split":
-                return _to_qimage(_split(after, before))
-        return _to_qimage(after)
+        paired = before is not None and before.shape == after.shape
+        if paired and self._mode == "before":
+            self._blit(before)
+            return
+        self._blit(after)
+        if paired and self._mode == "split":
+            self._blit_left(before)
+
+    def _blit(self, rgb8: RGB8) -> None:
+        """Copy rgb8 into the display buffer, reallocating it only when the shape changes."""
+        height, width = rgb8.shape[:2]
+        buffer = self._buffer
+        if buffer is None or buffer.width() != width or buffer.height() != height:
+            buffer = QImage(width, height, QImage.Format.Format_RGB888)
+            self._buffer = buffer
+        view = _pixels(buffer)
+        view[:, : width * 3] = rgb8.reshape(height, width * 3)
+        if view.shape[1] > width * 3:
+            view[:, width * 3 :] = 0
+
+    def _blit_left(self, rgb8: RGB8) -> None:
+        """Copy the left half of rgb8 into the display buffer."""
+        buffer = self._buffer
+        if buffer is None:
+            return
+        height, width = rgb8.shape[:2]
+        half = (width // 2) * 3
+        _pixels(buffer)[:, :half] = rgb8.reshape(height, width * 3)[:, :half]
 
     def wheelEvent(self, event: QWheelEvent) -> None:
         """Zoom around the cursor with the mouse wheel."""

@@ -1,4 +1,9 @@
-"""Render worker: debounced previews, full-resolution renders and bridge calls."""
+"""Render worker: progressive previews, full-resolution renders and bridge calls.
+
+Previews are rendered from cached proxies, coarse first (``PREVIEW_STAGES``), so a large
+source never reaches the pipeline at full resolution. The full render happens only on
+export or send. Sources above ``MAX_SOURCE_SIDE`` are refused instead of exhausting memory.
+"""
 
 from __future__ import annotations
 
@@ -25,7 +30,10 @@ from lattice_dither.palettes.io import hex_list
 LOGGER = logging.getLogger(__name__)
 
 DEBOUNCE_MS = 120
-PREVIEW_MAX_SIDE = 1024
+PREVIEW_STAGES: tuple[int, ...] = (256, 1024)
+PREVIEW_MAX_SIDE = PREVIEW_STAGES[-1]
+MAX_SOURCE_SIDE = 8000
+PROXY_STRIP_ROWS = 256
 CONNECTION_INTERVAL_MS = 3000
 PROBE_JOIN_MS = 250
 LAYER_NAME = "Lattice Dither"
@@ -49,19 +57,49 @@ class RenderResult:
 
 @dataclass(frozen=True)
 class PreviewResult:
-    """One finished preview render, with the proxy of the source for the split view."""
+    """One finished preview stage: its job, the render, the source proxy and its duration."""
 
     job: int
     image: RGB8
     original: RGB8
     seconds: float
+    max_side: int = PREVIEW_MAX_SIDE
+
+
+def proxy_factor(image: Image, max_side: int) -> int:
+    """Return the integer area-downscale factor that brings image under max_side."""
+    longest = max(image.shape[:2])
+    return max(1, -(-longest // max(1, int(max_side))))
+
+
+def _downscale_strips(image: Image, factor: int) -> Image:
+    """Area-downscale image by factor in row strips, so peak memory stays near the output."""
+    if factor <= 1:
+        return np.ascontiguousarray(image, dtype=np.float32)
+    rows = max(factor, (PROXY_STRIP_ROWS // factor) * factor)
+    parts = [
+        color.downscale(image[start : start + rows], factor)
+        for start in range(0, image.shape[0], rows)
+    ]
+    return np.ascontiguousarray(np.concatenate(parts, axis=0))
 
 
 def preview_proxy(image: Image, max_side: int = PREVIEW_MAX_SIDE) -> RGB8:
-    """Return the uint8 proxy of image, shaped like the preview render."""
-    longest = max(image.shape[:2])
-    factor = max(1, -(-longest // max_side))
-    return color.to_rgb8(color.downscale(image, factor))
+    """Return the uint8 proxy of image, shaped like the preview render at max_side."""
+    return color.to_rgb8(_downscale_strips(image, proxy_factor(image, max_side)))
+
+
+def oversize_message(shape: tuple[int, ...]) -> str | None:
+    """Return the refusal message for a source of this (height, width), or None."""
+    if len(shape) < 2:
+        return None
+    height, width = int(shape[0]), int(shape[1])
+    if max(height, width) <= MAX_SOURCE_SIDE:
+        return None
+    return (
+        f"Image is {width}×{height} px, above the {MAX_SOURCE_SIDE} px limit; "
+        "downscale it before opening it in Lattice Dither."
+    )
 
 
 class ConnectionProbe(QObject):
@@ -155,7 +193,7 @@ class RenderWorker(QObject):
         self.probe = ConnectionProbe(self)
         self.probe.state_changed.connect(self.connection_state)
         self._source: Image | None = None
-        self._proxy: RGB8 | None = None
+        self._proxies: dict[int, tuple[Image, RGB8]] = {}
         self._spec: PipelineSpec | None = None
         self._job = 0
         self._pending_job = 0
@@ -182,13 +220,14 @@ class RenderWorker(QObject):
 
     @Slot(object)
     def set_source(self, image: Image | None) -> None:
-        """Store the pipeline source and cache the proxy used by the split view."""
-        if image is None:
-            self._source = None
-            self._proxy = None
-            return
-        self._source = np.ascontiguousarray(image, dtype=np.float32)
-        self._proxy = preview_proxy(self._source)
+        """Adopt image as the pipeline source, refusing sources above MAX_SOURCE_SIDE."""
+        if image is not None:
+            message = oversize_message(np.shape(image))
+            if message is not None:
+                self.failed.emit(message)
+                return
+        self._proxies.clear()
+        self._source = None if image is None else np.ascontiguousarray(image, dtype=np.float32)
 
     @Slot(object)
     def request_preview(self, spec: PipelineSpec) -> None:
@@ -256,8 +295,20 @@ class RenderWorker(QObject):
             installed = installed_photocraft_version()
         self.version_status_ready.emit(status, installed)
 
+    def _proxy_for(self, max_side: int) -> tuple[Image, RGB8]:
+        """Return the cached (float32 proxy, uint8 proxy) of the source at max_side."""
+        cached = self._proxies.get(max_side)
+        if cached is None:
+            source = self._source
+            if source is None:
+                raise ValueError("no source image")
+            proxy = _downscale_strips(source, proxy_factor(source, max_side))
+            cached = (proxy, color.to_rgb8(proxy))
+            self._proxies[max_side] = cached
+        return cached
+
     def _render_preview(self) -> None:
-        """Render the latest requested spec as a preview and drop stale results."""
+        """Render the latest spec through the preview stages, dropping superseded jobs."""
         spec, source = self._spec, self._source
         if spec is None or source is None:
             return
@@ -265,14 +316,23 @@ class RenderWorker(QObject):
         if job != self._job:
             LOGGER.debug("dropping superseded preview job %d", job)
             return
-        started = time.perf_counter()
-        try:
-            rgb8 = render(source, spec, max_side=PREVIEW_MAX_SIDE)
-        except Exception as exc:  # noqa: BLE001 - report any render failure to the user
-            self.failed.emit(f"Render failed: {exc}")
-            return
-        original = self._proxy if self._proxy is not None else rgb8
-        self.preview_ready.emit(PreviewResult(job, rgb8, original, time.perf_counter() - started))
+        previous: tuple[int, int] | None = None
+        for max_side in PREVIEW_STAGES:
+            if job != self._job:
+                LOGGER.debug("dropping superseded preview job %d", job)
+                return
+            started = time.perf_counter()
+            try:
+                proxy, original = self._proxy_for(max_side)
+                rgb8 = render(proxy, spec)
+            except Exception as exc:  # noqa: BLE001 - report any render failure to the user
+                self.failed.emit(f"Render failed: {exc}")
+                return
+            if rgb8.shape == previous:
+                continue
+            previous = rgb8.shape
+            seconds = time.perf_counter() - started
+            self.preview_ready.emit(PreviewResult(job, rgb8, original, seconds, max_side))
 
     def _render_full(self, spec: PipelineSpec) -> RenderResult | None:
         """Render spec at full resolution, emitting failed and returning None on error."""
