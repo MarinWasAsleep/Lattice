@@ -197,3 +197,22 @@ _No entry yet._
   measured. The "no new dependency" rule of 1.1 now reads "one new dependency, ffmpeg only". The
   absent-ffmpeg tests patch `export.video._resolve_ffmpeg` instead of `shutil.which`, because
   "absent" no longer means "not on PATH".
+
+### DEV-108
+- class: E1 | task: T24 | contract: 1.1.0 | status: resolved
+- raised by: human | date: 2026-11-12
+- facts: §20 says `separations = True` "additionally writes one greyscale PNG per ink ... computed
+  from the CMYK conversion", and says nothing about the bleed or the crop marks. T24 computes the
+  plates from the trim array, so a plate is `width × height` while the main PNG is
+  `width + 2*bleed + 2*margin` by `height + 2*bleed + 2*margin`. Measured on the Game Boy render:
+  the plates are 800×660, the print PNG is 940×800. A printer laying a plate over the print file
+  would find it short by the bleed and the margin, so the two do not register.
+- assumption / proposal: the plates describe the trim only, which is the area that carries ink; the
+  bleed is a replication of the edge and the margin holds marks, neither of which is part of any ink
+  plate. Proposal: state the reading in §20 rather than pad the plates.
+- decision: **the plates stay trim-only, recorded as an assumed reading.** Lattice Dither targets
+  digital art, where the print export is a convenience for a poster or a zine and not a production
+  prepress workflow; padding the plates would add a second definition of the canvas for a use case
+  the tool does not serve. | by: human
+- impact: §20 amended in place, no version bump. No code change. A prepress user who needs
+  plate-to-print registration would need a new card.

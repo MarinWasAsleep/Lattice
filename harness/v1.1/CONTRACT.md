@@ -231,7 +231,10 @@ def export_print(
 - Writes a PNG at `dpi` (metadata only; pixel dimensions unchanged) with an optional bleed border
   filled with the edge colour, and optional crop marks drawn outside the trim area.
 - `separations = True` additionally writes one greyscale PNG per ink (`<stem>_C.png`, `_M`, `_Y`,
-  `_K`) computed from the CMYK conversion, and returns every path written.
+  `_K`) computed from the CMYK conversion, and returns every path written. The plates cover the trim
+  only: the bleed is a replication of the edge and the margin holds marks, so neither carries ink.
+  A plate is 255 where its ink is at full strength, so an ink the image does not use is an all-zero
+  plate, which reads as black in a greyscale viewer.
 - Returns the list of files created, in write order.
 
 ## §21 Animation and video

@@ -174,6 +174,12 @@ last_update: 2026-11-12
   works. The PyInstaller script gained `--hidden-import` and `--collect-data` for the package,
   because the import is lazy and static analysis would miss it. PhotoCraft stays an integration:
   it is a separate application, detected at runtime, never a dependency.
+- 2026-11-12: **DEV-108 is resolved, by human decision.** The separation plates cover the trim only,
+  without the bleed and without the crop-mark margin, so they are smaller than the print PNG. The
+  reading is recorded rather than implemented because the print export targets digital art, where it
+  is a convenience for a poster or a zine, not a prepress workflow. A consequence worth knowing: a
+  render whose palette has no colour with green below its maximum produces an all-zero M plate,
+  which is correct and reads as black in a greyscale viewer.
 
 ## Human checkpoints
 
@@ -188,9 +194,9 @@ last_update: 2026-11-12
 ## Next
 
 - NEXT: wave 5 is complete. T26 (algorithm gallery) opens wave 6.
-- DEV-101 is resolved, so no deviation blocks a task. DEV-104 and DEV-105 stay open as accepted
-  readings of §14 and §15.1. DEV-106 needs a human decision on the reference content of §19's size
-  budget; it blocks nothing.
+- DEV-101 and DEV-108 are resolved, so no deviation blocks a task. DEV-104 and DEV-105 stay open as
+  accepted readings of §14 and §15.1. DEV-106 needs a human decision on the reference content of
+  §19's size budget; it blocks nothing.
 - H5 (read and freeze CONTRACT 1.1) is still pending and should be taken before wave 6.
 - H6 (judge output on three real images) can now be taken: T17 to T21 are in, so conditioning,
   colour metrics, strength, both halftones and the palette library are usable from the GUI.
