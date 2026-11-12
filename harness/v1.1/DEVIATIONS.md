@@ -84,6 +84,21 @@ _No entry yet._
 - decision: | by:
 - impact: none on the tests. A product decision if the literal per-family behaviour was intended.
 
+### DEV-105
+- class: E6 | task: T20 | contract: 1.1.0 | status: open
+- raised by: coder | date: 2026-11-12
+- facts: §15.1 gives one parameter block to `halftone_dots`, `halftone_squares` and
+  `halftone_lines`, with `dot_shape: str = "round"`. Taken literally, all three algorithms default
+  to round dots, so `halftone_squares` and `halftone_lines` would render exactly what
+  `halftone_dots` renders. The witness preset `04_halftone_print` uses `halftone_dots` with empty
+  `algorithm_params`, and `tests/data/strength_baseline.json` holds digests for all three, so a
+  shared default would also move the 1.0 output of two algorithms.
+- assumption / proposal: each algorithm keeps the shape its name promises as its default
+  (`round`, `square`, `line`). The six shapes are all reachable from every algorithm through the
+  parameter, so nothing is lost. Proposal: write the per-algorithm default into §15.1.
+- decision: | by:
+- impact: none on the tests. G5 stays green because the defaults do not move.
+
 ### DEV-103
 - class: E1 | task: T17 | contract: 1.1.0 | status: open
 - raised by: coder | date: 2026-11-12

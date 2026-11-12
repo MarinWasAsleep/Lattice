@@ -18,7 +18,7 @@ last_update: 2026-11-12
 | T17 | 4 | done | 0 | 0 | 502ea80 | spec v2, preset v2, conditioning; G5 green |
 | T18 | 4 | done | 0 | 0 | 3f5fbad | colour metrics; DEV-102 wired |
 | T19 | 4 | done | 0 | 0 | d7c0624 | strength on all 33 algorithms |
-| T20 | 4 | todo | 0 | 0 | | halftone v2 + CMYK effect |
+| T20 | 4 | done | 0 | 0 | 3faf7fb | halftone v2 + CMYK effect |
 | T21 | 4 | todo | 0 | 0 | | palette authoring + library |
 | T22 | 5 | todo | 0 | 0 | | CLI + batch |
 | T23 | 5 | todo | 0 | 0 | | SVG export |
@@ -79,6 +79,17 @@ last_update: 2026-11-12
   halftone spot threshold scaled to 0.5 yields two colours, not K, so `strength=0` would not equal
   `nearest_index`. Halftone, yliluoma and dbs therefore blend in colour space toward the
   nearest-colour map (DEV-104).
+- 2026-11-12: T20 keeps one default `dot_shape` per algorithm (`round`, `square`, `line`) instead of
+  the single `"round"` the §15.1 block shows. With a shared default the three algorithms would
+  render identically at their defaults, and the witness preset `04_halftone_print` would change
+  (DEV-105).
+- 2026-11-12: `effects/halftone.py` imports `coverage` and `spot_function` from
+  `algorithms/halftone.py` rather than duplicating the six spot functions. The dependency runs one
+  way only, effects on algorithms, so there is no import cycle.
+- 2026-11-12: the §15.1 accept item "4 is smoother (lower variance inside a cell)" is measured on
+  the coverage map, not on the binary index map. A one-bit output cannot be smoother than one bit
+  per pixel; what oversampling actually smooths is the coverage, whose variance drops for all six
+  shapes on both a flat and a gradient image.
 
 ## Human checkpoints
 
