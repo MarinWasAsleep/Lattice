@@ -142,5 +142,21 @@
   "Separations": "Separations",
   "Video": "Video",
   "Video (*.mp4 *.mkv *.webm);;All files (*)": "Video (*.mp4 *.mkv *.webm);;All files (*)",
-  "forever": "forever"
+  "forever": "forever",
+  "Search algorithms": "Search algorithms",
+  "No algorithm matches the search.": "No algorithm matches the search.",
+  "Undo": "Undo",
+  "Redo": "Redo",
+  "Export…": "Export…",
+  "Re-render": "Re-render",
+  "Before / after": "Before / after",
+  "File": "File",
+  "Edit": "Edit",
+  "Recent": "Recent",
+  "No recent files": "No recent files",
+  "Nothing to undo": "Nothing to undo",
+  "Nothing to redo": "Nothing to redo",
+  "Ignored {name}: not an image": "Ignored {name}: not an image",
+  "the drop": "the drop",
+  "file not found": "file not found"
 }
