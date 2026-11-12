@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+from collections.abc import Sequence
 from dataclasses import asdict
 from pathlib import Path
 
@@ -16,8 +18,56 @@ from lattice_dither.core.pipeline import (
 )
 from lattice_dither.core.registry import get_algorithm, get_effect
 
+APP_DIR_NAME = "LatticeDither"
+PRESET_DIR_NAME = "presets"
+PRESET_SUFFIX = ".json"
 PALETTE_SOURCES = ("builtin", "extracted", "custom")
 SUPPORTED_VERSIONS = (1, 2)
+
+
+def shipped_preset_dir() -> Path:
+    """Return the read-only shipped preset directory that sits next to the package."""
+    return Path(__file__).resolve().parents[2] / PRESET_DIR_NAME
+
+
+def user_preset_dir() -> Path:
+    """Return the user preset directory under %APPDATA%, without creating it."""
+    return _appdata() / APP_DIR_NAME / PRESET_DIR_NAME
+
+
+def preset_search_dirs() -> tuple[Path, Path]:
+    """Return the preset search order: the shipped directory first, then the user one."""
+    return (shipped_preset_dir(), user_preset_dir())
+
+
+def list_presets(directories: Sequence[Path] | None = None) -> list[Path]:
+    """List the presets of the search directories, shipped first, a user file winning a tie."""
+    dirs = tuple(directories) if directories is not None else preset_search_dirs()
+    order: list[str] = []
+    found: dict[str, Path] = {}
+    for directory in dirs:
+        for path in _scan(Path(directory)):
+            if path.name not in found:
+                order.append(path.name)
+            found[path.name] = path
+    return [found[name] for name in order]
+
+
+def resolve_preset(name: str, directories: Sequence[Path] | None = None) -> Path | None:
+    """Return the file a preset name resolves to, the user tier winning over the shipped one."""
+    for path in list_presets(directories):
+        if path.name == name:
+            return path
+    return None
+
+
+def is_within(path: str | Path, directory: str | Path) -> bool:
+    """Return True when path is directory itself or lies inside it."""
+    try:
+        Path(path).resolve().relative_to(Path(directory).resolve())
+    except (OSError, ValueError):
+        return False
+    return True
 
 
 def to_json(spec: PipelineSpec) -> str:
@@ -83,6 +133,20 @@ def save_preset(path: str | Path, spec: PipelineSpec) -> None:
 def load_preset(path: str | Path) -> PipelineSpec:
     """Read a UTF-8 JSON preset file and parse it into a PipelineSpec."""
     return from_json(Path(path).read_text(encoding="utf-8"))
+
+
+def _appdata() -> Path:
+    """Return %APPDATA%, falling back to the default Windows roaming location."""
+    value = os.environ.get("APPDATA")
+    return Path(value) if value else Path.home() / "AppData" / "Roaming"
+
+
+def _scan(directory: Path) -> list[Path]:
+    """Return the preset files of one directory sorted by name, empty when unreadable."""
+    try:
+        return sorted(p for p in directory.glob(f"*{PRESET_SUFFIX}") if p.is_file())
+    except OSError:
+        return []
 
 
 def _as_int(value: object, key: str) -> int:

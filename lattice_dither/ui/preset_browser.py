@@ -1,7 +1,9 @@
-"""Preset browsing: scan a directory, step through it, and bind the arrow keys."""
+"""Preset browsing: scan the preset tiers, step through them, and bind the arrow keys."""
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -19,13 +21,15 @@ from PySide6.QtWidgets import (
     QTextEdit,
 )
 
-from lattice_dither.core.presets import load_preset, save_preset
+from lattice_dither.core.presets import is_within, list_presets, load_preset, save_preset
 
 if TYPE_CHECKING:
     from lattice_dither.ui.main_window import MainWindow
 
-PRESET_SUFFIX = ".json"
+LOGGER = logging.getLogger(__name__)
 PRESET_FILTER = "Presets (*.json);;All files (*)"
+DEFAULT_PRESET_NAME = "preset.json"
+READ_ONLY_SUFFIX = " (read-only)"
 STATUS_MS = 5000
 ARROW_CONSUMERS = (
     QAbstractItemView,
@@ -40,22 +44,20 @@ ARROW_CONSUMERS = (
 
 
 class PresetBrowser:
-    """Ordered list of preset files with a current position."""
+    """Ordered list of preset files drawn from the shipped and user tiers."""
 
-    def __init__(self, directory: Path) -> None:
-        """Scan directory and select its first preset."""
-        self.directory = Path(directory)
+    def __init__(self, directories: Path | Sequence[Path]) -> None:
+        """Scan the directories in order, the first one being the read-only shipped tier."""
+        self.directories = _as_directories(directories)
+        self.shipped = _default_shipped(self.directories)
         self.paths: list[Path] = []
         self.index = -1
         self.refresh()
 
     def refresh(self) -> None:
-        """Rescan the directory, keeping the current preset selected when it still exists."""
+        """Rescan the directories, keeping the current preset selected when it still exists."""
         current = self.current()
-        try:
-            found = sorted(p for p in self.directory.glob(f"*{PRESET_SUFFIX}") if p.is_file())
-        except OSError:
-            found = []
+        found = list_presets(self.directories)
         self.paths = found
         if current is not None and current in found:
             self.index = found.index(current)
@@ -63,6 +65,10 @@ class PresetBrowser:
             self.index = min(max(self.index, 0), len(found) - 1)
         else:
             self.index = -1
+
+    def is_shipped(self, path: Path) -> bool:
+        """Return True when path is one of the read-only shipped presets."""
+        return self.shipped is not None and is_within(path, self.shipped)
 
     def current(self) -> Path | None:
         """Return the selected preset path, or None when the list is empty."""
@@ -88,7 +94,8 @@ class PresetBrowser:
         current = self.current()
         if current is None:
             return "Preset: none"
-        return f"Preset {self.index + 1}/{len(self.paths)}: {current.name}"
+        text = f"Preset {self.index + 1}/{len(self.paths)}: {current.name}"
+        return f"{text}{READ_ONLY_SUFFIX}" if self.is_shipped(current) else text
 
 
 class PresetController(QObject):
@@ -98,7 +105,7 @@ class PresetController(QObject):
         """Create the four preset actions and the status label, and install the arrow filter."""
         super().__init__(window)
         self.window = window
-        self.browser = PresetBrowser(window._preset_dir())
+        self.browser = PresetBrowser(window._preset_dirs())
         self.label = QLabel("Preset: none", window)
         self.label.setObjectName("preset_label")
         self.label.setText(self.browser.label())
@@ -113,12 +120,11 @@ class PresetController(QObject):
             app.installEventFilter(self)
 
     def step(self, delta: int) -> None:
-        """Load the preset delta places away in the preset directory."""
+        """Load the preset delta places away in the preset search order."""
         path = self.browser.step(delta)
         if path is None:
-            self.window.statusBar().showMessage(
-                f"No presets in {self.browser.directory}", STATUS_MS
-            )
+            searched = ", ".join(str(directory) for directory in self.browser.directories)
+            self.window.statusBar().showMessage(f"No presets in {searched}", STATUS_MS)
             return
         self.apply(path)
 
@@ -143,22 +149,42 @@ class PresetController(QObject):
         self.apply(Path(path))
 
     def save_dialog(self) -> None:
-        """Ask for a preset path and write the current pipeline there."""
+        """Ask for a preset path and write the current pipeline, never into the shipped tier."""
         self.window._rebuild_spec()
+        self._ensure_user_dir()
         path = self.window._ask_path(
-            "Save preset", "preset_dir", "preset.json", PRESET_FILTER, save=True
+            "Save preset", "preset_dir", self._save_name(), PRESET_FILTER, save=True
         )
         if path is None:
             return
+        target = self._save_target(Path(path))
         try:
-            save_preset(path, self.window.spec)
+            save_preset(target, self.window.spec)
         except (OSError, ValueError) as exc:
-            self.window._error(f"Cannot save preset {Path(path).name!r}: {exc}")
+            self.window._error(f"Cannot save preset {target.name!r}: {exc}")
             return
         self.browser.refresh()
-        self.browser.select(Path(path))
+        self.browser.select(target)
         self.label.setText(self.browser.label())
-        self.window.statusBar().showMessage(f"Saved preset {Path(path).name}", STATUS_MS)
+        self.window.statusBar().showMessage(f"Saved preset {target.name}", STATUS_MS)
+
+    def _save_name(self) -> str:
+        """Return the file name the save dialog starts with: the current preset or a default."""
+        current = self.browser.current()
+        return current.name if current is not None else DEFAULT_PRESET_NAME
+
+    def _ensure_user_dir(self) -> None:
+        """Create the user preset directory so the save dialog opens inside it."""
+        try:
+            self.window._preset_dir().mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            LOGGER.warning("Cannot create the user preset directory: %s", exc)
+
+    def _save_target(self, path: Path) -> Path:
+        """Return path, or its user-tier namesake when path points into the shipped tier."""
+        if not self.browser.is_shipped(path):
+            return path
+        return self.browser.directories[-1] / path.name
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         """Step the preset on Left/Right, except where arrows already mean something."""
@@ -176,3 +202,15 @@ class PresetController(QObject):
             return False
         self.step(-1 if key == Qt.Key.Key_Left else 1)
         return True
+
+
+def _as_directories(directories: Path | Sequence[Path]) -> tuple[Path, ...]:
+    """Normalise one directory or a sequence of them into a tuple of paths."""
+    if isinstance(directories, (str, Path)):
+        return (Path(directories),)
+    return tuple(Path(directory) for directory in directories)
+
+
+def _default_shipped(directories: tuple[Path, ...]) -> Path | None:
+    """Return the read-only tier: the first directory when more than one is searched."""
+    return directories[0] if len(directories) > 1 else None

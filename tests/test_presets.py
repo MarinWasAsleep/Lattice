@@ -1,13 +1,15 @@
-"""Tests for preset serialisation (T09), using test-only registry entries."""
+"""Tests for preset serialisation (T09) and the preset search order (T34)."""
 
 from __future__ import annotations
 
 import json
+import os
+from pathlib import Path
 
 import numpy as np
 import pytest
 
-from lattice_dither.core import registry
+from lattice_dither.core import presets, registry
 from lattice_dither.core.pipeline import EffectInstance, PaletteSpec, PipelineSpec, PresetMeta
 from lattice_dither.core.presets import from_json, load_preset, save_preset, to_json
 from lattice_dither.core.registry import AlgorithmInfo, EffectInfo
@@ -238,3 +240,112 @@ def test_to_json_is_byte_stable(test_registry):
     """Two calls on the same spec produce identical bytes."""
     spec = _full_spec()
     assert to_json(spec) == to_json(spec)
+
+
+def _write(directory: Path, names: list[str]) -> list[Path]:
+    """Write one valid preset per name into directory and return the paths."""
+    directory.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for name in names:
+        path = directory / name
+        path.write_text(to_json(PipelineSpec()), encoding="utf-8")
+        paths.append(path)
+    return paths
+
+
+@pytest.fixture
+def tiers(tmp_path, monkeypatch):
+    """Return a temporary shipped tier and the user tier under a temporary %APPDATA%."""
+    shipped = tmp_path / "shipped"
+    monkeypatch.setattr(presets, "shipped_preset_dir", lambda: shipped)
+    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+    return shipped, presets.user_preset_dir()
+
+
+def test_search_order_puts_the_shipped_tier_first(tiers):
+    """The search order is the shipped directory, then the user directory under %APPDATA%."""
+    shipped, user = tiers
+    assert presets.preset_search_dirs() == (shipped, user)
+    assert user == Path(os.environ["APPDATA"]) / "LatticeDither" / "presets"
+
+
+def test_user_dir_falls_back_to_the_roaming_profile(monkeypatch):
+    """Without %APPDATA% the user directory sits in the default Windows roaming location."""
+    monkeypatch.delenv("APPDATA", raising=False)
+    expected = Path.home() / "AppData" / "Roaming" / "LatticeDither" / "presets"
+    assert presets.user_preset_dir() == expected
+
+
+def test_looking_up_the_user_dir_does_not_create_it(tiers):
+    """Resolving the user directory is a pure lookup; only a save creates it."""
+    _, user = tiers
+    assert presets.user_preset_dir() == user
+    assert not user.exists()
+
+
+def test_shipped_presets_are_listed_when_the_user_dir_is_absent(tiers):
+    """An absent user directory leaves the shipped presets as the whole list."""
+    shipped, user = tiers
+    written = _write(shipped, ["01_a.json", "02_b.json"])
+    assert not user.exists()
+    assert presets.list_presets() == written
+
+
+def test_shipped_presets_are_listed_when_the_user_dir_is_empty(tiers):
+    """An empty user directory leaves the shipped presets as the whole list."""
+    shipped, user = tiers
+    written = _write(shipped, ["01_a.json", "02_b.json"])
+    user.mkdir(parents=True)
+    assert presets.list_presets() == written
+
+
+def test_a_user_preset_wins_over_the_shipped_one(tiers):
+    """A name present in both tiers resolves to the user file and is listed once."""
+    shipped, user = tiers
+    _write(shipped, ["01_a.json", "02_b.json"])
+    _write(user, ["02_b.json"])
+    assert presets.resolve_preset("02_b.json") == user / "02_b.json"
+    assert presets.resolve_preset("01_a.json") == shipped / "01_a.json"
+    assert presets.resolve_preset("03_c.json") is None
+    names = [path.name for path in presets.list_presets()]
+    assert names == ["01_a.json", "02_b.json"]
+    assert presets.list_presets().count(user / "02_b.json") == 1
+
+
+def test_the_shipped_tier_comes_first_in_the_list(tiers):
+    """Shipped presets are listed before the user-only ones."""
+    shipped, user = tiers
+    _write(shipped, ["02_b.json"])
+    _write(user, ["01_a.json", "03_c.json"])
+    assert presets.list_presets() == [
+        shipped / "02_b.json",
+        user / "01_a.json",
+        user / "03_c.json",
+    ]
+
+
+def test_list_presets_accepts_explicit_directories(tiers):
+    """An explicit directory sequence is searched in the given order."""
+    shipped, user = tiers
+    _write(shipped, ["01_a.json"])
+    _write(user, ["02_b.json"])
+    assert presets.list_presets([user, shipped]) == [user / "02_b.json", shipped / "01_a.json"]
+
+
+def test_saving_into_the_user_dir_creates_it_on_first_save(tiers, test_registry):
+    """The first save creates the user directory and writes the preset inside it."""
+    _, user = tiers
+    spec = PipelineSpec(algorithm_id="test_nearest")
+    assert not user.exists()
+    save_preset(user / "mine.json", spec)
+    assert user.is_dir()
+    assert load_preset(user / "mine.json") == spec
+
+
+def test_is_within_accepts_the_directory_and_its_children(tiers):
+    """is_within is true for the directory itself and its children, false for siblings."""
+    shipped, user = tiers
+    assert presets.is_within(shipped, shipped)
+    assert presets.is_within(shipped / "01_a.json", shipped)
+    assert not presets.is_within(user / "01_a.json", shipped)
+    assert not presets.is_within(shipped, user)

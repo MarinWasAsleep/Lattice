@@ -18,6 +18,7 @@ from PySide6.QtGui import QImage  # noqa: E402
 from PySide6.QtWidgets import QApplication, QGraphicsPixmapItem  # noqa: E402
 
 from lattice_dither.bridge.photocraft import PhotoCraftClient  # noqa: E402
+from lattice_dither.core import presets  # noqa: E402
 from lattice_dither.core.pipeline import render  # noqa: E402
 from lattice_dither.core.registry import list_algorithms, list_effects  # noqa: E402
 from lattice_dither.ui import main_window as mw  # noqa: E402
@@ -355,13 +356,19 @@ def test_unknown_version_shows_nothing(
     assert window.version_label.text() == ""
 
 
-def test_preset_round_trip_uses_the_presets_folder(
-    window: mw.MainWindow, qapp: QApplication, dialogs: type[FakeDialogs], tmp_path: Path
+def test_preset_round_trip_uses_the_user_presets_folder(
+    window: mw.MainWindow,
+    qapp: QApplication,
+    dialogs: type[FakeDialogs],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Save writes to the default presets folder and Load restores the spec."""
+    """Save defaults to the user presets folder and Load restores the spec."""
+    monkeypatch.setenv("APPDATA", str(tmp_path / "roaming"))
+    user_dir = presets.user_preset_dir()
     dialogs.save_path = str(tmp_path / "preset.json")
     window.actions["save_preset"].trigger()
-    assert dialogs.calls[-1][1] == str(mw.PRESET_DIR / "preset.json")
+    assert Path(dialogs.calls[-1][1]).parent == user_dir
     assert Path(dialogs.save_path).exists()
     combo = window.algorithm_panel.algorithm_combo
     combo.setCurrentIndex(combo.findData("bayer_8"))

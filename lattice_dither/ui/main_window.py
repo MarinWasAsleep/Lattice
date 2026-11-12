@@ -28,6 +28,7 @@ import lattice_dither.effects  # noqa: F401  (importing the package registers ev
 from lattice_dither.bridge.photocraft import TESTED_PHOTOCRAFT_VERSION
 from lattice_dither.core import color
 from lattice_dither.core.pipeline import PipelineSpec
+from lattice_dither.core.presets import is_within, shipped_preset_dir, user_preset_dir
 from lattice_dither.core.types import Image
 from lattice_dither.ui.algorithm_panel import AlgorithmPanel
 from lattice_dither.ui.canvas import PreviewCanvas
@@ -41,7 +42,7 @@ LOGGER = logging.getLogger(__name__)
 PANEL_TABS: tuple[str, ...] = ("Algorithm", "Palette", "Effects")
 DOCK_MIN_WIDTH = 320
 SETTINGS_NAME = "LatticeDither"
-PRESET_DIR = Path(__file__).resolve().parents[2] / "presets"
+PRESET_DIR = shipped_preset_dir()
 IMAGE_FILTER = "Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.webp);;All files (*)"
 PNG_FILTER = "PNG images (*.png);;All files (*)"
 STATUS_MS = 5000
@@ -350,10 +351,13 @@ class MainWindow(QMainWindow):
         self._export_path = Path(path)
         self._emit_full_render(self.export_requested, "Rendering for export…")
 
+    def _preset_dirs(self) -> tuple[Path, ...]:
+        """Return the preset search order: the shipped presets first, then the user ones."""
+        return (PRESET_DIR, user_preset_dir())
+
     def _preset_dir(self) -> Path:
-        """Return the remembered preset directory, or the project default."""
-        stored = self._settings.value("preset_dir")
-        return Path(stored) if stored else PRESET_DIR
+        """Return the directory presets are saved to: the user one, never the shipped one."""
+        return user_preset_dir()
 
     def _on_mode(self, mode: str) -> None:
         """Switch the preview canvas to the given mode."""
@@ -369,9 +373,19 @@ class MainWindow(QMainWindow):
         self, title: str, key: str, name: str, filters: str, *, save: bool
     ) -> str | None:
         """Ask for a file path, remember its directory and return it, or None."""
-        base = self._settings.value(key) or (PRESET_DIR if key == "preset_dir" else Path.home())
+        base = self._dialog_dir(key)
         dialog = QFileDialog.getSaveFileName if save else QFileDialog.getOpenFileName
         path, _ = dialog(self, title, str(Path(base) / name) if name else str(base), filters)
         if path:
             self._settings.setValue(key, str(Path(path).parent))
         return path or None
+
+    def _dialog_dir(self, key: str) -> Path:
+        """Return the directory a file dialog opens in, keeping presets out of the shipped tier."""
+        stored = self._settings.value(key)
+        if key == "preset_dir":
+            if stored and not is_within(str(stored), PRESET_DIR):
+                return Path(stored)
+            user = self._preset_dir()
+            return user if user.is_dir() else PRESET_DIR
+        return Path(stored) if stored else Path.home()
