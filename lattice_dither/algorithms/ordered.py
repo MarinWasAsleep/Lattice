@@ -8,13 +8,14 @@ from pathlib import Path
 
 import numpy as np
 
-from lattice_dither.core.color import nearest_index
+from lattice_dither.algorithms._strength import metric_of, nearest_in_space
 from lattice_dither.core.registry import AlgorithmFn, register_algorithm
 from lattice_dither.core.types import Image, Indices, Palette, ParamSpec
 
 _PARAMS = (
     ParamSpec("spread", "Spread", "float", 1.0, 0.0, 2.0, 0.05),
     ParamSpec("matrix_scale", "Matrix scale", "int", 1, 1, 8, 1),
+    ParamSpec("strength", "Strength", "float", 1.0, 0.0, 1.0, 0.05),
 )
 
 _BLUE_NOISE_PATH = Path(__file__).resolve().parents[2] / "data" / "blue_noise_64.npy"
@@ -134,14 +135,21 @@ def amplitude(spread: float, palette_size: int) -> float:
 
 
 def _ordered(
-    img: Image, palette: Palette, t_matrix: np.ndarray, spread: float, scale: int
+    img: Image,
+    palette: Palette,
+    t_matrix: np.ndarray,
+    spread: float,
+    scale: int,
+    strength: float,
+    code: int,
 ) -> Indices:
     """Offset every channel by the tiled threshold and quantise to the palette."""
     height, width = img.shape[:2]
     t = tile(t_matrix, height, width, scale)
-    offset = (t[:, :, None] - np.float32(0.5)) * np.float32(amplitude(spread, palette.shape[0]))
+    amplitude_ = np.float32(amplitude(spread, palette.shape[0]) * strength)
+    offset = (t[:, :, None] - np.float32(0.5)) * amplitude_
     value = np.ascontiguousarray(img + offset, dtype=np.float32)
-    return nearest_index(value, palette)
+    return nearest_in_space(value, palette, code)
 
 
 def _make_fn(matrix_id: str) -> AlgorithmFn:
@@ -155,6 +163,8 @@ def _make_fn(matrix_id: str) -> AlgorithmFn:
             matrix(matrix_id),
             float(params["spread"]),
             int(params["matrix_scale"]),
+            float(params["strength"]),
+            metric_of(params),
         )
 
     return fn

@@ -12,6 +12,7 @@ from __future__ import annotations
 import numpy as np
 from numba import njit
 
+from lattice_dither.algorithms._strength import metric_of
 from lattice_dither.core.color import nearest_index_px
 from lattice_dither.core.registry import register_algorithm
 from lattice_dither.core.types import Image, Indices, Palette, ParamSpec
@@ -56,6 +57,7 @@ def _diffuse(
     offsets: np.ndarray,
     weights: np.ndarray,
     strength: float,
+    metric: int,
 ) -> np.ndarray:
     """Quantise in class order, pushing each error onto later-class neighbours."""
     height = img.shape[0]
@@ -71,7 +73,7 @@ def _diffuse(
         r = work[y, x, 0]
         g = work[y, x, 1]
         b = work[y, x, 2]
-        index = nearest_index_px(r, g, b, palette)
+        index = nearest_index_px(r, g, b, palette, metric)
         out[y, x] = index
         err_r = (r - palette[index, 0]) * strength
         err_g = (g - palette[index, 1]) * strength
@@ -114,4 +116,5 @@ def dot_diffusion(img: Image, palette: Palette, params: dict) -> Indices:
         _OFFSETS,
         _WEIGHTS,
         float(params["strength"]),
+        metric_of(params),
     )

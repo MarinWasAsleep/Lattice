@@ -94,13 +94,13 @@ def test_registration_families_names_and_defaults() -> None:
         "ostromoukhov": ("Ostromoukhov", "error_diffusion", {"strength": 1.0}),
         "fan": ("Fan", "error_diffusion", {"serpentine": True, "strength": 1.0}),
         "shiau_fan": ("Shiau-Fan", "error_diffusion", {"serpentine": True, "strength": 1.0}),
-        "yliluoma1": ("Yliluoma 1", "ordered", {"levels": 64}),
-        "yliluoma2": ("Yliluoma 2", "ordered", {"slots": 64}),
+        "yliluoma1": ("Yliluoma 1", "ordered", {"levels": 64, "strength": 1.0}),
+        "yliluoma2": ("Yliluoma 2", "ordered", {"slots": 64, "strength": 1.0}),
         "dot_diffusion": ("Dot Diffusion", "other", {"strength": 1.0}),
         "direct_binary_search": (
             "Direct Binary Search",
             "other",
-            {"iterations": 2, "radius": 2},
+            {"iterations": 2, "radius": 2, "strength": 1.0},
         ),
     }
     for algorithm_id, (name, family, defaults) in expected.items():

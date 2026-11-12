@@ -6,13 +6,15 @@ from collections.abc import Callable
 
 import numpy as np
 
+from lattice_dither.algorithms._strength import blend_toward_nearest, metric_of
 from lattice_dither.core.color import luminance
 from lattice_dither.core.registry import register_algorithm
 from lattice_dither.core.types import Image, Indices, Palette, ParamSpec
 
 _CELL_SIZE = ParamSpec("cell_size", "Cell size", "int", 8, 3, 64, 1)
 _ANGLE = ParamSpec("angle", "Angle", "float", 45.0, 0.0, 90.0, 1.0)
-_PARAMS = (_CELL_SIZE, _ANGLE)
+_STRENGTH = ParamSpec("strength", "Strength", "float", 1.0, 0.0, 1.0, 0.05)
+_PARAMS = (_CELL_SIZE, _ANGLE, _STRENGTH)
 
 _SPOT_EPS = 1e-6
 _SQRT_HALF = float(np.sqrt(0.5))
@@ -75,7 +77,10 @@ def _halftone(img: Image, palette: Palette, params: dict, spot: SpotFn) -> Indic
     """Render a halftone between the darkest and the lightest palette colour."""
     dark, light = _extremes(palette)
     fu, fv, cell_lum = _cell_data(luminance(img), int(params["cell_size"]), float(params["angle"]))
-    return np.where(spot(fu, fv) < (np.float32(1.0) - cell_lum), dark, light).astype(np.int32)
+    indices = np.where(spot(fu, fv) < (np.float32(1.0) - cell_lum), dark, light).astype(np.int32)
+    return blend_toward_nearest(
+        img, palette, indices, float(params["strength"]), metric_of(params)
+    )
 
 
 @register_algorithm("halftone_dots", "Halftone Dots", "halftone", _PARAMS)

@@ -12,6 +12,7 @@ from __future__ import annotations
 import numpy as np
 from numba import njit
 
+from lattice_dither.algorithms._strength import blend_toward_nearest, metric_of
 from lattice_dither.algorithms.ordered import blue_noise_ranks
 from lattice_dither.core.color import nearest_index_px
 from lattice_dither.core.registry import register_algorithm
@@ -20,8 +21,9 @@ from lattice_dither.core.types import Image, Indices, Palette, ParamSpec
 SLOTS = 64
 _CACHE_BITS = 4
 
-_PARAMS_1 = (ParamSpec("levels", "Levels", "int", 64, 2, 256, 1),)
-_PARAMS_2 = (ParamSpec("slots", "Slots", "int", 64, 8, 256, 8),)
+_STRENGTH = ParamSpec("strength", "Strength", "float", 1.0, 0.0, 1.0, 0.05)
+_PARAMS_1 = (ParamSpec("levels", "Levels", "int", 64, 2, 256, 1), _STRENGTH)
+_PARAMS_2 = (ParamSpec("slots", "Slots", "int", 64, 8, 256, 8), _STRENGTH)
 
 
 def _buckets(slots: int = SLOTS) -> np.ndarray:
@@ -158,8 +160,9 @@ def yliluoma1(img: Image, palette: Palette, params: dict) -> Indices:
     plans = _build_plans(
         np.ascontiguousarray(palette, dtype=np.float32), levels, SLOTS
     )
-    return _apply_plans(
-        np.ascontiguousarray(img, dtype=np.float32), plans, _buckets()
+    indices = _apply_plans(np.ascontiguousarray(img, dtype=np.float32), plans, _buckets())
+    return blend_toward_nearest(
+        img, palette, indices, float(params["strength"]), metric_of(params)
     )
 
 
@@ -167,10 +170,13 @@ def yliluoma1(img: Image, palette: Palette, params: dict) -> Indices:
 def yliluoma2(img: Image, palette: Palette, params: dict) -> Indices:
     """Mix palette colours per pixel colour; slower, but keeps chroma."""
     slots = int(params["slots"])
-    return _yliluoma2(
+    indices = _yliluoma2(
         np.ascontiguousarray(img, dtype=np.float32),
         np.ascontiguousarray(palette, dtype=np.float32),
         _buckets(slots),
         slots,
         _CACHE_BITS,
+    )
+    return blend_toward_nearest(
+        img, palette, indices, float(params["strength"]), metric_of(params)
     )

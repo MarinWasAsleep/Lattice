@@ -25,9 +25,9 @@ def _grey(level: float, size: int = 64) -> Image:
 def test_registration_family_and_params() -> None:
     """The three algorithms are registered in the "other" family with the documented params."""
     expected = {
-        "threshold": {"level": 0.5},
-        "random": {"spread": 1.0, "seed": 0},
-        "riemersma": {"history": 16, "ratio": 1.0 / 16.0},
+        "threshold": {"level": 0.5, "strength": 1.0},
+        "random": {"spread": 1.0, "seed": 0, "strength": 1.0},
+        "riemersma": {"history": 16, "ratio": 1.0 / 16.0, "strength": 1.0},
     }
     for algorithm_id, defaults in expected.items():
         info = get_algorithm(algorithm_id)

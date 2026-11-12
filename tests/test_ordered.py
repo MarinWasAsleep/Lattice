@@ -39,13 +39,17 @@ def _ranks(matrix_id: str) -> np.ndarray:
 
 
 def test_registered_matrices() -> None:
-    """Exactly the ten card matrices are registered with the two shared params."""
+    """Exactly the ten card matrices are registered with the three shared params."""
     assert set(MATRIX_IDS) == set(SQUARE_IDS) | set(LINE_IDS)
     for matrix_id in MATRIX_IDS:
         info = get_algorithm(matrix_id)
         assert info.family == "ordered"
-        assert [spec.id for spec in info.params] == ["spread", "matrix_scale"]
-        assert resolve_params(info.params, {}) == {"spread": 1.0, "matrix_scale": 1}
+        assert [spec.id for spec in info.params] == ["spread", "matrix_scale", "strength"]
+        assert resolve_params(info.params, {}) == {
+            "spread": 1.0,
+            "matrix_scale": 1,
+            "strength": 1.0,
+        }
 
 
 def test_bayer_2_is_exact() -> None:
@@ -154,7 +158,7 @@ def test_matrix_scale_repeats_cells() -> None:
     img = np.full((8, 8, 3), 0.5, dtype=np.float32)
     palette = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], dtype=np.float32)
     scaled = _run("bayer_2", img, palette, matrix_scale=2)
-    assert np.array_equal(scaled, ordered._ordered(img, palette, repeated, 1.0, 1))
+    assert np.array_equal(scaled, ordered._ordered(img, palette, repeated, 1.0, 1, 1.0, 0))
 
 
 def test_spread_zero_matches_nearest(gradient: Image, pal_4: Palette) -> None:

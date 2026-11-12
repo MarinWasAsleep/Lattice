@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 from numba import njit
 
+from lattice_dither.algorithms._strength import metric_of
 from lattice_dither.algorithms.ostromoukhov_table import COEFFICIENTS
 from lattice_dither.core.color import nearest_index_px
 from lattice_dither.core.registry import register_algorithm
@@ -18,7 +19,7 @@ _TONE_COUNT = _TABLE.shape[0]
 
 @njit(cache=True)
 def _diffuse(
-    img: np.ndarray, palette: np.ndarray, table: np.ndarray, strength: float
+    img: np.ndarray, palette: np.ndarray, table: np.ndarray, strength: float, metric: int
 ) -> np.ndarray:
     """Diffuse with the coefficients of the current tone, serpentine; numba kernel."""
     height = img.shape[0]
@@ -33,7 +34,7 @@ def _diffuse(
             r = work[y, x, 0]
             g = work[y, x, 1]
             b = work[y, x, 2]
-            index = nearest_index_px(r, g, b, palette)
+            index = nearest_index_px(r, g, b, palette, metric)
             out[y, x] = index
             err_r = (r - palette[index, 0]) * strength
             err_g = (g - palette[index, 1]) * strength
@@ -75,4 +76,5 @@ def ostromoukhov(img: Image, palette: Palette, params: dict) -> Indices:
         np.ascontiguousarray(palette, dtype=np.float32),
         _TABLE,
         float(params["strength"]),
+        metric_of(params),
     )

@@ -28,7 +28,7 @@ def test_registration_family_and_params() -> None:
     for algorithm_id in IDS:
         info = get_algorithm(algorithm_id)
         assert info.family == "halftone"
-        assert resolve_params(info.params, {}) == {"cell_size": 8, "angle": 45.0}
+        assert resolve_params(info.params, {}) == {"cell_size": 8, "angle": 45.0, "strength": 1.0}
 
 
 @pytest.mark.parametrize("algorithm_id", IDS)

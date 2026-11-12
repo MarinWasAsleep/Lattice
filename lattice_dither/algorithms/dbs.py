@@ -26,6 +26,7 @@ from __future__ import annotations
 import numpy as np
 from numba import njit
 
+from lattice_dither.algorithms._strength import blend_toward_nearest, metric_of
 from lattice_dither.core.color import nearest_index_px
 from lattice_dither.core.registry import register_algorithm
 from lattice_dither.core.types import Image, Indices, Palette, ParamSpec
@@ -33,6 +34,7 @@ from lattice_dither.core.types import Image, Indices, Palette, ParamSpec
 _PARAMS = (
     ParamSpec("iterations", "Iterations", "int", 2, 1, 8, 1),
     ParamSpec("radius", "Radius", "int", 2, 1, 4, 1),
+    ParamSpec("strength", "Strength", "float", 1.0, 0.0, 1.0, 0.05),
 )
 
 _SWAP_OFFSETS = np.array(
@@ -153,6 +155,7 @@ def _search(
     xs: np.ndarray,
     radius: int,
     iterations: int,
+    metric: int,
 ) -> np.ndarray:
     """Greedily recolour and swap pixels while the perceived squared error decreases."""
     height = img.shape[0]
@@ -162,7 +165,9 @@ def _search(
     rendered = np.empty((height, width, 3), dtype=np.float32)
     for y in range(height):
         for x in range(width):
-            index = nearest_index_px(img[y, x, 0], img[y, x, 1], img[y, x, 2], palette)
+            index = nearest_index_px(
+                img[y, x, 0], img[y, x, 1], img[y, x, 2], palette, metric
+            )
             halftone[y, x] = index
             rendered[y, x, 0] = palette[index, 0]
             rendered[y, x, 1] = palette[index, 1]
@@ -290,7 +295,7 @@ def direct_binary_search(img: Image, palette: Palette, params: dict) -> Indices:
     kernel = gaussian_kernel(radius)
     height, width = img.shape[:2]
     ys, xs = pixel_order(height, width)
-    return _search(
+    indices = _search(
         np.ascontiguousarray(img, dtype=np.float32),
         np.ascontiguousarray(palette, dtype=np.float32),
         kernel,
@@ -301,4 +306,8 @@ def direct_binary_search(img: Image, palette: Palette, params: dict) -> Indices:
         xs,
         radius,
         int(params["iterations"]),
+        metric_of(params),
+    )
+    return blend_toward_nearest(
+        img, palette, indices, float(params["strength"]), metric_of(params)
     )

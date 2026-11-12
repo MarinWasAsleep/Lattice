@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 from numba import njit
 
+from lattice_dither.algorithms._strength import metric_of
 from lattice_dither.core.color import nearest_index_px
 from lattice_dither.core.registry import AlgorithmFn, register_algorithm
 from lattice_dither.core.types import Image, Indices, Palette, ParamSpec
@@ -130,6 +131,7 @@ def _diffuse(
     weights: np.ndarray,
     serpentine: bool,
     strength: float,
+    metric: int,
 ) -> np.ndarray:
     """Quantise every pixel and push its RGB error into the neighbour offsets; numba kernel."""
     height = img.shape[0]
@@ -144,7 +146,7 @@ def _diffuse(
             r = work[y, x, 0]
             g = work[y, x, 1]
             b = work[y, x, 2]
-            index = nearest_index_px(r, g, b, palette)
+            index = nearest_index_px(r, g, b, palette, metric)
             out[y, x] = index
             err_r = (r - palette[index, 0]) * strength
             err_g = (g - palette[index, 1]) * strength
@@ -180,6 +182,7 @@ def _make_fn(kernel_id: str) -> AlgorithmFn:
             weights,
             bool(params["serpentine"]),
             float(params["strength"]),
+            metric_of(params),
         )
 
     return fn
