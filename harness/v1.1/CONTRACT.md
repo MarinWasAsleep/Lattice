@@ -1,12 +1,14 @@
-# DitherCraft technical contract — version 1.1.0-draft
+# DitherCraft technical contract — version 1.1.0
 
 **Delta over 1.0.0.** Sections §1 to §11 of `harness/v1.0/CONTRACT.md` (version 1.0.0) remain in force
-and are not repeated here. This document adds §12 to §24 and amends §3 and §7 as stated below.
+and are not repeated here. This document adds §12 to §25 and amends §3 and §7 as stated below.
 
 Versioning: PATCH = clarification, no code impact. MINOR = additive, backward compatible.
 MAJOR = breaking; forbidden without human approval.
 
-Freeze at checkpoint H5, after T17.
+**Frozen at checkpoint H5 on 2026-11-12.** This document is normative as it stands. A change after
+this date is a version bump, not an edit: PATCH for a clarification, MINOR for an addition, MAJOR
+only with human approval.
 
 ---
 

@@ -36,8 +36,8 @@ sections §1 à §11, et ce dossier n'ajoute que ce qui manque.
 
 | Fichier | Lu par | Rôle |
 |---|---|---|
-| `CONTRACT.md` | codeur (extraits), relecteur (extraits), orchestrateur | Contrat 1.1.0 en **delta** : §12 à §24. §1 à §11 du 1.0 restent en vigueur. |
-| `TASKS.md` | orchestrateur | Les 16 cartes T17 à T32 : dépendances, vagues, fichiers possédés, critères d'acceptation. |
+| `CONTRACT.md` | codeur (extraits), relecteur (extraits), orchestrateur | Contrat 1.1.0 **gelé** en **delta** : §12 à §25. §1 à §11 du 1.0 restent en vigueur. |
+| `TASKS.md` | orchestrateur | Les 18 cartes T17 à T34 : dépendances, vagues, fichiers possédés, critères d'acceptation. |
 | `STATE.md` | orchestrateur, toi | Registre vivant. |
 | `DEVIATIONS.md` | orchestrateur, relecteur, toi | Protocole (inchangé) + registre 1.1. |
 | `prompts/` | orchestrateur, codeur, relecteur | Gabarits, adaptés au 1.1. |

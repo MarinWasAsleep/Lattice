@@ -1,6 +1,6 @@
 # Project state — harness 1.1 (updated by the orchestrator only)
 
-contract_version: 1.1.0-draft
+contract_version: 1.1.0 (frozen at H5, 2026-11-12)
 base_contract: 1.0.0 (harness/CONTRACT.md, §1 to §11, frozen)
 max_concurrency: 4
 last_update: 2026-11-12
@@ -195,12 +195,16 @@ last_update: 2026-11-12
   was not implemented at all, so T34 owns it. §18 and §22.1 also still named `DitherCraft` for the data
   directories; they now name `LatticeDither`, matching the code, with the bridge keeping its legacy
   fallback.
+- 2026-11-12: **H5 is done and CONTRACT 1.1.0 is frozen.** The version drops the `-draft` suffix and
+  the document is normative as it stands. From here a change is a version bump, not an edit: PATCH
+  for a clarification, MINOR for an addition, MAJOR only with human approval. The header's section
+  range was corrected to §12 to §25, since §25 (the gates) is part of this document.
 
 ## Human checkpoints
 
 | Id | When | Status |
 |---|---|---|
-| H5 | after T17 | in progress — reviewed, six amendments applied, freeze pending |
+| H5 | after T17 | done — CONTRACT 1.1.0 frozen on 2026-11-12 |
 | H6 | after wave 4 | pending — judge output on three real images |
 | H7 | after wave 5 | pending — run the CLI and the print export |
 | H8 | after wave 6 | pending — use it for a week |
@@ -212,8 +216,8 @@ last_update: 2026-11-12
   surface) and T34 (preset search order).
 - No deviation is open. DEV-101, DEV-103, DEV-104, DEV-105, DEV-106, DEV-107 and DEV-108 are all
   resolved, so nothing blocks a task.
-- H5 is reviewed and amended but not frozen: the six amendments are in, and the freeze is the human's
-  word. It should be taken before wave 6 starts.
+- H5 is done: CONTRACT 1.1.0 is frozen, so wave 6 can start. A change to the contract from here is a
+  version bump, not an edit.
 - H6 (judge output on three real images) can now be taken: T17 to T21 are in, so conditioning,
   colour metrics, strength, both halftones and the palette library are usable from the GUI.
 - H7 (run the CLI and the print export) is now fully ready: the CLI, the SVG export, the print
