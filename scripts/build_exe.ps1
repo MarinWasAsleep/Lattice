@@ -50,6 +50,7 @@ $arguments = @(
     '--collect-submodules', 'llvmlite'
     '--hidden-import', 'imageio_ffmpeg'
     '--collect-data', 'imageio_ffmpeg'
+    '--collect-data', 'lattice_dither.i18n'
     '--exclude-module', 'numba.tests'
     '--exclude-module', 'llvmlite.tests'
     '--exclude-module', 'tkinter'
