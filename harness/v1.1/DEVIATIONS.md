@@ -151,3 +151,24 @@ _No entry yet._
 - contract change: T19's `owns` gains `lattice_dither/algorithms/_strength.py`,
   `tests/test_ordered.py`, `tests/test_halftone.py`, `tests/test_misc.py` and
   `tests/test_algorithms_extra.py`. No other change.
+
+### DEV-106
+- class: E1 | task: T23 | contract: 1.1.0 | status: open
+- raised by: coder | date: 2026-11-12
+- facts: §19 budgets "2048×2048, 16 colours, under 8 MB and under 5 s", and its rationale sentence
+  speaks of "a 1024×1024 image with 16 colours". With one `<path>` per colour and horizontal run
+  merging, the file size is driven by the number of runs, not by the number of colours, and the
+  contract never says what the reference content is. Measured on this machine, 2048×2048:
+  flat 16-colour blocks 0.49 MB in 0.30 s; a Floyd-Steinberg render of a gradient through `vga16`
+  46.45 MB in 2.66 s; uniform random 16 colours 50.80 MB in 1.49 s. A dithered image has an average
+  horizontal run length of about 1.07 pixels, so it produces about 3.9 M runs. The shortest run
+  encoding SVG path syntax allows is `M0 0h1v1`, nine bytes, so the floor for that content is about
+  35 MB. No path syntax reaches 8 MB on dithered content; the information content alone is 2 MB.
+- assumption / proposal: T23 implements §19 as written, and the budget test is measured on flat,
+  low-colour content, which is what a vector export is for. Proposal: state the reference content in
+  §19. If it is flat artwork the budget holds as written; if it is a dithered render the budget must
+  rise to about 50 MB, or the export must refuse above a size threshold instead of silently writing
+  a 50 MB file.
+- decision: | by:
+- impact: T23's fourth accept item is met for low-entropy content only. No code change is needed
+  until the contract names the reference content.

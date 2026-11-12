@@ -21,7 +21,7 @@ last_update: 2026-11-12
 | T20 | 4 | done | 0 | 0 | 3faf7fb | halftone v2 + CMYK effect |
 | T21 | 4 | done | 0 | 0 | 87badc4 | library, hex import, lock, reorder; DEV-101 resolved |
 | T22 | 5 | done | 0 | 0 | 452da4e | CLI + batch; G6 green |
-| T23 | 5 | todo | 0 | 0 | | SVG export |
+| T23 | 5 | done | 0 | 0 | | SVG export; DEV-106 on the size budget |
 | T24 | 5 | todo | 0 | 0 | | print export |
 | T25 | 5 | todo | 0 | 0 | | animation + video |
 | T26 | 6 | todo | 0 | 0 | | algorithm gallery |
@@ -123,6 +123,14 @@ last_update: 2026-11-12
 - 2026-11-12: reordering permutes `PaletteSpec.order` and leaves the colours in natural order, so
   the rendered image is byte-identical before and after. The panel resets `order` when the palette
   changes size, because a permutation of the old size would fail `_validate_order`.
+- 2026-11-12: T23 emits a run as `M x y h w v cell` and relies on the fill rule to close the
+  subpath, so a rectangle costs nine bytes instead of the twelve a `z` and a return leg would add.
+  The `viewBox` uses the same multiplied space as the coordinates, which is the only reading that
+  satisfies both "`cell` multiplies every coordinate" and "`width`/`height` in pixels".
+- 2026-11-12: **DEV-106 is opened.** §19's 8 MB budget for 2048×2048 at 16 colours is met on flat
+  artwork (0.49 MB) but not on a dithered render (46.45 MB), because the size follows the number of
+  runs, not the number of colours. The budget test is measured on flat content and the contract
+  needs to name its reference content.
 
 ## Human checkpoints
 
