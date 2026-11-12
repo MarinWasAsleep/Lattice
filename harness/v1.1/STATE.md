@@ -20,7 +20,7 @@ last_update: 2026-11-12
 | T19 | 4 | done | 0 | 0 | d7c0624 | strength on all 33 algorithms |
 | T20 | 4 | done | 0 | 0 | 3faf7fb | halftone v2 + CMYK effect |
 | T21 | 4 | todo | 0 | 0 | | palette authoring + library |
-| T22 | 5 | todo | 0 | 0 | | CLI + batch |
+| T22 | 5 | done | 0 | 0 | 452da4e | CLI + batch; G6 green |
 | T23 | 5 | todo | 0 | 0 | | SVG export |
 | T24 | 5 | todo | 0 | 0 | | print export |
 | T25 | 5 | todo | 0 | 0 | | animation + video |
@@ -90,6 +90,12 @@ last_update: 2026-11-12
   the coverage map, not on the binary index map. A one-bit output cannot be smoother than one bit
   per pixel; what oversampling actually smooths is the coverage, whose variance drops for all six
   shapes on both a flat and a gradient image.
+- 2026-11-12: T22's `owns` was extended to nothing: the card's three files were enough. `batch`
+  always writes PNG whatever the input extension, because a JPEG output would be lossy and G6
+  compares bytes. `--ext` filters the inputs only.
+- 2026-11-12: argparse exits 2 on a usage error, but §17 reserves 2 for an input error and gives 1
+  to usage. The parser is subclassed so `error` exits 1, and `main` returns the code rather than
+  letting `SystemExit` escape, which also makes the exit codes testable in-process.
 
 ## Human checkpoints
 
@@ -103,8 +109,10 @@ last_update: 2026-11-12
 
 ## Next
 
-- NEXT: T20 (halftone v2 + CMYK effect) and T22 (CLI + batch, gate G6) are the next unblocked
-  cards. T21 (palette authoring) is blocked by DEV-101: the lock feature has no colour source.
+- NEXT: T21 (palette authoring) is the only wave-4 card left. Five of its six accept items are
+  unblocked; the sixth, "locked swatches survive extraction unchanged", waits on DEV-101.
+- T23 (SVG export) and T24 (print export) are the next unblocked cards after T21.
 - H5 (read and freeze CONTRACT 1.1) is still pending and should be taken before wave 5.
-- H6 (judge output on three real images) can now be taken: T17 to T19 are in, so conditioning,
-  colour metrics and strength are all usable from the GUI.
+- H6 (judge output on three real images) can now be taken: T17 to T20 are in, so conditioning,
+  colour metrics, strength and both halftones are usable from the GUI.
+- H7 (run the CLI and the print export) is half ready: the CLI is in, the print export is T24.
