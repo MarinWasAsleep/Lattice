@@ -8,9 +8,15 @@ from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
-from PIL import Image as PILImage
 from PySide6.QtCore import QSettings, Qt, QThread, Signal, SignalInstance
-from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QKeySequence
+from PySide6.QtGui import (
+    QAction,
+    QActionGroup,
+    QCloseEvent,
+    QDragEnterEvent,
+    QDropEvent,
+    QKeySequence,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QDockWidget,
@@ -29,9 +35,10 @@ from lattice_dither.bridge.photocraft import TESTED_PHOTOCRAFT_VERSION
 from lattice_dither.core import color
 from lattice_dither.core.pipeline import PipelineSpec
 from lattice_dither.core.presets import is_within, shipped_preset_dir, user_preset_dir
-from lattice_dither.core.types import Image
+from lattice_dither.core.types import RGB8, Image
 from lattice_dither.ui.algorithm_panel import AlgorithmPanel
 from lattice_dither.ui.canvas import PreviewCanvas
+from lattice_dither.ui.commands import CommandController
 from lattice_dither.ui.effects_panel import EffectsPanel
 from lattice_dither.ui.palette_panel import PalettePanel
 from lattice_dither.ui.preset_browser import PresetController
@@ -74,11 +81,13 @@ class MainWindow(QMainWindow):
         self._applied_job = -1
         self._export_path: Path | None = None
         self._version_warned = False
+        self._last_image: RGB8 | None = None
         self.canvas = PreviewCanvas(self)
         self.setCentralWidget(self.canvas)
         self.actions: dict[str, QAction] = {}
         self._build_actions()
         self._build_toolbar()
+        self.commands = CommandController(self)
         self._build_dock()
         self._build_status_bar()
         geometry = self._settings.value("geometry")
@@ -101,14 +110,11 @@ class MainWindow(QMainWindow):
 
     def _build_actions(self) -> None:
         """Create every toolbar action of the contract and connect its slot."""
-        self._add_action(
-            "open_image", "Open image", self._on_open_image, QKeySequence.StandardKey.Open
-        )
+        std = QKeySequence.StandardKey
+        self._add_action("open_image", "Open image", self._on_open_image, std.Open)
         self._add_action("get_from_photocraft", "Get from PhotoCraft", self._on_get_from_photocraft)
         self._add_action("send_to_photocraft", "Send to PhotoCraft", self._on_send_to_photocraft)
-        self._add_action(
-            "export_png", "Export PNG", self._on_export_png, QKeySequence.StandardKey.Save
-        )
+        self._add_action("export_png", "Export PNG", self._on_export_png, std.Save)
         self.mode_group = QActionGroup(self)
         for key, text, mode in (
             ("mode_before", "Before", "before"),
@@ -159,7 +165,7 @@ class MainWindow(QMainWindow):
         self.panels: dict[str, QWidget] = dict(zip(PANEL_TABS, panels, strict=True))
         for name, panel in self.panels.items():
             self.tabs.addTab(panel, name)
-            panel.changed.connect(self._request_preview)
+            panel.changed.connect(self.commands.on_panels_changed)
         self.dock.setWidget(self.tabs)
         self.dock.setMinimumWidth(DOCK_MIN_WIDTH)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.dock)
@@ -220,6 +226,14 @@ class MainWindow(QMainWindow):
         self.shutdown()
         super().closeEvent(event)
 
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        """Accept a drag that carries at least one image file."""
+        self.commands.drag_enter(event)
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        """Open the first image of a drop, ignoring anything else."""
+        self.commands.drop(event)
+
     def tab_index(self, name: str) -> int:
         """Return the index of the panel tab called name, or -1."""
         for index in range(self.tabs.count()):
@@ -248,11 +262,13 @@ class MainWindow(QMainWindow):
         text = "Render: -" if seconds is None else f"Render: {seconds * 1000.0:.0f} ms"
         self.render_time_label.setText(text)
 
-    def _load_spec(self, spec: PipelineSpec) -> None:
+    def _load_spec(self, spec: PipelineSpec, *, record: bool = True) -> None:
         """Adopt spec as the current pipeline and show it in every panel."""
         self.spec = spec
         for panel in self.panels.values():
             panel.load_from(spec)
+        if record:
+            self.commands.record(spec, coalesce=False)
         self._request_preview()
 
     def _rebuild_spec(self) -> None:
@@ -288,6 +304,7 @@ class MainWindow(QMainWindow):
         if result.job < self._applied_job:
             return
         self._applied_job = result.job
+        self._last_image = result.image
         self.canvas.set_original(result.original)
         self.canvas.set_image(result.image)
         self.set_render_time(result.seconds)
@@ -321,16 +338,8 @@ class MainWindow(QMainWindow):
     def _on_open_image(self) -> None:
         """Ask for an image file and load it as the pipeline source."""
         path = self._ask_path("Open image", "image_dir", "", IMAGE_FILTER, save=False)
-        if path is None:
-            return
-        try:
-            with PILImage.open(path) as handle:
-                image = handle.copy()
-        except (OSError, ValueError) as exc:
-            self._error(f"Cannot open {path!r}: {exc}")
-            return
-        self._set_source(color.to_float(image))
-        self.statusBar().showMessage(f"Loaded {Path(path).name}", STATUS_MS)
+        if path is not None:
+            self.commands.open_path(path)
 
     def _on_get_from_photocraft(self) -> None:
         """Fetch the visible PhotoCraft document as the pipeline source."""
@@ -369,9 +378,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(message, STATUS_MS)
         QMessageBox.critical(self, "Lattice Dither", message)
 
-    def _ask_path(
-        self, title: str, key: str, name: str, filters: str, *, save: bool
-    ) -> str | None:
+    def _ask_path(self, title: str, key: str, name: str, filters: str, *, save: bool) -> str | None:
         """Ask for a file path, remember its directory and return it, or None."""
         base = self._dialog_dir(key)
         dialog = QFileDialog.getSaveFileName if save else QFileDialog.getOpenFileName
