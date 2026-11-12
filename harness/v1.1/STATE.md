@@ -23,7 +23,7 @@ last_update: 2026-11-12
 | T22 | 5 | done | 0 | 0 | 452da4e | CLI + batch; G6 green |
 | T23 | 5 | done | 0 | 0 | | SVG export; DEV-106 on the size budget |
 | T24 | 5 | done | 0 | 0 | | print export, bleed, crop marks, separations |
-| T25 | 5 | todo | 0 | 0 | | animation + video |
+| T25 | 5 | done | 0 | 0 | | animation + video; ffmpeg absent here |
 | T26 | 6 | todo | 0 | 0 | | algorithm gallery |
 | T27 | 6 | todo | 0 | 0 | | undo, shortcuts, drag and drop |
 | T28 | 6 | todo | 0 | 0 | | i18n + French catalogue |
@@ -143,6 +143,23 @@ last_update: 2026-11-12
 - 2026-11-12: `dpi` is stored through Pillow's `dpi=` argument and reads back as 299.9994 at 300 dpi,
   because PNG stores pixels per metre as an integer. The tests compare with a tolerance rather than
   for equality.
+- 2026-11-12: T25 needed the palette resolved outside `render`, so `render` was split into
+  `_prepare` (steps 1 to 5) and `_finish` (steps 6 to 11) and two public wrappers were added,
+  `prepare_image` and `render_with_palette`. `render`'s signature is unchanged, as §7 pins it, and
+  G5 and G6 prove the output did not move.
+- 2026-11-12: §21 lists three properties for `stable=True`: ordered matrices anchored to the canvas,
+  the palette resolved once, and no error carried between frames. The first and the third are
+  structural in 1.1 and hold in both modes, because the ordered matrices are indexed by pixel
+  coordinates and every frame is rendered from scratch. `stable` therefore controls the palette
+  only: once for the sequence, or once per frame. The seed belongs to the spec, not to the frame, so
+  two identical frames still render identically with `stable=False`; the card's "consecutive frames
+  differ" is met with moving frames, which is the literal reading.
+- 2026-11-12: Pillow's GIF writer merges consecutive identical frames into one with a longer
+  duration, so the frame-count test uses distinct frames. GIF stores the delay in centiseconds, so
+  12 fps lands on 80 ms rather than 83; the tests pin both 10 fps (exact) and 12 fps (rounded).
+- 2026-11-12: ffmpeg is not installed on this machine, so only the absent-ffmpeg path of
+  `export_video` is exercised. The success path is written but unverified; it needs a machine with
+  ffmpeg before H7.
 
 ## Human checkpoints
 
@@ -156,7 +173,7 @@ last_update: 2026-11-12
 
 ## Next
 
-- NEXT: T23 and T24 are in. T25 (animation and video) closes wave 5.
+- NEXT: wave 5 is complete. T26 (algorithm gallery) opens wave 6.
 - DEV-101 is resolved, so no deviation blocks a task. DEV-104 and DEV-105 stay open as accepted
   readings of §14 and §15.1. DEV-106 needs a human decision on the reference content of §19's size
   budget; it blocks nothing.
@@ -164,4 +181,4 @@ last_update: 2026-11-12
 - H6 (judge output on three real images) can now be taken: T17 to T21 are in, so conditioning,
   colour metrics, strength, both halftones and the palette library are usable from the GUI.
 - H7 (run the CLI and the print export) is now fully ready: the CLI, the SVG export and the print
-  export are all in.
+  export are all in. The video export needs a machine with ffmpeg.

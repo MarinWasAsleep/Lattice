@@ -129,6 +129,27 @@ def _validate_order(order: list[int], size: int) -> None:
 
 def render(src: Image, spec: PipelineSpec, *, max_side: int | None = None) -> RGB8:
     """Render src through the eleven normative pipeline steps and return uint8 RGB."""
+    work, target, factor = _prepare(src, spec, max_side)
+    return _finish(work, target, factor, spec, resolve_palette(spec.palette, work))
+
+
+def prepare_image(src: Image, spec: PipelineSpec, *, max_side: int | None = None) -> Image:
+    """Return src after steps 1 to 5, the image palette resolution reads."""
+    return _prepare(src, spec, max_side)[0]
+
+
+def render_with_palette(
+    src: Image, spec: PipelineSpec, palette: Palette, *, max_side: int | None = None
+) -> RGB8:
+    """Render src with an already resolved palette, skipping step 5's resolution."""
+    work, target, factor = _prepare(src, spec, max_side)
+    return _finish(work, target, factor, spec, palette)
+
+
+def _prepare(
+    src: Image, spec: PipelineSpec, max_side: int | None
+) -> tuple[Image, tuple[int, int], int]:
+    """Run steps 1 to 5 and return the working image, the target shape and the pixel factor."""
     work = _as_image(src)
     work = _proxy(work, max_side)
     target = work.shape[:2]
@@ -140,7 +161,13 @@ def render(src: Image, spec: PipelineSpec, *, max_side: int | None = None) -> RG
         work = color.gaussian_blur(work, spec.pre_blur / 3.0)
     factor = _pixel_size(spec.pixel_size)
     work = color.downscale(work, factor)
-    palette = resolve_palette(spec.palette, work)
+    return work, target, factor
+
+
+def _finish(
+    work: Image, target: tuple[int, int], factor: int, spec: PipelineSpec, palette: Palette
+) -> RGB8:
+    """Run steps 6 to 11 on the prepared image with a resolved palette."""
     info = get_algorithm(spec.algorithm_id)
     params = resolve_params(info.params, spec.algorithm_params)
     code = color.metric_code(spec.color_metric)
