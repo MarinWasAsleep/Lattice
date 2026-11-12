@@ -19,7 +19,7 @@ last_update: 2026-11-12
 | T18 | 4 | done | 0 | 0 | 3f5fbad | colour metrics; DEV-102 wired |
 | T19 | 4 | done | 0 | 0 | d7c0624 | strength on all 33 algorithms |
 | T20 | 4 | done | 0 | 0 | 3faf7fb | halftone v2 + CMYK effect |
-| T21 | 4 | todo | 0 | 0 | | palette authoring + library |
+| T21 | 4 | done | 0 | 0 | 87badc4 | library, hex import, lock, reorder; seeding blocked |
 | T22 | 5 | done | 0 | 0 | 452da4e | CLI + batch; G6 green |
 | T23 | 5 | todo | 0 | 0 | | SVG export |
 | T24 | 5 | todo | 0 | 0 | | print export |
@@ -96,6 +96,22 @@ last_update: 2026-11-12
 - 2026-11-12: argparse exits 2 on a usage error, but §17 reserves 2 for an input error and gives 1
   to usage. The parser is subclassed so `error` exits 1, and `main` returns the code rather than
   letting `SystemExit` escape, which also makes the exit codes testable in-process.
+- 2026-11-12: T21 shipped twelve library palettes: `vga16`, `tango`, `web_safe` (public domain or
+  factual) and `solarized_dark`, `solarized_light`, `nord`, `gruvbox_dark`, `dracula`,
+  `catppuccin_mocha`, `one_dark`, `tokyo_night`, `rose_pine` (MIT). The artist pixel-art palettes
+  and the console palettes were left out: their licence is not stated, or their values are emulator
+  approximations rather than published data. `palettes/data/NOTICE.md` records the MIT text and the
+  exclusions.
+- 2026-11-12: the library hex values were transcribed from each project's published palette. The
+  tests check the structure of every file, not the exact colours; a maintainer should diff them
+  against upstream before a release.
+- 2026-11-12: T21's sixth accept item, "locked swatches survive extraction unchanged", is **not**
+  implemented. DEV-101 is still open: the contract never says which palette a `locked` index points
+  into. The panel stores, serialises, round-trips and displays the lock, so the field is usable as
+  soon as the decision lands; only the seeding is missing.
+- 2026-11-12: reordering permutes `PaletteSpec.order` and leaves the colours in natural order, so
+  the rendered image is byte-identical before and after. The panel resets `order` when the palette
+  changes size, because a permutation of the old size would fail `_validate_order`.
 
 ## Human checkpoints
 
@@ -109,10 +125,11 @@ last_update: 2026-11-12
 
 ## Next
 
-- NEXT: T21 (palette authoring) is the only wave-4 card left. Five of its six accept items are
-  unblocked; the sixth, "locked swatches survive extraction unchanged", waits on DEV-101.
-- T23 (SVG export) and T24 (print export) are the next unblocked cards after T21.
+- NEXT: wave 4 is complete. T23 (SVG export) and T24 (print export) open wave 5.
+- DEV-101 still blocks the extraction seeding of `locked`. It needs a human decision: either
+  `locked` indexes the palette currently loaded in the UI, or the field becomes a list of
+  `#RRGGBB` colours. The second is the cleaner type and the one to prefer.
 - H5 (read and freeze CONTRACT 1.1) is still pending and should be taken before wave 5.
-- H6 (judge output on three real images) can now be taken: T17 to T20 are in, so conditioning,
-  colour metrics, strength and both halftones are usable from the GUI.
+- H6 (judge output on three real images) can now be taken: T17 to T21 are in, so conditioning,
+  colour metrics, strength, both halftones and the palette library are usable from the GUI.
 - H7 (run the CLI and the print export) is half ready: the CLI is in, the print export is T24.
