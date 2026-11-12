@@ -163,6 +163,16 @@ _No entry yet._
   `tests/test_ordered.py`, `tests/test_halftone.py`, `tests/test_misc.py` and
   `tests/test_algorithms_extra.py`. No other change.
 
+### AMD-104
+- task: T32 | contract: 1.1.0 | date: 2026-11-12
+- section: T32 owns
+- discovered: T32's accept item requires that no literal user-visible string remains in `ui/*.py`,
+  "test greps as in T28". That grep and its `CONVERTED_FILES` tuple live in `tests/test_i18n.py`,
+  which T28 owns and T32 does not, so T32 cannot satisfy its own accept item without editing a file
+  outside its `owns`.
+- contract change: T32's `owns` gains `tests/test_i18n.py`. T28 is done, so the two never overlap in
+  time. No other change.
+
 ### DEV-106
 - class: E1 | task: T23 | contract: 1.1.0 | status: resolved
 - raised by: coder | date: 2026-11-12

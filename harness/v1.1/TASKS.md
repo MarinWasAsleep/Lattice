@@ -285,7 +285,7 @@ pairs sit in different waves and are never concurrent.
 - wave: 7 · deps: T17 to T31, T33, T34 · executor: DeepSeek · review: strict · size: L
 - owns: dithercraft/ui/main_window.py, dithercraft/ui/algorithm_panel.py,
   dithercraft/ui/effects_panel.py, dithercraft/ui/palette_panel.py,
-  tests/test_ui_integration.py, tests/manual/CHECKLIST.md
+  tests/test_ui_integration.py, tests/test_i18n.py, tests/manual/CHECKLIST.md
 - context: §7 §9 §12 §13 §14 §15 §16 §17 §19 §20 §21 §22 §23 §24
 - spec: wire everything. The algorithm panel exposes `color_metric`, `strength`, the halftone
   parameters and the conditioning strip; the palette panel exposes the library, lock and order; the
