@@ -260,5 +260,6 @@ last_update: 2026-11-12
   entirely: `strength` reaches the user through the generic param form because it is an algorithm
   parameter, but `color_metric` is a `PipelineSpec` field with no control, so the four metrics are
   unreachable from the GUI.
-- H8 is in progress. It found DEV-109 (dead F5 and Space, swallowed drops), now fixed. The gallery
-  is still unwired, so it cannot be judged until T32.
+- H8 is in progress. Its first pass found DEV-109 (dead F5 and Space, swallowed drops), fixed in
+  `5075027` and confirmed working by the human. The gallery is still unwired, so it cannot be
+  judged until T32.
