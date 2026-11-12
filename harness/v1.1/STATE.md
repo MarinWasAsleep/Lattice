@@ -22,7 +22,7 @@ last_update: 2026-11-12
 | T21 | 4 | done | 0 | 0 | 87badc4 | library, hex import, lock, reorder; DEV-101 resolved |
 | T22 | 5 | done | 0 | 0 | 452da4e | CLI + batch; G6 green |
 | T23 | 5 | done | 0 | 0 | | SVG export; DEV-106 on the size budget |
-| T24 | 5 | todo | 0 | 0 | | print export |
+| T24 | 5 | done | 0 | 0 | | print export, bleed, crop marks, separations |
 | T25 | 5 | todo | 0 | 0 | | animation + video |
 | T26 | 6 | todo | 0 | 0 | | algorithm gallery |
 | T27 | 6 | todo | 0 | 0 | | undo, shortcuts, drag and drop |
@@ -131,6 +131,18 @@ last_update: 2026-11-12
   artwork (0.49 MB) but not on a dithered render (46.45 MB), because the size follows the number of
   runs, not the number of colours. The budget test is measured on flat content and the contract
   needs to name its reference content.
+- 2026-11-12: T24 builds the canvas in three concentric areas, trim then bleed then a 3 mm
+  transparent margin, and draws the crop marks in the margin only, so they never touch the bleed or
+  the trim. The main PNG is RGB without crop marks and RGBA with them, because the margin is
+  transparent. The bleed is `np.pad(mode="edge")`, which is the literal reading of "filled with the
+  edge colour".
+- 2026-11-12: the separations reuse `effects.halftone.plates` at full black pullout rather than
+  duplicating the CMYK formula, so the codebase keeps one definition of the conversion. Full pullout
+  is the textbook one: a neutral grey lands entirely on the K plate, which is what a printer expects
+  from a separation. A plate is written with 255 meaning full ink, so "empty" is an all-zero array.
+- 2026-11-12: `dpi` is stored through Pillow's `dpi=` argument and reads back as 299.9994 at 300 dpi,
+  because PNG stores pixels per metre as an integer. The tests compare with a tolerance rather than
+  for equality.
 
 ## Human checkpoints
 
@@ -144,10 +156,12 @@ last_update: 2026-11-12
 
 ## Next
 
-- NEXT: wave 4 is complete. T23 (SVG export) and T24 (print export) open wave 5.
+- NEXT: T23 and T24 are in. T25 (animation and video) closes wave 5.
 - DEV-101 is resolved, so no deviation blocks a task. DEV-104 and DEV-105 stay open as accepted
-  readings of §14 and §15.1 and need no action before wave 5.
-- H5 (read and freeze CONTRACT 1.1) is still pending and should be taken before wave 5.
+  readings of §14 and §15.1. DEV-106 needs a human decision on the reference content of §19's size
+  budget; it blocks nothing.
+- H5 (read and freeze CONTRACT 1.1) is still pending and should be taken before wave 6.
 - H6 (judge output on three real images) can now be taken: T17 to T21 are in, so conditioning,
   colour metrics, strength, both halftones and the palette library are usable from the GUI.
-- H7 (run the CLI and the print export) is half ready: the CLI is in, the print export is T24.
+- H7 (run the CLI and the print export) is now fully ready: the CLI, the SVG export and the print
+  export are all in.
