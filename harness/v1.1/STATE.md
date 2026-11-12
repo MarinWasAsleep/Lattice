@@ -9,6 +9,8 @@ last_update: 2026-11-12
 
 - python: 3.15.2 · numpy 2.5.4 · numba 0.68.1 · Pillow 13.0.0 · PySide6 6.12.0 · pytest 9.2.0 · ruff 0.17.4
 - venv: `.venv` at the project root. No new dependency in 1.1.
+- ffmpeg: 9.0.2 (Gyan full build) on `PATH`, installed through winget. Optional at runtime: the
+  video export returns `False` when it is missing.
 - Baseline before 1.1: 622 tests green, ruff clean, check_contract OK, commit `5e3c2dd`.
 
 ## Task table
@@ -23,7 +25,7 @@ last_update: 2026-11-12
 | T22 | 5 | done | 0 | 0 | 452da4e | CLI + batch; G6 green |
 | T23 | 5 | done | 0 | 0 | | SVG export; DEV-106 on the size budget |
 | T24 | 5 | done | 0 | 0 | | print export, bleed, crop marks, separations |
-| T25 | 5 | done | 0 | 0 | | animation + video; ffmpeg absent here |
+| T25 | 5 | done | 0 | 0 | | animation + video; ffmpeg 9.0.2 verified |
 | T26 | 6 | todo | 0 | 0 | | algorithm gallery |
 | T27 | 6 | todo | 0 | 0 | | undo, shortcuts, drag and drop |
 | T28 | 6 | todo | 0 | 0 | | i18n + French catalogue |
@@ -157,9 +159,10 @@ last_update: 2026-11-12
 - 2026-11-12: Pillow's GIF writer merges consecutive identical frames into one with a longer
   duration, so the frame-count test uses distinct frames. GIF stores the delay in centiseconds, so
   12 fps lands on 80 ms rather than 83; the tests pin both 10 fps (exact) and 12 fps (rounded).
-- 2026-11-12: ffmpeg is not installed on this machine, so only the absent-ffmpeg path of
-  `export_video` is exercised. The success path is written but unverified; it needs a machine with
-  ffmpeg before H7.
+- 2026-11-12: ffmpeg 9.0.2 (Gyan full build) was installed through winget, so both paths of
+  `export_video` are now exercised. The success path is checked with `ffprobe`: h264, the frame
+  dimensions and the requested rate all come back as written. The two tests skip themselves when
+  ffmpeg or ffprobe is missing, so the suite stays green on a machine without them.
 
 ## Human checkpoints
 
@@ -180,5 +183,5 @@ last_update: 2026-11-12
 - H5 (read and freeze CONTRACT 1.1) is still pending and should be taken before wave 6.
 - H6 (judge output on three real images) can now be taken: T17 to T21 are in, so conditioning,
   colour metrics, strength, both halftones and the palette library are usable from the GUI.
-- H7 (run the CLI and the print export) is now fully ready: the CLI, the SVG export and the print
-  export are all in. The video export needs a machine with ffmpeg.
+- H7 (run the CLI and the print export) is now fully ready: the CLI, the SVG export, the print
+  export and the video export are all in, and ffmpeg is installed.

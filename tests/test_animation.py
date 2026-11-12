@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import shutil
+import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -185,3 +187,49 @@ def test_export_video_rejects_an_empty_sequence(tmp_path: Path) -> None:
     """An empty sequence is rejected before ffmpeg is looked for."""
     with pytest.raises(ValueError, match="empty"):
         export_video([], tmp_path / "clip.mp4")
+
+
+needs_ffmpeg = pytest.mark.skipif(
+    shutil.which("ffmpeg") is None, reason="ffmpeg is not installed"
+)
+needs_ffprobe = pytest.mark.skipif(
+    shutil.which("ffprobe") is None, reason="ffprobe is not installed"
+)
+
+
+@needs_ffmpeg
+def test_export_video_writes_a_file_when_ffmpeg_is_present(tmp_path: Path) -> None:
+    """With ffmpeg on PATH the export returns True and leaves a non-empty file."""
+    target = tmp_path / "clip.mp4"
+    assert export_video(_rgb_frames(), target, fps=12) is True
+    assert target.exists()
+    assert target.stat().st_size > 0
+
+
+@needs_ffmpeg
+@needs_ffprobe
+def test_export_video_encodes_the_requested_frame_count(tmp_path: Path) -> None:
+    """The encoded stream carries every frame at the requested rate and size."""
+    target = tmp_path / "clip.mp4"
+    export_video(_rgb_frames(), target, fps=12)
+    probe = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=width,height,nb_frames,r_frame_rate",
+            "-of",
+            "json",
+            str(target),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    stream = json.loads(probe.stdout)["streams"][0]
+    assert (stream["width"], stream["height"]) == (16, 16)
+    assert stream["nb_frames"] == "5"
+    assert stream["r_frame_rate"] == "12/1"
