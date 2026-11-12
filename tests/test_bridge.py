@@ -399,3 +399,260 @@ def test_version_status(monkeypatch, installed: str | None, expected: str) -> No
     """version_status maps the installed version onto the three contract states."""
     monkeypatch.setattr(photocraft, "installed_photocraft_version", lambda cli=None: installed)
     assert photocraft.version_status() == expected
+
+
+class PreviewHandler:
+    """Scripted responder that tracks the layers of one document."""
+
+    def __init__(self, exchange: Path) -> None:
+        self.exchange = exchange
+        self.layers: list[dict] = []
+        self.saved_name: str | None = None
+        self.fail_replace = False
+        self._next_id = 24
+
+    def __call__(self, request: dict) -> dict | None:
+        method = request["method"]
+        params = request.get("params") or {}
+        command = params.get("command")
+        if method == "app.open":
+            self.saved_name = params["path"]
+            return _ok(request, {"name": self.saved_name, "path": self.saved_name})
+        if method == "ui.inspect":
+            documents = [{"index": 0, "name": "target.png", "path": "target.png"}]
+            if self.saved_name:
+                documents.append({"index": 1, "name": self.saved_name, "path": self.saved_name})
+            return _ok(request, {"session": {"active": 0, "documents": documents}})
+        if command == "layer.copyToDocument":
+            self.layers.append({"id": self._next_id, "name": params["params"]["name"]})
+            self._next_id += 1
+            new = self.layers[-1]["id"]
+            return _ok(request, {"document": 0, "layers": [new], "offset": [0, 0]})
+        if command == "layer.replaceContent":
+            if self.fail_replace:
+                return None
+            layer = self._layer(params["params"]["layer"])
+            if layer is None:
+                return _error(request, "no such layer")
+            layer["content"] = params["params"]["path"]
+            return _ok(request, {"layer": layer["id"]})
+        if command == "layer.renameLayer":
+            layer = self._layer(params["params"]["layer"])
+            if layer is None:
+                return _error(request, "no such layer")
+            layer["name"] = params["params"]["name"]
+            return _ok(request, {"layer": layer["id"]})
+        canned = {
+            "document.activate": {"document": 0},
+            "file.close": {},
+            "document.inspect": {"activeLayer": self.layers[-1]["id"] if self.layers else 0},
+        }
+        if command in canned:
+            return _ok(request, canned[command])
+        return _error(request, f"unexpected {method}")
+
+    def _layer(self, layer_id: int) -> dict | None:
+        """Return the tracked layer with this id, or None."""
+        return next((layer for layer in self.layers if layer["id"] == layer_id), None)
+
+
+def _commands(fake: FakeDesktopServer) -> list[str | None]:
+    """Return the engine command of every request after the first auth."""
+    return [command for _, command in _sequence(fake)]
+
+
+def test_place_as_layer_name_is_optional(exchange: Path, server) -> None:
+    """The layer name defaults to "Lattice Dither" and None means that default."""
+    fake = server(PlaceHandler(exchange))
+    client = PhotoCraftClient(fake.port, TOKEN)
+    image = Image.new("RGB", (4, 4), (1, 2, 3))
+    assert client.place_as_layer(image) == 24
+    assert client.place_as_layer(image, None) == 24
+    assert client.place_as_layer(image, "Preset A") == 24
+    names = [
+        request["params"]["params"]["name"]
+        for request in fake.requests
+        if (request.get("params") or {}).get("command") == "layer.copyToDocument"
+    ]
+    assert names == ["Lattice Dither", "Lattice Dither", "Preset A"]
+
+
+def test_preview_layer_replaces_instead_of_stacking(exchange: Path, server) -> None:
+    """Two previews and an update keep one layer: one copy, two content replacements."""
+    handler = PreviewHandler(exchange)
+    fake = server(handler)
+    client = PhotoCraftClient(fake.port, TOKEN)
+    image = Image.new("RGB", (4, 4), (1, 2, 3))
+    assert client.preview_layer(image, "Preset A") == 24
+    assert client.preview_layer(image, "Preset A") == 24
+    assert client.update_preview_layer(image) == 24
+    commands = _commands(fake)
+    assert commands.count("layer.copyToDocument") == 1
+    assert commands.count("layer.replaceContent") == 2
+    assert [layer["id"] for layer in handler.layers] == [24]
+    assert handler.layers[0]["name"] != "Preset A"
+    assert list(exchange.iterdir()) == []
+
+
+def test_commit_preview_layer_renames_and_forgets(exchange: Path, server) -> None:
+    """commit renames the layer to the preset name and the next preview stacks a new one."""
+    handler = PreviewHandler(exchange)
+    fake = server(handler)
+    client = PhotoCraftClient(fake.port, TOKEN)
+    image = Image.new("RGB", (4, 4), (1, 2, 3))
+    assert client.preview_layer(image, "Preset A") == 24
+    assert client.commit_preview_layer() == 24
+    assert handler.layers[0]["name"] == "Preset A"
+    renames = [
+        request["params"]["params"]
+        for request in fake.requests
+        if (request.get("params") or {}).get("command") == "layer.renameLayer"
+    ]
+    assert renames == [{"layer": 24, "name": "Preset A"}]
+    with pytest.raises(BridgeError, match="no preview layer"):
+        client.update_preview_layer(image)
+    assert client.preview_layer(image, "Preset B") == 25
+    assert [layer["id"] for layer in handler.layers] == [24, 25]
+    assert _commands(fake).count("layer.copyToDocument") == 2
+
+
+def test_preview_handle_is_per_client(exchange: Path, server) -> None:
+    """Two clients do not share the preview handle."""
+    handler = PreviewHandler(exchange)
+    fake = server(handler)
+    image = Image.new("RGB", (4, 4))
+    first = PhotoCraftClient(fake.port, TOKEN)
+    second = PhotoCraftClient(fake.port, TOKEN)
+    assert first.preview_layer(image, "Preset A") == 24
+    with pytest.raises(BridgeError, match="no preview layer"):
+        second.update_preview_layer(image)
+    assert second.preview_layer(image, "Preset B") == 25
+    assert [layer["id"] for layer in handler.layers] == [24, 25]
+
+
+def test_disconnect_clears_the_preview_handle(exchange: Path, server) -> None:
+    """A disconnect forgets the preview layer, so the next update refuses instead of guessing."""
+    handler = PreviewHandler(exchange)
+    fake = server(handler)
+    client = PhotoCraftClient(fake.port, TOKEN)
+    image = Image.new("RGB", (4, 4))
+    assert client.preview_layer(image, "Preset A") == 24
+    client.disconnect()
+    with pytest.raises(BridgeError, match="no preview layer"):
+        client.update_preview_layer(image)
+    assert "layer.replaceContent" not in _commands(fake)
+    assert client.preview_layer(image, "Preset A") == 25
+    assert [layer["id"] for layer in handler.layers] == [24, 25]
+
+
+def test_a_broken_connection_clears_the_preview_handle(exchange: Path, server) -> None:
+    """When the connection dies during an update, the stale handle is dropped."""
+    handler = PreviewHandler(exchange)
+    fake = server(handler)
+    client = PhotoCraftClient(fake.port, TOKEN)
+    image = Image.new("RGB", (4, 4))
+    assert client.preview_layer(image, "Preset A") == 24
+    handler.fail_replace = True
+    with pytest.raises(BridgeError, match="closed the connection"):
+        client.update_preview_layer(image)
+    handler.fail_replace = False
+    with pytest.raises(BridgeError, match="no preview layer"):
+        client.update_preview_layer(image)
+
+
+def test_documents_returns_the_inspect_list(exchange: Path, server) -> None:
+    """documents() returns the ui.inspect document list unchanged."""
+    documents = [
+        {"index": 0, "name": "a.png", "path": "a.png", "dirty": False, "width": 10, "height": 20},
+        {"index": 1, "name": "b.png", "path": "b.png", "dirty": True, "width": 30, "height": 40},
+    ]
+    fake = server(lambda request: _ok(request, {"session": {"active": 1, "documents": documents}}))
+    assert PhotoCraftClient(fake.port, TOKEN).documents() == documents
+    assert [request["method"] for request in fake.requests] == ["auth", "ui.inspect"]
+
+
+def test_render_document_pulls_the_requested_document(exchange: Path, server) -> None:
+    """render_document(1) activates the second document, saves it and restores the first."""
+    documents = [
+        {"index": 0, "name": "a.png", "path": "a.png", "width": 8, "height": 8},
+        {"index": 1, "name": "b.png", "path": "b.png", "width": 5, "height": 3},
+    ]
+    state = {"active": 0}
+
+    def handler(request: dict) -> dict:
+        params = request.get("params") or {}
+        command = params.get("command")
+        if request["method"] == "ui.inspect":
+            return _ok(request, {"session": {"active": state["active"], "documents": documents}})
+        if command == "document.activate":
+            state["active"] = params["params"]["document"]
+            return _ok(request, {"document": state["active"]})
+        if request["method"] == "app.save":
+            size, colour = ((5, 3), (200, 10, 10)) if state["active"] else ((8, 8), (10, 10, 200))
+            Image.new("RGB", size, colour).save(exchange / params["path"])
+            return _ok(request, {"warnings": []})
+        return _error(request, f"unexpected {request['method']}")
+
+    fake = server(handler)
+    image = PhotoCraftClient(fake.port, TOKEN).render_document(1)
+    assert image.size == (5, 3)
+    assert image.getpixel((0, 0)) == (200, 10, 10)
+    assert state["active"] == 0
+    assert _sequence(fake) == [
+        ("ui.inspect", None),
+        ("engine.execute", "document.activate"),
+        ("app.save", None),
+        ("engine.execute", "document.activate"),
+    ]
+    assert fake.requests[2]["params"]["params"] == {"document": 1}
+    assert fake.requests[4]["params"]["params"] == {"document": 0}
+    assert list(exchange.iterdir()) == []
+
+
+def test_control_calls_use_the_five_second_timeout(exchange: Path, server, monkeypatch) -> None:
+    """Every connection is opened with the 5 s control timeout unless the caller overrides it."""
+    recorded: list[float | None] = []
+    original = socket.create_connection
+
+    def spy(address, timeout=None, **kwargs):
+        recorded.append(timeout)
+        return original(address, timeout=timeout, **kwargs)
+
+    monkeypatch.setattr(photocraft.socket, "create_connection", spy)
+    fake = server(lambda request: _ok(request, {"session": {"active": 0, "documents": []}}))
+    PhotoCraftClient(fake.port, TOKEN).documents()
+    PhotoCraftClient(fake.port, TOKEN, timeout=0.5).documents()
+    assert recorded == [5.0, 0.5]
+
+
+def test_save_timeout_is_sixty_seconds_for_large_documents(
+    exchange: Path, server, monkeypatch
+) -> None:
+    """app.save gets 60 s above 4000 px, keeps the control timeout below it, and restores it."""
+    values: list[float] = []
+    original = socket.socket.settimeout
+
+    def spy(self, value):
+        values.append(value)
+        return original(self, value)
+
+    monkeypatch.setattr(socket.socket, "settimeout", spy)
+
+    def handler(size: tuple[int, int]):
+        def respond(request: dict) -> dict:
+            if request["method"] == "engine.execute":
+                return _ok(request, {"activeLayer": 1, "width": size[0], "height": size[1]})
+            Image.new("RGB", (2, 2)).save(exchange / request["params"]["path"])
+            return _ok(request)
+
+        return respond
+
+    big = server(handler((4001, 100)))
+    PhotoCraftClient(big.port, TOKEN).render_document()
+    assert values.count(60.0) == 1
+    assert values[-1] == 5.0
+
+    values.clear()
+    small = server(handler((4000, 100)))
+    PhotoCraftClient(small.port, TOKEN).render_document()
+    assert 60.0 not in values
