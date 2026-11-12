@@ -361,4 +361,3 @@ def test_disabled_effect_does_not_shift_the_seed(test_registry, field):
     alone = render(src, _spec(**{field: [noise]}))
     shifted = render(src, _spec(**{field: [disabled, noise]}))
     assert np.array_equal(alone, shifted)
-

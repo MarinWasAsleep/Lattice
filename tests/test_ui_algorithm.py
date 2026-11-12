@@ -157,7 +157,7 @@ def test_apply_to_leaves_other_fields_untouched(panel: AlgorithmPanel) -> None:
     out = PipelineSpec(seed=11, palette=PaletteSpec(source="custom", colors=["#000000"]))
     panel.apply_to(out)
     assert out.seed == 11
-    assert out.version == 1
+    assert out.version == PipelineSpec().version
     assert out.pre_effects == []
     assert out.post_effects == []
     assert out.palette.source == "custom"

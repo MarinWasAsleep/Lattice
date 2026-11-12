@@ -6,19 +6,29 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from lattice_dither.core.pipeline import EffectInstance, PaletteSpec, PipelineSpec
+from lattice_dither.core.pipeline import (
+    COLOR_METRICS,
+    PRESET_VERSION,
+    EffectInstance,
+    PaletteSpec,
+    PipelineSpec,
+    PresetMeta,
+)
 from lattice_dither.core.registry import get_algorithm, get_effect
 
 PALETTE_SOURCES = ("builtin", "extracted", "custom")
+SUPPORTED_VERSIONS = (1, 2)
 
 
 def to_json(spec: PipelineSpec) -> str:
-    """Serialise spec to indented JSON whose keys are the dataclass field names."""
-    return json.dumps(asdict(spec), indent=2)
+    """Serialise spec to indented JSON at the current preset version, keys in field order."""
+    data = asdict(spec)
+    data["version"] = PRESET_VERSION
+    return json.dumps(data, indent=2)
 
 
 def from_json(text: str) -> PipelineSpec:
-    """Parse JSON into a PipelineSpec, validating algorithm and effect ids."""
+    """Parse JSON into a PipelineSpec, validating the version, ids and metric."""
     try:
         data = json.loads(text)
     except json.JSONDecodeError as exc:
@@ -28,6 +38,10 @@ def from_json(text: str) -> PipelineSpec:
     spec = PipelineSpec()
     if "version" in data:
         spec.version = _as_int(data["version"], "version")
+    if spec.version not in SUPPORTED_VERSIONS:
+        raise ValueError(f"unsupported preset version: {spec.version}")
+    if "meta" in data:
+        spec.meta = _meta(data["meta"])
     if "pre_effects" in data:
         spec.pre_effects = _effect_list(data["pre_effects"], "pre_effects")
     if "post_effects" in data:
@@ -38,6 +52,14 @@ def from_json(text: str) -> PipelineSpec:
         spec.contrast = _as_float(data["contrast"], "contrast")
     if "gamma" in data:
         spec.gamma = _as_float(data["gamma"], "gamma")
+    if "saturation" in data:
+        spec.saturation = _as_float(data["saturation"], "saturation")
+    if "pre_blur" in data:
+        spec.pre_blur = _as_float(data["pre_blur"], "pre_blur")
+    if "auto_levels" in data:
+        spec.auto_levels = bool(data["auto_levels"])
+    if "color_metric" in data:
+        spec.color_metric = _color_metric(data["color_metric"])
     if "pixel_size" in data:
         spec.pixel_size = _as_int(data["pixel_size"], "pixel_size")
     if "algorithm_id" in data:
@@ -124,6 +146,30 @@ def _effect_instance(entry: object, key: str) -> EffectInstance:
     return EffectInstance(effect_id=effect_id, params=params, enabled=enabled)
 
 
+def _color_metric(value: object) -> str:
+    """Validate a colour metric name against the contract list and return it."""
+    if value not in COLOR_METRICS:
+        raise ValueError(f"unknown color metric: {value!r}")
+    return str(value)
+
+
+def _meta(value: object) -> PresetMeta:
+    """Parse the meta object of a preset, keeping the defaults for absent keys."""
+    data = _as_dict(value, "meta")
+    meta = PresetMeta()
+    if "name" in data:
+        meta.name = str(data["name"])
+    if "author" in data:
+        meta.author = str(data["author"])
+    if "description" in data:
+        meta.description = str(data["description"])
+    if "tags" in data:
+        meta.tags = [str(entry) for entry in _as_list(data["tags"], "tags")]
+    if "thumbnail" in data:
+        meta.thumbnail = str(data["thumbnail"])
+    return meta
+
+
 def _palette(value: object) -> PaletteSpec:
     """Parse the palette object of a preset, validating the source literal."""
     data = _as_dict(value, "palette")
@@ -141,4 +187,8 @@ def _palette(value: object) -> PaletteSpec:
         spec.extract_k = _as_int(data["extract_k"], "extract_k")
     if "extract_method" in data:
         spec.extract_method = str(data["extract_method"])
+    if "locked" in data:
+        spec.locked = [_as_int(entry, "locked") for entry in _as_list(data["locked"], "locked")]
+    if "order" in data:
+        spec.order = [_as_int(entry, "order") for entry in _as_list(data["order"], "order")]
     return spec

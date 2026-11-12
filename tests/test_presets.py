@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from lattice_dither.core import registry
-from lattice_dither.core.pipeline import EffectInstance, PaletteSpec, PipelineSpec
+from lattice_dither.core.pipeline import EffectInstance, PaletteSpec, PipelineSpec, PresetMeta
 from lattice_dither.core.presets import from_json, load_preset, save_preset, to_json
 from lattice_dither.core.registry import AlgorithmInfo, EffectInfo
 
@@ -43,7 +43,7 @@ def test_registry(monkeypatch):
 def _full_spec() -> PipelineSpec:
     """Return a spec that exercises every field."""
     return PipelineSpec(
-        version=1,
+        version=2,
         pre_effects=[
             EffectInstance("test_invert", {"amount": 0.5}, True),
             EffectInstance("test_invert", {}, False),
@@ -51,15 +51,22 @@ def _full_spec() -> PipelineSpec:
         brightness=0.1,
         contrast=-0.2,
         gamma=1.5,
+        saturation=0.3,
+        pre_blur=2.0,
+        auto_levels=True,
+        color_metric="oklab",
         pixel_size=4,
         algorithm_id="test_nearest",
         algorithm_params={"level": 0.25},
         palette=PaletteSpec(
             source="custom", name="mine", colors=["#000000", "#FF0000"], extract_k=6,
-            extract_method="median_cut",
+            extract_method="median_cut", locked=[0], order=[1, 0],
         ),
         post_effects=[EffectInstance("test_invert", {"amount": 1.0}, True)],
         seed=42,
+        meta=PresetMeta(
+            name="Mine", author="Marin", description="A preset", tags=["test"], thumbnail="t.png"
+        ),
     )
 
 
@@ -68,7 +75,7 @@ def test_to_json_uses_field_names_and_indent(test_registry):
     text = to_json(PipelineSpec())
     data = json.loads(text)
     assert set(data) == set(PipelineSpec.__dataclass_fields__)
-    assert '\n  "version": 1' in text
+    assert '\n  "version": 2' in text
 
 
 def test_round_trip_full_spec(test_registry):
@@ -159,3 +166,73 @@ def test_save_preset_accepts_str_path(test_registry, tmp_path):
     path = str(tmp_path / "preset.json")
     save_preset(path, PipelineSpec(algorithm_id="test_nearest"))
     assert load_preset(path).algorithm_id == "test_nearest"
+
+
+def test_v1_preset_loads_with_version_one(test_registry):
+    """A version 1 preset loads, reports version 1 and takes the v2 defaults."""
+    spec = from_json('{"version": 1, "algorithm_id": "test_nearest"}')
+    assert spec.version == 1
+    assert spec.saturation == 0.0
+    assert spec.pre_blur == 0.0
+    assert spec.auto_levels is False
+    assert spec.color_metric == "srgb"
+    assert spec.meta == PresetMeta()
+
+
+def test_to_json_always_writes_the_current_version(test_registry):
+    """Saving a v1 spec upgrades it to the current preset version."""
+    text = to_json(PipelineSpec(version=1, algorithm_id="test_nearest"))
+    assert json.loads(text)["version"] == 2
+
+
+@pytest.mark.parametrize("version", [0, 3, 4, -1])
+def test_unsupported_version_names_it(test_registry, version):
+    """Any version outside 1 and 2 raises ValueError naming the version."""
+    with pytest.raises(ValueError, match=str(version)):
+        from_json(f'{{"version": {version}}}')
+
+
+def test_unknown_color_metric_names_it(test_registry):
+    """An unknown colour metric raises ValueError naming it."""
+    with pytest.raises(ValueError, match="cmyk"):
+        from_json('{"color_metric": "cmyk"}')
+
+
+def test_meta_round_trips(test_registry):
+    """Every meta field survives a round trip, including tags."""
+    meta = PresetMeta(
+        name="N", author="A", description="D", tags=["x", "y"], thumbnail="t.png"
+    )
+    spec = PipelineSpec(algorithm_id="test_nearest", meta=meta)
+    assert from_json(to_json(spec)).meta == meta
+
+
+def test_partial_meta_keeps_defaults(test_registry):
+    """A meta object with one key leaves the other fields at their defaults."""
+    spec = from_json('{"meta": {"author": "Marin"}}')
+    assert spec.meta == PresetMeta(author="Marin")
+
+
+def test_locked_and_order_round_trip(test_registry):
+    """The palette lock list and display order survive a round trip."""
+    palette = PaletteSpec(source="custom", colors=["#000000", "#FFFFFF"], locked=[1], order=[1, 0])
+    spec = PipelineSpec(algorithm_id="test_nearest", palette=palette)
+    assert from_json(to_json(spec)).palette == palette
+
+
+def test_conditioning_fields_round_trip(test_registry):
+    """The four conditioning fields survive a round trip."""
+    spec = PipelineSpec(
+        algorithm_id="test_nearest",
+        saturation=-0.5,
+        pre_blur=7.5,
+        auto_levels=True,
+        color_metric="lab2000",
+    )
+    assert from_json(to_json(spec)) == spec
+
+
+def test_to_json_is_byte_stable(test_registry):
+    """Two calls on the same spec produce identical bytes."""
+    spec = _full_spec()
+    assert to_json(spec) == to_json(spec)

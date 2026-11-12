@@ -16,6 +16,19 @@ MAX_PALETTE_SIZE = 256
 MIN_PIXEL_SIZE = 1
 MAX_PIXEL_SIZE = 32
 POST_EFFECT_SEED_OFFSET = 1000
+COLOR_METRICS = ("srgb", "linear", "oklab", "lab2000")
+PRESET_VERSION = 2
+
+
+@dataclass
+class PresetMeta:
+    """Human-readable description of a preset, carried through the JSON format."""
+
+    name: str = ""
+    author: str = ""
+    description: str = ""
+    tags: list[str] = field(default_factory=list)
+    thumbnail: str = ""
 
 
 @dataclass
@@ -36,27 +49,41 @@ class PaletteSpec:
     colors: list[str] = field(default_factory=list)
     extract_k: int = 8
     extract_method: str = "kmeans"
+    locked: list[int] = field(default_factory=list)
+    order: list[int] = field(default_factory=list)
 
 
 @dataclass
 class PipelineSpec:
     """Complete, serialisable description of one render."""
 
-    version: int = 1
+    version: int = PRESET_VERSION
     pre_effects: list[EffectInstance] = field(default_factory=list)
     brightness: float = 0.0
     contrast: float = 0.0
     gamma: float = 1.0
+    saturation: float = 0.0
+    pre_blur: float = 0.0
+    auto_levels: bool = False
+    color_metric: str = "srgb"
     pixel_size: int = 1
     algorithm_id: str = "floyd_steinberg"
     algorithm_params: dict = field(default_factory=dict)
     palette: PaletteSpec = field(default_factory=PaletteSpec)
     post_effects: list[EffectInstance] = field(default_factory=list)
     seed: int = 0
+    meta: PresetMeta = field(default_factory=PresetMeta)
 
 
 def resolve_palette(spec: PaletteSpec, img: Image) -> Palette:
     """Return the float32 palette described by spec, extracting from img when needed."""
+    palette = _palette_for(spec, img)
+    _validate_order(spec.order, palette.shape[0])
+    return palette
+
+
+def _palette_for(spec: PaletteSpec, img: Image) -> Palette:
+    """Build the palette of spec without validating its display order."""
     if spec.source == "builtin":
         from lattice_dither.palettes.builtin import get_builtin
 
@@ -66,18 +93,42 @@ def resolve_palette(spec: PaletteSpec, img: Image) -> Palette:
     if spec.source == "extracted":
         from lattice_dither.palettes.extract import extract_palette
 
+        if len(spec.locked) > int(spec.extract_k):
+            raise ValueError(
+                f"{len(spec.locked)} locked colours exceed extract_k={spec.extract_k}"
+            )
         palette = extract_palette(img, int(spec.extract_k), spec.extract_method)
         return np.ascontiguousarray(palette, dtype=np.float32)
     raise ValueError(f"unknown palette source: {spec.source!r}")
 
 
+def _validate_order(order: list[int], size: int) -> None:
+    """Raise ValueError naming the offending index when order is not a permutation."""
+    if not order:
+        return
+    seen: set[int] = set()
+    for index in order:
+        if not 0 <= index < size:
+            raise ValueError(f"palette order index {index} is outside [0, {size})")
+        if index in seen:
+            raise ValueError(f"palette order index {index} is repeated")
+        seen.add(index)
+    if len(order) != size:
+        missing = sorted(set(range(size)) - seen)[0]
+        raise ValueError(f"palette order is missing index {missing}")
+
+
 def render(src: Image, spec: PipelineSpec, *, max_side: int | None = None) -> RGB8:
-    """Render src through the nine normative pipeline steps and return uint8 RGB."""
+    """Render src through the eleven normative pipeline steps and return uint8 RGB."""
     work = _as_image(src)
     work = _proxy(work, max_side)
     target = work.shape[:2]
     work = _apply_effects(work, spec.pre_effects, spec.seed, 0)
-    work = color.adjust(work, spec.brightness, spec.contrast, spec.gamma)
+    if spec.auto_levels:
+        work = color.auto_levels(work)
+    work = color.adjust(work, spec.brightness, spec.contrast, spec.gamma, spec.saturation)
+    if spec.pre_blur > 0.0:
+        work = color.gaussian_blur(work, spec.pre_blur / 3.0)
     factor = _pixel_size(spec.pixel_size)
     work = color.downscale(work, factor)
     palette = resolve_palette(spec.palette, work)
