@@ -173,6 +173,27 @@ _No entry yet._
 - contract change: T32's `owns` gains `tests/test_i18n.py`. T28 is done, so the two never overlap in
   time. No other change.
 
+### AMD-105
+- task: T32 | contract: 1.1.0 | date: 2026-11-12
+- section: T32 owns
+- discovered: T32's accept item requires that no literal user-visible string remains in `ui/*.py`.
+  Measured with T28's own detectors, six files still fail: `algorithm_panel.py`, `effects_panel.py`,
+  `main_window.py` and `palette_panel.py`, which T32 owns, plus `gallery.py` (T26) and
+  `preset_browser.py` (T34), which it does not. T32 also needs new catalogue keys for the controls it
+  adds, and the JSON files belong to T28.
+- contract change: T32's `owns` gains `lattice_dither/ui/gallery.py`,
+  `lattice_dither/ui/preset_browser.py`, `lattice_dither/i18n/en.json` and
+  `lattice_dither/i18n/fr.json`. T26, T28 and T34 are done, so no two cards overlap in time. No other
+  change.
+
+### AMD-106
+- task: T32 | contract: 1.1.0 | date: 2026-11-12
+- section: T32 owns
+- discovered: T32 added an autouse fixture to `tests/conftest.py` to pin the interface language to
+  English, because the machine locale is `fr_CH` and eleven assertions in three test files it does
+  not own assert English literals. See DEV-110.
+- contract change: T32's `owns` gains `tests/conftest.py`. No other change.
+
 ### DEV-106
 - class: E1 | task: T23 | contract: 1.1.0 | status: resolved
 - raised by: coder | date: 2026-11-12
@@ -263,3 +284,65 @@ _No entry yet._
   `tests/test_ui_commands.py` gains two tests, both verified to fail without the fix. The card's
   accept criterion is the real defect: "assert on the action, not the key" should read "assert the
   action is reachable from the window, then assert its effect".
+
+### DEV-110
+- class: E3 | task: T32 | contract: 1.1.0 | status: resolved
+- raised by: coder | date: 2026-11-12
+- facts: T32 edited `tests/conftest.py`, which is not in its `owns`. It added an autouse
+  `english_interface` fixture calling `set_language("en")`. Reason: `tr()` resolves the language from
+  QSettings, then from the system locale, and this machine's locale is `fr_CH`, so every translated
+  label came back in French. Eleven assertions in three files T32 does not own assert English
+  literals and failed: `test_ui_effects.py` on `"Add"`, `"Remove"`, `"Duplicate"` and the add-menu
+  labels, `test_ui_presets.py` on `"Preset 2/2: 02_b.json (read-only)"` and five sibling label
+  strings, `test_ui_canvas.py` on `"Render: -"`.
+- assumption / proposal: the fixture is a workaround, not the fix the contract asks for. §19 says a
+  test asserts on `tr()` output, never on a literal, and those eleven assertions do the opposite.
+  Proposal: accept the fixture, because the alternative is a card that cannot pass on a French
+  machine, and record the eleven assertions as debt.
+- decision: **accepted as a scope extension, recorded as AMD-106.** The fixture is the better of the
+  two available fixes: it makes the whole suite locale-independent in one place instead of eleven,
+  and `tests/test_i18n.py` still switches languages explicitly, so the French catalogue stays
+  exercised. The eleven literal assertions remain debt and would fail again if the fixture were
+  removed. | by: orchestrator
+- impact: `tests/conftest.py` gains one autouse fixture. `owns` extended by AMD-106. A future card
+  should rewrite the eleven assertions against `tr()` and then delete the fixture.
+
+### DEV-111
+- class: E4 | task: T32 | contract: 1.1.0 | status: resolved
+- raised by: coder | date: 2026-11-12
+- facts: the contract caps a source file at 400 lines. After T32, `main_window.py` is 516,
+  `gallery.py` 440 and `palette_panel.py` 563. All three were already at or over the cap at HEAD
+  (401, 400, 559), and the repository has eight files over 400, so T32 did not introduce the
+  condition; it added 115 lines to `main_window.py` because the card's whole purpose is to wire the
+  panels into the window.
+- assumption / proposal: the cap cannot be met inside this card without splitting `main_window.py`
+  into modules, which is a refactor no card owns. Proposal: accept the overage, record it, and open
+  a card for the split if the cap is to be enforced at all.
+- decision: **accepted, recorded in STATE.** Enforcing the cap now would mean a refactor in the last
+  card of the last wave, with no test to prove the split is behaviour-preserving beyond the suite
+  that already passes. | by: orchestrator
+- impact: no code change. The cap is unmet in eight files, three of them touched by T32.
+
+### DEV-112
+- class: E4 | task: T32 | contract: 1.1.0 | status: resolved
+- raised by: coder | date: 2026-11-12
+- facts: T32 hit an intermittent `Windows fatal exception: access violation` while wiring the
+  gallery, roughly one run in three. Bisected to its own `_release_hooks()`: disconnecting every
+  `QAction.triggered` broke the window → action → lambda → window cycle, which made windows
+  collectable. `test_ui_canvas.py::test_main_window_builds_offscreen` creates a window and never
+  closes it, so it was destroyed while a `RenderWorker` QThread was still live, and the heap
+  corruption surfaced later inside numpy. Measured: with the action disconnects, 2/5, 2/8 and 3/8
+  runs crashed; without them, 3/3 clean. `__del__` is not a usable hook — PySide never calls it on a
+  widget, verified at 0 calls.
+- assumption / proposal: the crash is a real defect in the teardown, not flakiness in the test. The
+  same change also removed an O(N²) event-filter pile-up: the suite went from 148 s to 36 s.
+- decision: **fixed in `gallery.py`.** `_release_hooks()` now detaches only the two application-wide
+  hooks (`removeEventFilter(self.presets)` and `aboutToQuit`), and `shutdown()` disconnects the
+  request signal before `quit()` and parks threads that outlive their join in `_ORPHAN_THREADS`. The
+  window is deliberately left reachable so it is never destroyed with a running thread. | by:
+  orchestrator
+- impact: no rendering change. **Residual defect, pre-existing and not fixed:** closed `MainWindow`s
+  are never destroyed — 33 of 35 still live after `tests/test_ui_integration.py`, against a baseline
+  that leaks 15 of 16. The root cause needs a change in `ui/worker.py` or a suite-wide window
+  registry, both outside T32's `owns`. It costs memory, not correctness, and is no worse in kind
+  than HEAD.
