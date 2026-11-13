@@ -283,6 +283,30 @@ last_update: 2026-11-12
   here so a reader of TASKS.md is not misled.
 - 2026-11-12: **wave 7 is complete and 1.1 is feature-complete.** All 18 cards T17 to T34 are done.
   Gates at close: 1212 passed, ruff clean, contract OK, G5 and G6 18 passed.
+- 2026-11-13: **H9 §6 was unexecutable, and the checklist is amended rather than the code.** The
+  recipe asked the human to "switch back to English without a restart" and to check that "the
+  choice survives a restart", but the interface has no language switcher: `set_language()` only
+  rebinds a module global, `save_language()` is called by the tests alone, and the language is
+  resolved once at startup from `QSettings`, then the system locale, then English. §22.3 asks for
+  exactly that and never asked for a switcher, so the code is conformant and the checklist was
+  wrong. §6 now walks the section by restarting with the stored choice set, and gives the two
+  commands that set and clear it. §0's clean-profile definition was wrong in the same way: it
+  removed `%APPDATA%/LatticeDither` and `%LOCALAPPDATA%/LatticeDither`, which hold the user
+  presets, the bridge token and the thumbnail cache, while the language, the recent files and the
+  last export directory live in `HKEY_CURRENT_USER\Software\LatticeDither`, so the first item of
+  §6 would have failed on a profile called clean. Both directions were verified in separate
+  processes: `save_language('en')` resolves to English on the next start, and
+  `QSettings(...).remove('language')` falls back to French on this `fr_CH` machine. No code
+  changed, no contract version bump.
+- 2026-11-13: **the `lab2000` LUT promised by T18 was never built, and the 5 s budget test fails on
+  this machine.** T18's spec allowed a 33³ trilinear LUT "if the exact path misses the budget"; the
+  exact path misses it by an order of magnitude and `core/color.py` contains no LUT. Measured here
+  on 1024²: 7.63 s with `lab2000` against 0.47 s with the default `srgb`, which puts
+  `test_the_full_pipeline_runs_from_a_preset_on_disk_to_a_png_on_disk` at 5.06 s against its 5.0 s
+  budget. It is the only failure in the suite and it flips with machine load. The accept item was
+  marked informative rather than a gate, so nothing blocked; the consequence is that the one metric
+  the UI offers as a choice is the one that makes the tool slow. Not fixed here: it is a card, not
+  a checklist amendment.
 
 ## Human checkpoints
 
@@ -292,7 +316,7 @@ last_update: 2026-11-12
 | H6 | after wave 4 | pending — judge output on three real images |
 | H7 | after wave 5 | pending — run the CLI and the print export |
 | H8 | after wave 6 | in progress — DEV-109 found and fixed; the gallery is now wired, so it can be judged |
-| H9 | T32 | ready — `tests/manual/CHECKLIST.md`, nine sections, about 45 minutes. §8 needs a real PhotoCraft, which is not installed |
+| H9 | T32 | ready — `tests/manual/CHECKLIST.md`, nine sections, about 45 minutes. §0 and §4 to §7 are executable and mechanically passed; §1 to §3 need a human eye, §8 needs a real PhotoCraft, which is not installed |
 
 ## Next
 

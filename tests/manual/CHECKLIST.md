@@ -5,8 +5,11 @@ human takes before 1.1 is called done. Every line is one action and one expected
 Tick a box only when you saw the result yourself.
 
 Run it on a clean profile the first time (`%APPDATA%/LatticeDither` and
-`%LOCALAPPDATA%/LatticeDither` removed) and once more on your normal profile, because the
-second run is the one that exercises the remembered settings.
+`%LOCALAPPDATA%/LatticeDither` removed, and the `HKEY_CURRENT_USER\Software\LatticeDither`
+key deleted) and once more on your normal profile, because the second run is the one that
+exercises the remembered settings. The two directories hold the user presets, the bridge token
+and the thumbnail cache; the registry key holds the language, the recent files and the last
+export directory, so removing the directories alone does not give a clean profile.
 
 Budget: about 45 minutes. Stop at the first failure and write it up; do not "work around"
 a failure, the point of the pass is to find it.
@@ -119,16 +122,28 @@ Run these from the repository root with the virtual environment active.
 
 ## 6. Both languages
 
-- [ ] Set the language to **French** (or start with a French system locale and no stored
-      choice). Every label of the window is French: the tabs read *Algorithme*, *Palette*,
-      *Effets*; the toolbar reads *Ouvrir une image*, *Préparer la source*; the status bar
-      reads *Prêt*.
+There is no language switcher in the interface, and §22.3 does not ask for one: the language
+is resolved once at startup from `QSettings`, then the system locale, then English. Walk this
+section by restarting the application with the stored choice set, not by clicking a menu. The
+setting is the `language` value under `HKEY_CURRENT_USER\Software\LatticeDither\LatticeDither`.
+
+- [ ] With no stored choice and a French system locale, `python LatticeDither.pyw` opens in
+      French: the tabs read *Algorithme*, *Palette*, *Effets*; the toolbar reads *Ouvrir une
+      image*, *Préparer la source*; the status bar reads *Prêt*.
 - [ ] The French catalogue uses **tramage** for dithering, **algorithme**, **force**,
       **densité**, **avant / après**, and leaves **palette** unchanged.
-- [ ] Switch back to **English**. Every label returns to English without a restart.
+- [ ] Force English, then restart:
+      `python -c "from lattice_dither.i18n import save_language; save_language('en')"`, then
+      `python LatticeDither.pyw`. Every label is English: *Open image*, *Prepare source*,
+      *Ready*, *Algorithm*, *Palette*, *Effects*.
+- [ ] The choice survives a restart: close the window and run `python LatticeDither.pyw` again
+      without touching the setting. The window is still English.
+- [ ] Clear the choice, then restart:
+      `python -c "from PySide6.QtCore import QSettings; QSettings('LatticeDither','LatticeDither').remove('language')"`,
+      then `python LatticeDither.pyw`. The window is French again, because the system locale
+      is French.
 - [ ] No label anywhere is a raw key, a dotted identifier or an empty string, in either
       language. Walk every tab, every menu and the export dialog in both.
-- [ ] The choice survives a restart.
 
 ## 7. Undo and redo
 
