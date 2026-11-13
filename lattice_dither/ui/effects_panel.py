@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 import lattice_dither.effects  # noqa: F401  (importing the package registers every effect)
 from lattice_dither.core.pipeline import EffectInstance, PipelineSpec
 from lattice_dither.core.registry import get_effect, list_effects, resolve_params
+from lattice_dither.i18n import tr
 from lattice_dither.ui.param_form import ParamForm
 
 LOGGER = logging.getLogger(__name__)
@@ -102,12 +103,12 @@ class EffectsPanel(QWidget):
         self.pre_list.setObjectName("pre_list")
         self.post_list = EffectList(self)
         self.post_list.setObjectName("post_list")
-        self.add_button = QPushButton("Add", self)
-        self.remove_button = QPushButton("Remove", self)
-        self.duplicate_button = QPushButton("Duplicate", self)
+        self.add_button = QPushButton(tr("Add"), self)
+        self.remove_button = QPushButton(tr("Remove"), self)
+        self.duplicate_button = QPushButton(tr("Duplicate"), self)
         self.add_menu = QMenu(self.add_button)
         self.add_button.setMenu(self.add_menu)
-        self.param_label = QLabel(NO_SELECTION_TEXT, self)
+        self.param_label = QLabel(tr(NO_SELECTION_TEXT), self)
         self.param_form = ParamForm((), self)
         self._build_layout()
         self._connect()
@@ -135,14 +136,14 @@ class EffectsPanel(QWidget):
     def _build_layout(self) -> None:
         """Assemble the two lists, the button row and the parameter form."""
         layout = QVBoxLayout(self)
-        layout.addWidget(self._group(PRE_TITLE, self.pre_list), 1)
-        layout.addWidget(self._group(POST_TITLE, self.post_list), 1)
+        layout.addWidget(self._group(tr(PRE_TITLE), self.pre_list), 1)
+        layout.addWidget(self._group(tr(POST_TITLE), self.post_list), 1)
         buttons = QHBoxLayout()
         for button in (self.add_button, self.remove_button, self.duplicate_button):
             buttons.addWidget(button)
         buttons.addStretch(1)
         layout.addLayout(buttons)
-        box = QGroupBox(PARAMS_TITLE, self)
+        box = QGroupBox(tr(PARAMS_TITLE), self)
         inner = QVBoxLayout(box)
         inner.addWidget(self.param_label)
         inner.addWidget(self.param_form)
@@ -172,7 +173,7 @@ class EffectsPanel(QWidget):
         """Fill the Add menu with one action per registered effect."""
         self.add_menu.clear()
         for info in list_effects():
-            action = self.add_menu.addAction(info.name)
+            action = self.add_menu.addAction(tr(info.name))
             action.setData(info.id)
             action.triggered.connect(lambda _checked=False, eid=info.id: self._add_effect(eid))
         self.add_button.setEnabled(bool(self.add_menu.actions()))
@@ -275,14 +276,14 @@ class EffectsPanel(QWidget):
             if item is None:
                 self.param_form.set_specs(())
                 self.param_form.setEnabled(False)
-                self.param_label.setText(NO_SELECTION_TEXT)
+                self.param_label.setText(tr(NO_SELECTION_TEXT))
                 return
             instance = self._instance(item)
             info = get_effect(instance.effect_id)
             self.param_form.set_specs(info.params)
             self.param_form.set_values(instance.params)
             self.param_form.setEnabled(True)
-            self.param_label.setText(info.name)
+            self.param_label.setText(tr(info.name))
         finally:
             self._loading = False
 
@@ -311,14 +312,14 @@ class EffectsPanel(QWidget):
     def _make_item(self, instance: EffectInstance) -> QListWidgetItem:
         """Build a list item for instance; KeyError if its effect is unknown."""
         info = get_effect(instance.effect_id)
-        item = QListWidgetItem(info.name)
+        item = QListWidgetItem(tr(info.name))
         item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
         item.setCheckState(
             Qt.CheckState.Checked if instance.enabled else Qt.CheckState.Unchecked
         )
         item.setData(EFFECT_ID_ROLE, instance.effect_id)
         item.setData(PARAMS_ROLE, json.dumps(instance.params, sort_keys=True))
-        item.setToolTip(info.name)
+        item.setToolTip(tr(info.name))
         return item
 
     def _instance(self, item: QListWidgetItem) -> EffectInstance:

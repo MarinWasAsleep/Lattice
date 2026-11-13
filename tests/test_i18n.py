@@ -1,7 +1,8 @@
-"""Tests for the localisation package and the two UI files it converts."""
+"""Tests for the localisation package and every UI file that shows text to the user."""
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -25,7 +26,9 @@ from lattice_dither.ui.param_form import ParamForm  # noqa: E402
 
 CATALOGUE_DIR = Path(i18n.__file__).resolve().parent
 UI_DIR = Path(i18n.__file__).resolve().parents[1] / "ui"
-CONVERTED_FILES: tuple[str, ...] = ("app.py", "param_form.py")
+# Every module of the interface, not a hand-picked subset: a new file is covered on the
+# day it is created, which is the only way the check stays true.
+CONVERTED_FILES: tuple[str, ...] = tuple(sorted(path.name for path in UI_DIR.glob("*.py")))
 
 # The glossary of §22.3: the English term must be gone from fr.json, the French
 # one must be there. "palette" is unchanged and is checked separately.
@@ -53,6 +56,15 @@ LITERAL_WIDGET = re.compile(
 )
 LITERAL_MESSAGE_BOX = re.compile(r"QMessageBox\.\w+\(\s*[^,()]*,\s*[rbfuRBFU]{0,2}[\"']")
 TR_CALL = re.compile(r"\btr\(\s*[\"']([^\"']+)[\"']")
+# tr(NAME) and tr(NAME[...]) where NAME is a module-level constant of the same file.
+TR_CONSTANT = re.compile(r"\btr\(\s*([A-Z][A-Z0-9_]*)\s*[,)]")
+TR_LOOKUP = re.compile(r"\btr\(\s*([A-Z][A-Z0-9_]*)\[")
+# A call that puts text in front of the user. A file that has one must import tr.
+TEXT_API = re.compile(
+    r"\b(?:QLabel|QPushButton|QCheckBox|QGroupBox|QAction|QToolBar|QDockWidget|QMessageBox|"
+    r"setText|setWindowTitle|setPlaceholderText|setToolTip|showMessage|addRow|setApplicationName)\b"
+)
+TR_IMPORT = "from lattice_dither.i18n import"
 
 
 def _literal_setters(source: str) -> list[str]:
@@ -110,6 +122,47 @@ def _fake_locale(monkeypatch: pytest.MonkeyPatch, name: str) -> None:
 def _source(name: str) -> str:
     """Return the source text of one UI file."""
     return (UI_DIR / name).read_text(encoding="utf-8")
+
+
+def _module_constants(source: str) -> dict[str, object]:
+    """Return the module-level string and dict-of-string constants of a UI module."""
+    constants: dict[str, object] = {}
+    for node in ast.parse(source).body:
+        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+            continue
+        target = node.targets[0]
+        if not isinstance(target, ast.Name):
+            continue
+        try:
+            value = ast.literal_eval(node.value)
+        except ValueError:
+            continue
+        if isinstance(value, str) or (
+            isinstance(value, dict) and all(isinstance(item, str) for item in value.values())
+        ):
+            constants[target.id] = value
+    return constants
+
+
+def _tr_keys(source: str) -> set[str]:
+    """Return every catalogue key a UI module passes to tr(), constants resolved.
+
+    A key is either a literal, a module-level string constant, or a value of a
+    module-level dict of strings. Resolving the last two is what keeps the check
+    honest for the panels, which name their labels once and translate them at the
+    point of use.
+    """
+    constants = _module_constants(source)
+    keys = set(TR_CALL.findall(source))
+    for name in TR_CONSTANT.findall(source):
+        value = constants.get(name)
+        if isinstance(value, str):
+            keys.add(value)
+    for name in TR_LOOKUP.findall(source):
+        value = constants.get(name)
+        if isinstance(value, dict):
+            keys.update(item for item in value.values() if isinstance(item, str))
+    return keys
 
 
 def _forget_language(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -318,10 +371,12 @@ def test_converted_files_have_no_literal_ui_string(name: str) -> None:
 
 @pytest.mark.parametrize("name", CONVERTED_FILES)
 def test_converted_files_route_their_strings_through_tr(name: str) -> None:
-    """The conversion happened: the file imports tr and calls it."""
+    """A file that puts text in front of the user imports tr and calls it."""
     source = _source(name)
-    assert "from lattice_dither.i18n import" in source
-    assert "tr(" in source
+    if not TEXT_API.search(source):
+        return
+    assert TR_IMPORT in source, name
+    assert re.search(r"\btr\(", source), name
 
 
 def test_param_form_translates_the_spec_label() -> None:
@@ -331,10 +386,22 @@ def test_param_form_translates_the_spec_label() -> None:
 
 @pytest.mark.parametrize("name", CONVERTED_FILES)
 def test_every_key_used_by_the_converted_files_exists(name: str) -> None:
-    """Each tr() key of the converted files is in the catalogue."""
+    """Each tr() key of the converted files is in the catalogue, constants included."""
     catalogue = _load("en")
-    for key in TR_CALL.findall(_source(name)):
-        assert key in catalogue, (name, key)
+    missing = sorted(_tr_keys(_source(name)) - set(catalogue))
+    assert missing == [], (name, missing)
+
+
+def test_the_key_extractor_resolves_module_constants() -> None:
+    """The extractor really follows a constant and a dict, not just a literal."""
+    source = (
+        'TITLE = "Before dither"\n'
+        'LABELS = {"builtin": "Built-in", "custom": "Custom"}\n'
+        'box = QGroupBox(tr(TITLE))\n'
+        'button = QRadioButton(tr(LABELS[name]))\n'
+        'label = QLabel(tr("Ready"))\n'
+    )
+    assert _tr_keys(source) == {"Before dither", "Built-in", "Custom", "Ready"}
 
 
 def test_param_form_translates_its_labels(qapp: QApplication) -> None:

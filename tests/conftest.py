@@ -6,6 +6,19 @@ import numpy as np
 import pytest
 
 from lattice_dither.core.types import Image, Palette
+from lattice_dither.i18n import set_language
+
+
+@pytest.fixture(autouse=True)
+def english_interface() -> None:
+    """Pin the interface language to English so UI assertions do not depend on the locale.
+
+    ``tr()`` resolves the language from QSettings, then from the system locale, so on a
+    French machine every translated label would come back in French and a test written
+    against the English catalogue would fail. The catalogue itself is exercised by
+    ``tests/test_i18n.py``, which switches languages explicitly.
+    """
+    set_language("en")
 
 
 @pytest.fixture

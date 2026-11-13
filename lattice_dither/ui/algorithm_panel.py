@@ -6,6 +6,7 @@ import logging
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDoubleSpinBox,
     QFormLayout,
@@ -18,8 +19,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from lattice_dither.core.pipeline import MAX_PIXEL_SIZE, MIN_PIXEL_SIZE, PipelineSpec
+from lattice_dither.core.pipeline import (
+    COLOR_METRICS,
+    MAX_PIXEL_SIZE,
+    MIN_PIXEL_SIZE,
+    PipelineSpec,
+)
 from lattice_dither.core.registry import get_algorithm, list_algorithms
+from lattice_dither.i18n import tr
 from lattice_dither.ui.param_form import ParamForm
 
 LOGGER = logging.getLogger(__name__)
@@ -28,12 +35,26 @@ SLIDER_STEPS = 1000
 BRIGHTNESS_RANGE = (-1.0, 1.0)
 CONTRAST_RANGE = (-1.0, 1.0)
 GAMMA_RANGE = (0.1, 5.0)
+SATURATION_RANGE = (-1.0, 1.0)
+PRE_BLUR_RANGE = (0.0, 20.0)
 TONE_DECIMALS = 2
+PRE_BLUR_DECIMALS = 1
 DEFAULT_BRIGHTNESS = 0.0
 DEFAULT_CONTRAST = 0.0
 DEFAULT_GAMMA = 1.0
+DEFAULT_SATURATION = 0.0
+DEFAULT_PRE_BLUR = 0.0
+DEFAULT_AUTO_LEVELS = False
+DEFAULT_COLOR_METRIC = "srgb"
 DEFAULT_PIXEL_SIZE = 1
 FLOAT_TOLERANCE = 1e-9
+# The metric names are catalogue keys; tr() falls back to the key itself.
+METRIC_LABELS: dict[str, str] = {
+    "srgb": "sRGB",
+    "linear": "Linear",
+    "oklab": "Oklab",
+    "lab2000": "CIEDE2000",
+}
 
 
 def _differs(value: object, default: object) -> bool:
@@ -142,10 +163,21 @@ class AlgorithmPanel(QWidget):
         self.pixel_size_spin.setRange(MIN_PIXEL_SIZE, MAX_PIXEL_SIZE)
         self.pixel_size_spin.setValue(DEFAULT_PIXEL_SIZE)
         self.pixel_size_spin.setKeyboardTracking(False)
+        self.metric_combo = QComboBox(self)
+        self.metric_combo.setObjectName("color_metric_combo")
+        for metric in COLOR_METRICS:
+            self.metric_combo.addItem(tr(METRIC_LABELS[metric]), metric)
         self.brightness = _SliderRow(*BRIGHTNESS_RANGE, DEFAULT_BRIGHTNESS, parent=self)
         self.contrast = _SliderRow(*CONTRAST_RANGE, DEFAULT_CONTRAST, parent=self)
         self.gamma = _SliderRow(*GAMMA_RANGE, DEFAULT_GAMMA, parent=self)
-        self.reset_button = QPushButton("Reset", self)
+        self.saturation = _SliderRow(*SATURATION_RANGE, DEFAULT_SATURATION, parent=self)
+        self.pre_blur = _SliderRow(
+            *PRE_BLUR_RANGE, DEFAULT_PRE_BLUR, PRE_BLUR_DECIMALS, parent=self
+        )
+        self.auto_levels = QCheckBox(tr("Auto levels"), self)
+        self.auto_levels.setObjectName("auto_levels_check")
+        self.auto_levels.setChecked(DEFAULT_AUTO_LEVELS)
+        self.reset_button = QPushButton(tr("Reset"), self)
         self.reset_button.setObjectName("reset_button")
         self._build_layout()
         self._populate_algorithms()
@@ -163,6 +195,10 @@ class AlgorithmPanel(QWidget):
             self.brightness.set_value(spec.brightness)
             self.contrast.set_value(spec.contrast)
             self.gamma.set_value(spec.gamma)
+            self.saturation.set_value(spec.saturation)
+            self.pre_blur.set_value(spec.pre_blur)
+            self.auto_levels.setChecked(bool(spec.auto_levels))
+            self._select_metric(spec.color_metric)
         finally:
             self._loading = False
 
@@ -176,23 +212,31 @@ class AlgorithmPanel(QWidget):
         spec.brightness = self.brightness.value()
         spec.contrast = self.contrast.value()
         spec.gamma = self.gamma.value()
+        spec.saturation = self.saturation.value()
+        spec.pre_blur = self.pre_blur.value()
+        spec.auto_levels = bool(self.auto_levels.isChecked())
+        spec.color_metric = self._current_metric()
 
     def _build_layout(self) -> None:
         """Create the layout: algorithm choice, parameter group, tone rows and reset."""
         outer = QVBoxLayout(self)
         outer.setContentsMargins(6, 6, 6, 6)
         top = QFormLayout()
-        top.addRow("Algorithm", self.algorithm_combo)
-        top.addRow("Pixel size", self.pixel_size_spin)
+        top.addRow(tr("Algorithm"), self.algorithm_combo)
+        top.addRow(tr("Pixel size"), self.pixel_size_spin)
+        top.addRow(tr("Colour metric"), self.metric_combo)
         outer.addLayout(top)
-        self.param_group = QGroupBox("Parameters", self)
+        self.param_group = QGroupBox(tr("Parameters"), self)
         group_layout = QVBoxLayout(self.param_group)
         group_layout.addWidget(self.param_form)
         outer.addWidget(self.param_group)
         tone = QFormLayout()
-        tone.addRow("Brightness", self.brightness)
-        tone.addRow("Contrast", self.contrast)
-        tone.addRow("Gamma", self.gamma)
+        tone.addRow(tr("Brightness"), self.brightness)
+        tone.addRow(tr("Contrast"), self.contrast)
+        tone.addRow(tr("Gamma"), self.gamma)
+        tone.addRow(tr("Saturation"), self.saturation)
+        tone.addRow(tr("Pre-blur"), self.pre_blur)
+        tone.addRow(tr("Auto levels"), self.auto_levels)
         outer.addLayout(tone)
         outer.addWidget(self.reset_button)
         outer.addStretch(1)
@@ -207,7 +251,7 @@ class AlgorithmPanel(QWidget):
                 if family is not None and info.family != family:
                     self.algorithm_combo.insertSeparator(self.algorithm_combo.count())
                 family = info.family
-                self.algorithm_combo.addItem(info.name, info.id)
+                self.algorithm_combo.addItem(tr(info.name), info.id)
         finally:
             self._loading = False
 
@@ -219,7 +263,24 @@ class AlgorithmPanel(QWidget):
         self.brightness.changed.connect(self._emit_changed)
         self.contrast.changed.connect(self._emit_changed)
         self.gamma.changed.connect(self._emit_changed)
+        self.saturation.changed.connect(self._emit_changed)
+        self.pre_blur.changed.connect(self._emit_changed)
+        self.auto_levels.toggled.connect(self._emit_changed)
+        self.metric_combo.currentIndexChanged.connect(self._emit_changed)
         self.reset_button.clicked.connect(self._on_reset)
+
+    def _current_metric(self) -> str:
+        """Return the colour metric selected in the combo, or the default."""
+        data = self.metric_combo.currentData()
+        return str(data) if data else DEFAULT_COLOR_METRIC
+
+    def _select_metric(self, metric: str) -> None:
+        """Select metric in the combo, falling back to the default when it is unknown."""
+        index = self.metric_combo.findData(metric)
+        if index < 0:
+            LOGGER.warning("unknown colour metric %r, keeping the default", metric)
+            index = self.metric_combo.findData(DEFAULT_COLOR_METRIC)
+        self.metric_combo.setCurrentIndex(max(0, index))
 
     def _current_algorithm_id(self) -> str | None:
         """Return the id of the selected algorithm, or None when the combo is empty."""
@@ -274,7 +335,7 @@ class AlgorithmPanel(QWidget):
         self._emit_changed()
 
     def _on_reset(self, *_args: object) -> None:
-        """Restore the parameter, pixel size and tone defaults of the current algorithm."""
+        """Restore the parameter, pixel size, tone and conditioning defaults."""
         if self._loading:
             return
         self._loading = True
@@ -287,6 +348,10 @@ class AlgorithmPanel(QWidget):
             self.brightness.set_value(DEFAULT_BRIGHTNESS)
             self.contrast.set_value(DEFAULT_CONTRAST)
             self.gamma.set_value(DEFAULT_GAMMA)
+            self.saturation.set_value(DEFAULT_SATURATION)
+            self.pre_blur.set_value(DEFAULT_PRE_BLUR)
+            self.auto_levels.setChecked(DEFAULT_AUTO_LEVELS)
+            self._select_metric(DEFAULT_COLOR_METRIC)
         finally:
             self._loading = False
         self.changed.emit()

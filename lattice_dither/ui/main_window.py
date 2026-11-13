@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import logging
+import warnings
 from collections.abc import Callable
 from pathlib import Path
 
@@ -36,10 +37,13 @@ from lattice_dither.core import color
 from lattice_dither.core.pipeline import PipelineSpec
 from lattice_dither.core.presets import is_within, shipped_preset_dir, user_preset_dir
 from lattice_dither.core.types import RGB8, Image
+from lattice_dither.i18n import tr
+from lattice_dither.preprocess import descreen, detect_grid, snap_to_grid
 from lattice_dither.ui.algorithm_panel import AlgorithmPanel
 from lattice_dither.ui.canvas import PreviewCanvas
 from lattice_dither.ui.commands import CommandController
 from lattice_dither.ui.effects_panel import EffectsPanel
+from lattice_dither.ui.gallery import AlgorithmGallery
 from lattice_dither.ui.palette_panel import PalettePanel
 from lattice_dither.ui.preset_browser import PresetController
 from lattice_dither.ui.worker import PreviewResult, RenderResult, RenderWorker
@@ -48,16 +52,33 @@ LOGGER = logging.getLogger(__name__)
 
 PANEL_TABS: tuple[str, ...] = ("Algorithm", "Palette", "Effects")
 DOCK_MIN_WIDTH = 320
+GALLERY_MIN_WIDTH = 240
 SETTINGS_NAME = "LatticeDither"
+GEOMETRY_KEY = "geometry"
 PRESET_DIR = shipped_preset_dir()
 IMAGE_FILTER = "Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.webp);;All files (*)"
 PNG_FILTER = "PNG images (*.png);;All files (*)"
 STATUS_MS = 5000
 WORKER_STOP_MS = 5000
+# §23: below this confidence the pre-pass must leave the image untouched.
+MIN_GRID_CONFIDENCE = 0.5
+GRID_FOUND = "Grid: {cell_w}×{cell_h} px, confidence {confidence:.2f}"
+GRID_MISSING = "No grid found (confidence {confidence:.2f}); the source is left untouched"
 UNTESTED_WARNING = (
     "PhotoCraft {version} not tested with Lattice Dither (tested: {tested}). "
     "Run tools/smoke_photocraft.py."
 )
+
+
+def _disconnect(signal: SignalInstance, slot: object) -> None:
+    """Disconnect one slot from a signal, ignoring a connection that is already gone."""
+    with warnings.catch_warnings():
+        # PySide reports a missing connection as a RuntimeWarning, not an exception.
+        warnings.simplefilter("ignore", RuntimeWarning)
+        try:
+            signal.disconnect(slot)
+        except (RuntimeError, TypeError):
+            LOGGER.debug("a signal was already disconnected")
 
 
 class MainWindow(QMainWindow):
@@ -71,10 +92,11 @@ class MainWindow(QMainWindow):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Lattice Dither")
+        self.setWindowTitle(tr("Lattice Dither"))
         self.resize(1280, 800)
         self.spec = PipelineSpec()
         self.source: Image | None = None
+        self.prepared_source: Image | None = None
         self.worker: RenderWorker | None = None
         self.thread: QThread | None = None
         self._settings = QSettings(SETTINGS_NAME, SETTINGS_NAME)
@@ -91,8 +113,9 @@ class MainWindow(QMainWindow):
         self._build_toolbar()
         self.commands = CommandController(self)
         self._build_dock()
+        self._build_gallery()
         self._build_status_bar()
-        geometry = self._settings.value("geometry")
+        geometry = self._settings.value(GEOMETRY_KEY)
         if geometry:
             self.restoreGeometry(geometry)
         self._start_worker()
@@ -114,29 +137,37 @@ class MainWindow(QMainWindow):
     def _build_actions(self) -> None:
         """Create every toolbar action of the contract and connect its slot."""
         std = QKeySequence.StandardKey
-        self._add_action("open_image", "Open image", self._on_open_image, std.Open)
-        self._add_action("get_from_photocraft", "Get from PhotoCraft", self._on_get_from_photocraft)
-        self._add_action("send_to_photocraft", "Send to PhotoCraft", self._on_send_to_photocraft)
-        self._add_action("export_png", "Export PNG", self._on_export_png, std.Save)
+        self._add_action("open_image", tr("Open image"), self._on_open_image, std.Open)
+        self._add_action(
+            "get_from_photocraft", tr("Get from PhotoCraft"), self._on_get_from_photocraft
+        )
+        self._add_action(
+            "send_to_photocraft", tr("Send to PhotoCraft"), self._on_send_to_photocraft
+        )
+        self._add_action("export_png", tr("Export PNG"), self._on_export_png, std.Save)
         self.mode_group = QActionGroup(self)
         for key, text, mode in (
             ("mode_before", "Before", "before"),
             ("mode_after", "After", "after"),
             ("mode_split", "Split", "split"),
         ):
-            action = self._add_action(key, text, lambda _c=False, m=mode: self._on_mode(m))
+            action = self._add_action(key, tr(text), lambda _c=False, m=mode: self._on_mode(m))
             action.setCheckable(True)
             action.setChecked(mode == "after")
             self.mode_group.addAction(action)
-        self._add_action("zoom_fit", "Zoom Fit", self.canvas.zoom_fit)
-        self._add_action("zoom_100", "100 %", lambda: self.canvas.set_zoom(1.0))
-        self._add_action("zoom_200", "200 %", lambda: self.canvas.set_zoom(2.0))
-        self._add_action("zoom_400", "400 %", lambda: self.canvas.set_zoom(4.0))
+        self._add_action("zoom_fit", tr("Zoom Fit"), self.canvas.zoom_fit)
+        self._add_action("zoom_100", tr("100 %"), lambda: self.canvas.set_zoom(1.0))
+        self._add_action("zoom_200", tr("200 %"), lambda: self.canvas.set_zoom(2.0))
+        self._add_action("zoom_400", tr("400 %"), lambda: self.canvas.set_zoom(4.0))
+        for key, text in (("prepare_source", "Prepare source"), ("descreen", "Descreen")):
+            action = self._add_action(key, tr(text), self._on_prepare_toggled)
+            action.setCheckable(True)
+            action.setChecked(False)
         self.presets = PresetController(self)
 
     def _build_toolbar(self) -> None:
         """Create the main toolbar with the actions in contract order."""
-        self.toolbar = QToolBar("Main", self)
+        self.toolbar = QToolBar(tr("Main"), self)
         self.toolbar.setObjectName("main_toolbar")
         self.toolbar.setMovable(False)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.toolbar)
@@ -145,6 +176,7 @@ class MainWindow(QMainWindow):
             ("preset_prev", "load_preset", "save_preset", "preset_next"),
             ("mode_before", "mode_after", "mode_split"),
             ("zoom_fit", "zoom_100", "zoom_200", "zoom_400"),
+            ("prepare_source", "descreen"),
         )
         for index, keys in enumerate(groups):
             if index:
@@ -154,7 +186,7 @@ class MainWindow(QMainWindow):
 
     def _build_dock(self) -> None:
         """Create the right dock holding the algorithm, palette and effects panels."""
-        self.dock = QDockWidget("Panels", self)
+        self.dock = QDockWidget(tr("Panels"), self)
         self.dock.setObjectName("panel_dock")
         areas = Qt.DockWidgetArea.RightDockWidgetArea | Qt.DockWidgetArea.LeftDockWidgetArea
         self.dock.setAllowedAreas(areas)
@@ -167,25 +199,42 @@ class MainWindow(QMainWindow):
         panels = (self.algorithm_panel, self.palette_panel, self.effects_panel)
         self.panels: dict[str, QWidget] = dict(zip(PANEL_TABS, panels, strict=True))
         for name, panel in self.panels.items():
-            self.tabs.addTab(panel, name)
+            self.tabs.addTab(panel, tr(name))
             panel.changed.connect(self.commands.on_panels_changed)
         self.dock.setWidget(self.tabs)
         self.dock.setMinimumWidth(DOCK_MIN_WIDTH)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.dock)
 
+    def _build_gallery(self) -> None:
+        """Create the algorithm gallery in its own dock and connect its choice signal."""
+        self.gallery = AlgorithmGallery(self)
+        self.gallery_dock = QDockWidget(tr("Gallery"), self)
+        self.gallery_dock.setObjectName("gallery_dock")
+        self.gallery_dock.setWidget(self.gallery)
+        self.gallery_dock.setMinimumWidth(GALLERY_MIN_WIDTH)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.gallery_dock)
+        self.gallery.algorithm_chosen.connect(self._on_algorithm_chosen)
+
     def _build_status_bar(self) -> None:
-        """Create the status bar with the connection state and render time labels."""
+        """Create the status bar with the connection state, render time and grid labels."""
         bar = self.statusBar()
-        self.connection_label = QLabel("PhotoCraft: unknown", self)
+        self.connection_label = QLabel(tr("PhotoCraft: unknown"), self)
         self.connection_label.setObjectName("connection_label")
-        self.render_time_label = QLabel("Render: -", self)
+        self.render_time_label = QLabel(tr("Render: -"), self)
         self.render_time_label.setObjectName("render_time_label")
-        self.version_label = QLabel("", self)
+        self.grid_label = QLabel(self)
+        self.grid_label.setObjectName("grid_label")
+        self.version_label = QLabel(self)
         self.version_label.setObjectName("version_warning")
-        labels = (self.connection_label, self.render_time_label, self.presets.label)
+        labels = (
+            self.connection_label,
+            self.render_time_label,
+            self.grid_label,
+            self.presets.label,
+        )
         for label in (*labels, self.version_label):
             bar.addPermanentWidget(label)
-        bar.showMessage("Ready")
+        bar.showMessage(tr("Ready"))
 
     def _start_worker(self) -> None:
         """Create the render worker in its own thread and connect every signal."""
@@ -211,21 +260,37 @@ class MainWindow(QMainWindow):
         self.thread.start()
 
     def shutdown(self) -> None:
-        """Stop the render worker thread; safe to call more than once."""
-        if self.thread is None:
-            return
-        thread = self.thread
-        if self.worker is not None:
-            self.worker.stop_probing()
-        thread.quit()
-        if not thread.wait(WORKER_STOP_MS):
-            LOGGER.warning("the render worker did not stop within %d ms", WORKER_STOP_MS)
-            thread.wait()
-        self.thread = self.worker = None
+        """Stop the render worker and the gallery threads; safe to call more than once."""
+        if self.thread is not None:
+            thread = self.thread
+            if self.worker is not None:
+                self.worker.stop_probing()
+            thread.quit()
+            if not thread.wait(WORKER_STOP_MS):
+                LOGGER.warning("the render worker did not stop within %d ms", WORKER_STOP_MS)
+                thread.wait()
+            self.thread = self.worker = None
+        self.gallery.shutdown()
+        self._release_hooks()
+
+    def _release_hooks(self) -> None:
+        """Detach the application-wide hooks this window installed.
+
+        The preset controller is an application-wide event filter and ``aboutToQuit``
+        keeps a reference to the window, so without this every closed window stays
+        registered and every later event is filtered by one more dead controller. The
+        window itself is deliberately left reachable: PySide never calls ``__del__`` on a
+        widget, so a window that is collected without ``close()`` would take a running
+        ``QThread`` with it and corrupt the heap.
+        """
+        app = QApplication.instance()
+        if app is not None:
+            app.removeEventFilter(self.presets)
+            _disconnect(app.aboutToQuit, self.shutdown)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Remember the window geometry and stop the worker thread."""
-        self._settings.setValue("geometry", self.saveGeometry())
+        self._settings.setValue(GEOMETRY_KEY, self.saveGeometry())
         self.shutdown()
         super().closeEvent(event)
 
@@ -239,8 +304,9 @@ class MainWindow(QMainWindow):
 
     def tab_index(self, name: str) -> int:
         """Return the index of the panel tab called name, or -1."""
+        wanted = tr(name)
         for index in range(self.tabs.count()):
-            if self.tabs.tabText(index) == name:
+            if self.tabs.tabText(index) == wanted:
                 return index
         return -1
 
@@ -251,18 +317,21 @@ class MainWindow(QMainWindow):
             raise KeyError(f"unknown tab {name!r}")
         old = self.tabs.widget(index)
         self.tabs.removeTab(index)
-        self.tabs.insertTab(index, widget, name)
+        self.tabs.insertTab(index, widget, tr(name))
         self.placeholder_tabs.pop(name, None)
         if old is not None:
             old.deleteLater()
 
     def set_connection_state(self, state: str) -> None:
         """Show the PhotoCraft connection state in the status bar."""
-        self.connection_label.setText(f"PhotoCraft: {state}")
+        self.connection_label.setText(tr("PhotoCraft: {state}", state=tr(state)))
 
     def set_render_time(self, seconds: float | None) -> None:
         """Show the last render time in the status bar."""
-        text = "Render: -" if seconds is None else f"Render: {seconds * 1000.0:.0f} ms"
+        if seconds is None:
+            text = tr("Render: -")
+        else:
+            text = tr("Render: {ms} ms", ms=f"{seconds * 1000.0:.0f}")
         self.render_time_label.setText(text)
 
     def _load_spec(self, spec: PipelineSpec, *, record: bool = True) -> None:
@@ -289,7 +358,7 @@ class MainWindow(QMainWindow):
     def _emit_full_render(self, signal: SignalInstance, message: str) -> None:
         """Rebuild the spec and hand a copy to the worker for a full-resolution render."""
         if self.source is None:
-            self._error("Load an image first.")
+            self._error(tr("Load an image first."))
             return
         self._rebuild_spec()
         self.statusBar().showMessage(message)
@@ -298,9 +367,54 @@ class MainWindow(QMainWindow):
     def _set_source(self, image: Image) -> None:
         """Adopt image as the pipeline source and refresh the preview."""
         self.source = np.ascontiguousarray(image, dtype=np.float32)
-        self.palette_panel.set_source_image(self.source)
-        self.source_changed.emit(self.source)
+        self._refresh_source()
+
+    def _refresh_source(self) -> None:
+        """Recompute the prepared source and hand it to the palette panel and the worker."""
+        prepared = self._prepare_source(self.source)
+        self.prepared_source = prepared
+        if prepared is not None:
+            self.palette_panel.set_source_image(prepared)
+        self.source_changed.emit(prepared)
         self._request_preview()
+
+    def _prepare_source(self, image: Image | None) -> Image | None:
+        """Run the optional §23 pre-pass, reporting the grid before it is applied."""
+        if image is None:
+            return None
+        prepare = self.actions["prepare_source"].isChecked()
+        screen = self.actions["descreen"].isChecked()
+        if not prepare and not screen:
+            self.grid_label.clear()
+            return image
+        cell_w, cell_h, offset_x, offset_y, confidence = detect_grid(image)
+        self.grid_label.setText(self._grid_report(cell_w, cell_h, confidence))
+        if confidence < MIN_GRID_CONFIDENCE:
+            return image
+        out = snap_to_grid(image, (cell_w, cell_h, offset_x, offset_y)) if prepare else image
+        if screen:
+            out = descreen(out)
+        return np.ascontiguousarray(out, dtype=np.float32)
+
+    def _grid_report(self, cell_w: int, cell_h: int, confidence: float) -> str:
+        """Return the status text describing the detected lattice and its confidence."""
+        if confidence < MIN_GRID_CONFIDENCE:
+            return tr(GRID_MISSING, confidence=confidence)
+        return tr(GRID_FOUND, cell_w=cell_w, cell_h=cell_h, confidence=confidence)
+
+    def _on_prepare_toggled(self, _checked: bool = False) -> None:
+        """Re-run the pre-pass on the current source after a toggle changed."""
+        if self.source is not None:
+            self._refresh_source()
+
+    def _on_algorithm_chosen(self, algorithm_id: str) -> None:
+        """Select the algorithm picked in the gallery, exactly as the combo would."""
+        combo = self.algorithm_panel.algorithm_combo
+        index = combo.findData(algorithm_id)
+        if index < 0:
+            LOGGER.warning("the gallery chose an unknown algorithm %r", algorithm_id)
+            return
+        combo.setCurrentIndex(index)
 
     def _on_preview_ready(self, result: PreviewResult) -> None:
         """Show a finished preview, dropping results older than the last one shown."""
@@ -320,27 +434,28 @@ class MainWindow(QMainWindow):
         try:
             color.to_pil(result.image).save(path, format="PNG")
         except OSError as exc:
-            self._error(f"Cannot write {str(path)!r}: {exc}")
+            self._error(tr("Cannot write {path}: {error}", path=repr(str(path)), error=str(exc)))
             return
-        self.statusBar().showMessage(f"Exported {path.name}", STATUS_MS)
+        self.statusBar().showMessage(tr("Exported {name}", name=path.name), STATUS_MS)
 
     def _on_send_finished(self, layer: int) -> None:
         """Report the layer created by Send to PhotoCraft."""
-        self.statusBar().showMessage(f"Sent to PhotoCraft as layer {layer}", STATUS_MS)
+        message = tr("Sent to PhotoCraft as layer {layer}", layer=layer)
+        self.statusBar().showMessage(message, STATUS_MS)
 
     def _on_version_status(self, status: str, installed: str | None) -> None:
         """Warn once per launch when the installed PhotoCraft version is untested."""
         if status != "untested" or self._version_warned:
             return
         self._version_warned = True
-        version = installed or "unknown version"
+        version = installed or tr("unknown version")
         self.version_label.setText(
-            UNTESTED_WARNING.format(version=version, tested=TESTED_PHOTOCRAFT_VERSION)
+            tr(UNTESTED_WARNING, version=version, tested=TESTED_PHOTOCRAFT_VERSION)
         )
 
     def _on_open_image(self) -> None:
         """Ask for an image file and load it as the pipeline source."""
-        path = self._ask_path("Open image", "image_dir", "", IMAGE_FILTER, save=False)
+        path = self._ask_path(tr("Open image"), "image_dir", "", tr(IMAGE_FILTER), save=False)
         if path is not None:
             self.commands.open_path(path)
 
@@ -350,18 +465,18 @@ class MainWindow(QMainWindow):
 
     def _on_send_to_photocraft(self) -> None:
         """Render at full resolution and place the result as a new PhotoCraft layer."""
-        self._emit_full_render(self.send_requested, "Rendering for PhotoCraft…")
+        self._emit_full_render(self.send_requested, tr("Rendering for PhotoCraft…"))
 
     def _on_export_png(self) -> None:
         """Ask for a PNG path and export the full-resolution render there."""
         if self.source is None:
-            self._error("Load an image before exporting.")
+            self._error(tr("Load an image before exporting."))
             return
-        path = self._ask_path("Export PNG", "export_dir", "", PNG_FILTER, save=True)
+        path = self._ask_path(tr("Export PNG"), "export_dir", "", tr(PNG_FILTER), save=True)
         if path is None:
             return
         self._export_path = Path(path)
-        self._emit_full_render(self.export_requested, "Rendering for export…")
+        self._emit_full_render(self.export_requested, tr("Rendering for export…"))
 
     def _preset_dirs(self) -> tuple[Path, ...]:
         """Return the preset search order: the shipped presets first, then the user ones."""
@@ -379,7 +494,7 @@ class MainWindow(QMainWindow):
         """Show a modal error box and mirror the message in the status bar."""
         LOGGER.warning("%s", message)
         self.statusBar().showMessage(message, STATUS_MS)
-        QMessageBox.critical(self, "Lattice Dither", message)
+        QMessageBox.critical(self, tr("Lattice Dither"), message)
 
     def _ask_path(self, title: str, key: str, name: str, filters: str, *, save: bool) -> str | None:
         """Ask for a file path, remember its directory and return it, or None."""

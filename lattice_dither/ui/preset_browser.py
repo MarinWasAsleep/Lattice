@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from lattice_dither.core.presets import is_within, list_presets, load_preset, save_preset
+from lattice_dither.i18n import tr
 
 if TYPE_CHECKING:
     from lattice_dither.ui.main_window import MainWindow
@@ -29,7 +30,9 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 PRESET_FILTER = "Presets (*.json);;All files (*)"
 DEFAULT_PRESET_NAME = "preset.json"
-READ_ONLY_SUFFIX = " (read-only)"
+READ_ONLY_LABEL = "{name} (read-only)"
+PRESET_NONE = "Preset: none"
+PRESET_LABEL = "Preset {index}/{total}: {name}"
 STATUS_MS = 5000
 ARROW_CONSUMERS = (
     QAbstractItemView,
@@ -93,9 +96,9 @@ class PresetBrowser:
         """Return a short status text such as 'Preset 3/12: gameboy.json'."""
         current = self.current()
         if current is None:
-            return "Preset: none"
-        text = f"Preset {self.index + 1}/{len(self.paths)}: {current.name}"
-        return f"{text}{READ_ONLY_SUFFIX}" if self.is_shipped(current) else text
+            return tr(PRESET_NONE)
+        text = tr(PRESET_LABEL, index=self.index + 1, total=len(self.paths), name=current.name)
+        return tr(READ_ONLY_LABEL, name=text) if self.is_shipped(current) else text
 
 
 class PresetController(QObject):
@@ -106,15 +109,15 @@ class PresetController(QObject):
         super().__init__(window)
         self.window = window
         self.browser = PresetBrowser(window._preset_dirs())
-        self.label = QLabel("Preset: none", window)
+        self.label = QLabel(tr(PRESET_NONE), window)
         self.label.setObjectName("preset_label")
         self.label.setText(self.browser.label())
         self.prev_action = window._add_action("preset_prev", "\u25c0", lambda: self.step(-1))
-        self.load_action = window._add_action("load_preset", "Load preset", self.load_dialog)
-        self.save_action = window._add_action("save_preset", "Save preset", self.save_dialog)
+        self.load_action = window._add_action("load_preset", tr("Load preset"), self.load_dialog)
+        self.save_action = window._add_action("save_preset", tr("Save preset"), self.save_dialog)
         self.next_action = window._add_action("preset_next", "\u25b6", lambda: self.step(1))
-        self.prev_action.setToolTip("Previous preset (Left arrow)")
-        self.next_action.setToolTip("Next preset (Right arrow)")
+        self.prev_action.setToolTip(tr("Previous preset (Left arrow)"))
+        self.next_action.setToolTip(tr("Next preset (Right arrow)"))
         app = QApplication.instance()
         if app is not None:
             app.installEventFilter(self)
@@ -124,7 +127,8 @@ class PresetController(QObject):
         path = self.browser.step(delta)
         if path is None:
             searched = ", ".join(str(directory) for directory in self.browser.directories)
-            self.window.statusBar().showMessage(f"No presets in {searched}", STATUS_MS)
+            message = tr("No presets in {directory}", directory=searched)
+            self.window.statusBar().showMessage(message, STATUS_MS)
             return
         self.apply(path)
 
@@ -133,16 +137,19 @@ class PresetController(QObject):
         try:
             spec = load_preset(path)
         except (OSError, ValueError) as exc:
-            self.window._error(f"Cannot load preset {path.name!r}: {exc}")
+            message = tr("Cannot load preset {name}: {error}", name=repr(path.name), error=str(exc))
+            self.window._error(message)
             return
         self.browser.select(path)
         self.window._load_spec(spec)
         self.label.setText(self.browser.label())
-        self.window.statusBar().showMessage(f"Loaded preset {path.name}", STATUS_MS)
+        self.window.statusBar().showMessage(tr("Loaded preset {name}", name=path.name), STATUS_MS)
 
     def load_dialog(self) -> None:
         """Ask for a preset file and adopt it."""
-        path = self.window._ask_path("Load preset", "preset_dir", "", PRESET_FILTER, save=False)
+        path = self.window._ask_path(
+            tr("Load preset"), "preset_dir", "", tr(PRESET_FILTER), save=False
+        )
         if path is None:
             return
         self.browser.refresh()
@@ -153,7 +160,7 @@ class PresetController(QObject):
         self.window._rebuild_spec()
         self._ensure_user_dir()
         path = self.window._ask_path(
-            "Save preset", "preset_dir", self._save_name(), PRESET_FILTER, save=True
+            tr("Save preset"), "preset_dir", self._save_name(), tr(PRESET_FILTER), save=True
         )
         if path is None:
             return
@@ -161,12 +168,15 @@ class PresetController(QObject):
         try:
             save_preset(target, self.window.spec)
         except (OSError, ValueError) as exc:
-            self.window._error(f"Cannot save preset {target.name!r}: {exc}")
+            message = tr(
+                "Cannot save preset {name}: {error}", name=repr(target.name), error=str(exc)
+            )
+            self.window._error(message)
             return
         self.browser.refresh()
         self.browser.select(target)
         self.label.setText(self.browser.label())
-        self.window.statusBar().showMessage(f"Saved preset {target.name}", STATUS_MS)
+        self.window.statusBar().showMessage(tr("Saved preset {name}", name=target.name), STATUS_MS)
 
     def _save_name(self) -> str:
         """Return the file name the save dialog starts with: the current preset or a default."""

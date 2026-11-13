@@ -6,6 +6,7 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+import copy  # noqa: E402
 import time  # noqa: E402
 from collections.abc import Callable  # noqa: E402
 from pathlib import Path  # noqa: E402
@@ -13,18 +14,25 @@ from pathlib import Path  # noqa: E402
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
 from PIL import Image as PILImage  # noqa: E402
-from PySide6.QtCore import QSize, QThread  # noqa: E402
+from PySide6.QtCore import QSize, Qt, QThread  # noqa: E402
 from PySide6.QtGui import QImage  # noqa: E402
 from PySide6.QtWidgets import QApplication, QGraphicsPixmapItem  # noqa: E402
 
 from lattice_dither.bridge.photocraft import PhotoCraftClient  # noqa: E402
 from lattice_dither.core import presets  # noqa: E402
-from lattice_dither.core.pipeline import render  # noqa: E402
+from lattice_dither.core.pipeline import COLOR_METRICS, PaletteSpec, PipelineSpec, render  # noqa: E402
 from lattice_dither.core.registry import list_algorithms, list_effects  # noqa: E402
+from lattice_dither.i18n import set_language, tr  # noqa: E402
+from lattice_dither.palettes.library import library_names  # noqa: E402
+from lattice_dither.preprocess import detect_grid, snap_to_grid  # noqa: E402
 from lattice_dither.ui import main_window as mw  # noqa: E402
 from lattice_dither.ui import worker as worker_module  # noqa: E402
 from lattice_dither.ui.algorithm_panel import AlgorithmPanel  # noqa: E402
 from lattice_dither.ui.effects_panel import EffectsPanel  # noqa: E402
+from lattice_dither.ui.gallery import AlgorithmGallery  # noqa: E402
+
+# aliased: pytest would collect a bare test_image as a test function
+from lattice_dither.ui.gallery import test_image as synthetic_image  # noqa: E402
 from lattice_dither.ui.palette_panel import PalettePanel  # noqa: E402
 from lattice_dither.ui.worker import PREVIEW_MAX_SIDE, PreviewResult  # noqa: E402
 
@@ -404,3 +412,345 @@ def test_worker_module_never_touches_widgets() -> None:
     source = Path(worker_module.__file__).read_text(encoding="utf-8")
     assert "QtWidgets" not in source
     assert "QMessageBox" not in source
+
+
+# --------------------------------------------------------------------------- T32
+# Integration and acceptance: every 1.1 control is reachable from the window, the
+# gallery is wired, the §23 pre-pass is gated on its own confidence, and the whole
+# pipeline runs from a preset on disk to a PNG on disk inside the budget.
+
+CHECKLIST = Path(__file__).resolve().parent / "manual" / "CHECKLIST.md"
+# The H9 recipe must name each of these, in any wording that contains the term.
+CHECKLIST_TERMS: tuple[str, ...] = (
+    "photo",
+    "pixel art",
+    "scan",
+    "svg",
+    "print",
+    "gif",
+    "video",
+    "cli",
+    "french",
+    "undo",
+    "redo",
+    "photocraft",
+)
+GRID_CONFIDENCE = 0.5
+PIPELINE_BUDGET_S = 5.0
+
+
+def _colour_source(height: int = 48, width: int = 64) -> np.ndarray:
+    """Return a low-contrast coloured image: saturated enough for every control to bite."""
+    ys, xs = np.mgrid[0:height, 0:width].astype(np.float32)
+    u, v = xs / (width - 1), ys / (height - 1)
+    img = np.empty((height, width, 3), dtype=np.float32)
+    img[:, :, 0] = 0.2 + 0.6 * u
+    img[:, :, 1] = 0.2 + 0.6 * v
+    img[:, :, 2] = 0.2 + 0.6 * (1.0 - u) * (1.0 - v)
+    return np.ascontiguousarray(np.clip(img, 0.0, 1.0))
+
+
+def _pixel_art(factor: int = 4, size: int = 16) -> tuple[np.ndarray, np.ndarray]:
+    """Return (upscaled, original) pixel art: a nearest-neighbour upscale of a lattice."""
+    rng = np.random.default_rng(7)
+    small = rng.integers(0, 2, size=(size, size, 3)).astype(np.float32)
+    big = np.repeat(np.repeat(small, factor, axis=0), factor, axis=1)
+    return np.ascontiguousarray(big), np.ascontiguousarray(small)
+
+
+def _smooth_photo(height: int = 64, width: int = 64) -> np.ndarray:
+    """Return a smooth gradient photo, the case the pre-pass must never touch."""
+    ys, xs = np.mgrid[0:height, 0:width].astype(np.float32)
+    img = np.stack([xs / (width - 1), ys / (height - 1), (xs + ys) / (width + height - 2)], axis=2)
+    return np.ascontiguousarray(img.astype(np.float32))
+
+
+def test_the_algorithm_panel_exposes_the_conditioning_strip(window: mw.MainWindow) -> None:
+    """Saturation, pre-blur and auto levels sit next to the tone controls, at their defaults."""
+    panel = window.algorithm_panel
+    assert panel.saturation.value() == pytest.approx(0.0)
+    assert panel.pre_blur.value() == pytest.approx(0.0)
+    assert panel.auto_levels.isChecked() is False
+    assert (panel.saturation.spin.minimum(), panel.saturation.spin.maximum()) == (-1.0, 1.0)
+    assert (panel.pre_blur.spin.minimum(), panel.pre_blur.spin.maximum()) == (0.0, 20.0)
+
+
+def test_the_algorithm_panel_exposes_every_colour_metric(window: mw.MainWindow) -> None:
+    """The metric combo offers exactly the four metrics of §12, srgb first."""
+    combo = window.algorithm_panel.metric_combo
+    offered = [combo.itemData(index) for index in range(combo.count())]
+    assert offered == list(COLOR_METRICS)
+    assert combo.currentData() == "srgb"
+
+
+def test_strength_and_the_halftone_parameters_reach_the_user(window: mw.MainWindow) -> None:
+    """Every algorithm parameter, strength and the halftone set included, has a widget."""
+    panel = window.algorithm_panel
+    for info in list_algorithms():
+        panel.load_from(PipelineSpec(algorithm_id=info.id))
+        for spec in info.params:
+            assert panel.param_form.widget(spec.id) is not None, (info.id, spec.id)
+    panel.load_from(PipelineSpec(algorithm_id="halftone_dots"))
+    for key in ("cell_size", "angle", "dot_shape", "oversample", "per_channel", "strength"):
+        assert panel.param_form.widget(key) is not None, key
+
+
+def test_each_conditioning_control_changes_the_render(
+    window: mw.MainWindow, qapp: QApplication, dialogs: type[FakeDialogs], tmp_path: Path
+) -> None:
+    """Each new control is wired to the pipeline: moving it changes the rendered pixels."""
+    _open(window, dialogs, _write_png(tmp_path / "in.png", _colour_source()))
+    assert _wait_until(lambda: window.source is not None)
+    panel = window.algorithm_panel
+    base = render(window.source, window.spec)
+    for widget, field, value in (
+        (panel.saturation.spin, "saturation", 1.0),
+        (panel.pre_blur.spin, "pre_blur", 6.0),
+    ):
+        widget.setValue(value)
+        window._rebuild_spec()
+        assert getattr(window.spec, field) == pytest.approx(value)
+        assert not np.array_equal(render(window.source, window.spec), base), field
+        widget.setValue(0.0)
+    panel.auto_levels.setChecked(True)
+    window._rebuild_spec()
+    assert window.spec.auto_levels is True
+    assert not np.array_equal(render(window.source, window.spec), base)
+
+
+def test_the_colour_metric_reaches_the_kernel(window: mw.MainWindow) -> None:
+    """Choosing oklab in the combo changes the indices, so the metric is really applied."""
+    panel = window.algorithm_panel
+    spec = PipelineSpec(
+        algorithm_id="floyd_steinberg", palette=PaletteSpec(source="builtin", name="pico8")
+    )
+    panel.load_from(spec)
+    srgb = render(synthetic_image(), spec)
+    panel.metric_combo.setCurrentIndex(panel.metric_combo.findData("oklab"))
+    panel.apply_to(spec)
+    assert spec.color_metric == "oklab"
+    oklab = render(synthetic_image(), spec)
+    assert float((srgb != oklab).any(axis=2).mean()) > 0.05
+
+
+def test_every_new_parameter_round_trips_through_a_preset(
+    window: mw.MainWindow,
+    qapp: QApplication,
+    dialogs: type[FakeDialogs],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Set every 1.1 control, save a preset, reload it, and get the same values back."""
+    monkeypatch.setenv("APPDATA", str(tmp_path / "roaming"))
+    panel = window.algorithm_panel
+    panel.saturation.spin.setValue(-0.75)
+    panel.pre_blur.spin.setValue(4.5)
+    panel.auto_levels.setChecked(True)
+    panel.metric_combo.setCurrentIndex(panel.metric_combo.findData("lab2000"))
+    window._rebuild_spec()
+    expected = copy.deepcopy(window.spec)
+    dialogs.save_path = str(tmp_path / "preset.json")
+    window.actions["save_preset"].trigger()
+    assert Path(dialogs.save_path).is_file()
+    panel.load_from(PipelineSpec())
+    assert panel.saturation.value() == pytest.approx(0.0)
+    dialogs.open_path = dialogs.save_path
+    window.actions["load_preset"].trigger()
+    assert window.spec.saturation == pytest.approx(expected.saturation)
+    assert window.spec.pre_blur == pytest.approx(expected.pre_blur)
+    assert window.spec.auto_levels is expected.auto_levels
+    assert window.spec.color_metric == expected.color_metric
+    assert panel.saturation.value() == pytest.approx(-0.75)
+    assert panel.pre_blur.value() == pytest.approx(4.5)
+    assert panel.auto_levels.isChecked() is True
+    assert panel.metric_combo.currentData() == "lab2000"
+
+
+def test_the_palette_panel_exposes_the_library_lock_and_order(window: mw.MainWindow) -> None:
+    """The library combo lists every shipped palette, and lock and order reach the spec."""
+    panel = window.palette_panel
+    offered = [panel.library_combo.itemData(index) for index in range(panel.library_combo.count())]
+    assert set(library_names()) <= set(offered)
+    panel.library_combo.setCurrentIndex(panel.library_combo.findData(library_names()[0]))
+    panel._on_library_chosen(panel.library_combo.currentIndex())
+    assert panel.colors()
+    panel._on_swatch_lock_toggled(0)
+    panel._on_swatch_dropped(0, 1)
+    window._rebuild_spec()
+    assert window.spec.palette.locked == [panel.colors()[0]]
+    assert window.spec.palette.order == [1, 0, *range(2, len(panel.colors()))]
+
+
+def test_the_effects_panel_lists_the_cmyk_halftone(window: mw.MainWindow) -> None:
+    """halftone_cmyk is a post-effect and appears in the Add menu."""
+    panel = window.effects_panel
+    panel._rebuild_add_menu()
+    offered = [action.data() for action in panel.add_menu.actions()]
+    assert "halftone_cmyk" in offered
+    assert "halftone_cmyk" in {info.id for info in list_effects()}
+
+
+def test_the_gallery_is_wired_into_the_window(window: mw.MainWindow) -> None:
+    """The gallery lives in its own dock and holds one cell per registered algorithm."""
+    assert isinstance(window.gallery, AlgorithmGallery)
+    assert window.dockWidgetArea(window.gallery_dock) == Qt.DockWidgetArea.LeftDockWidgetArea
+    assert window.gallery_dock.widget() is window.gallery
+    assert len(window.gallery.cells()) == len(list_algorithms())
+
+
+def test_choosing_a_gallery_cell_selects_the_algorithm(
+    window: mw.MainWindow, qapp: QApplication
+) -> None:
+    """A gallery choice drives the algorithm combo, exactly as picking it there would."""
+    combo = window.algorithm_panel.algorithm_combo
+    assert combo.currentData() != "bayer_4"
+    window.gallery.algorithm_chosen.emit("bayer_4")
+    qapp.processEvents()
+    assert combo.currentData() == "bayer_4"
+    assert window.spec.algorithm_id == "bayer_4"
+
+
+def test_an_unknown_gallery_choice_is_ignored(window: mw.MainWindow) -> None:
+    """A gallery id the registry does not know leaves the selection alone."""
+    combo = window.algorithm_panel.algorithm_combo
+    before = combo.currentData()
+    window.gallery.algorithm_chosen.emit("no_such_algorithm")
+    assert combo.currentData() == before
+
+
+def test_prepare_source_is_off_by_default(window: mw.MainWindow) -> None:
+    """Both pre-pass toggles start unchecked and are reachable from the toolbar."""
+    assert window.actions["prepare_source"].isCheckable()
+    assert window.actions["prepare_source"].isChecked() is False
+    assert window.actions["descreen"].isCheckable()
+    assert window.actions["descreen"].isChecked() is False
+    in_toolbar = {action.objectName() for action in window.toolbar.actions()}
+    assert {"prepare_source", "descreen"} <= in_toolbar
+
+
+def test_prepare_source_reports_the_grid_before_applying_it(
+    window: mw.MainWindow, qapp: QApplication
+) -> None:
+    """The detected grid and confidence are shown, and the snap then recovers the original."""
+    big, small = _pixel_art()
+    cell_w, cell_h, offset_x, offset_y, confidence = detect_grid(big)
+    assert confidence >= GRID_CONFIDENCE
+    window.actions["prepare_source"].setChecked(True)
+    window._set_source(big)
+    qapp.processEvents()
+    assert window.grid_label.text() == tr(
+        mw.GRID_FOUND, cell_w=cell_w, cell_h=cell_h, confidence=confidence
+    )
+    snapped = snap_to_grid(big, (cell_w, cell_h, offset_x, offset_y))
+    assert np.array_equal(window.prepared_source, snapped)
+    assert np.array_equal(window.prepared_source, small)
+
+
+def test_prepare_source_leaves_a_photo_untouched_below_the_confidence(
+    window: mw.MainWindow, qapp: QApplication
+) -> None:
+    """A smooth photo scores below 0.5, so the pre-pass must not touch a single pixel."""
+    photo = _smooth_photo()
+    assert detect_grid(photo)[4] < GRID_CONFIDENCE
+    window.actions["prepare_source"].setChecked(True)
+    window.actions["descreen"].setChecked(True)
+    window._set_source(photo)
+    qapp.processEvents()
+    assert np.array_equal(window.prepared_source, photo)
+    assert window.grid_label.text() == tr(mw.GRID_MISSING, confidence=detect_grid(photo)[4])
+
+
+def test_the_pre_pass_is_the_identity_when_both_toggles_are_off(
+    window: mw.MainWindow, qapp: QApplication
+) -> None:
+    """With the toggles off the source reaches the worker unchanged and no grid is reported."""
+    big, _small = _pixel_art()
+    window._set_source(big)
+    qapp.processEvents()
+    assert np.array_equal(window.prepared_source, big)
+    assert window.grid_label.text() == ""
+
+
+def test_the_prepared_source_is_what_the_worker_renders(
+    window: mw.MainWindow, qapp: QApplication, dialogs: type[FakeDialogs], tmp_path: Path
+) -> None:
+    """The preview is rendered from the prepared source, not from the raw one."""
+    big, small = _pixel_art()
+    window.actions["prepare_source"].setChecked(True)
+    _open(window, dialogs, _write_png(tmp_path / "art.png", big))
+    assert _wait_until(lambda: window._last_image is not None)
+    expected = render(small, window.spec, max_side=PREVIEW_MAX_SIDE)
+    assert np.array_equal(window._last_image, expected)
+
+
+def test_the_full_pipeline_runs_from_a_preset_on_disk_to_a_png_on_disk(
+    window: mw.MainWindow,
+    qapp: QApplication,
+    dialogs: type[FakeDialogs],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A 1024x1024 render, preset from disk to PNG on disk, offscreen, inside five seconds.
+
+    The preset carries every control this card added, including the ``lab2000`` metric,
+    so the budget covers the slowest kernel the window can ask for.
+    """
+    monkeypatch.setenv("APPDATA", str(tmp_path / "roaming"))
+    source = _write_png(tmp_path / "big.png", _colour_source(1024, 1024))
+    preset_path = tmp_path / "preset.json"
+    presets.save_preset(
+        preset_path,
+        PipelineSpec(
+            algorithm_id="floyd_steinberg",
+            palette=PaletteSpec(source="builtin", name="pico8"),
+            saturation=0.3,
+            pre_blur=1.0,
+            auto_levels=True,
+            color_metric="lab2000",
+        ),
+    )
+    target = tmp_path / "out.png"
+    started = time.monotonic()
+    _open(window, dialogs, source)
+    dialogs.open_path = str(preset_path)
+    window.actions["load_preset"].trigger()
+    dialogs.save_path = str(target)
+    window.actions["export_png"].trigger()
+    assert _wait_until(target.exists, timeout=PIPELINE_BUDGET_S)
+    elapsed = time.monotonic() - started
+    assert elapsed < PIPELINE_BUDGET_S, f"{elapsed:.2f}s"
+    with PILImage.open(target) as handle:
+        assert handle.size == (1024, 1024)
+    assert window.spec.auto_levels is True and window.spec.pre_blur == 1.0
+    assert window.spec.color_metric == "lab2000"
+
+
+def test_the_window_follows_a_language_change(
+    qapp: QApplication, settings: type[FakeSettings]
+) -> None:
+    """Built in French, every label of the window comes from the French catalogue."""
+    set_language("fr")
+    win = mw.MainWindow()
+    win.show()
+    qapp.processEvents()
+    try:
+        assert win.windowTitle() == tr("Lattice Dither")
+        assert win.tabs.tabText(win.tab_index("Algorithm")) == tr("Algorithm")
+        assert win.tabs.tabText(win.tab_index("Algorithm")) != "Algorithm"
+        assert win.actions["prepare_source"].text() == tr("Prepare source")
+        assert win.gallery_dock.windowTitle() == tr("Gallery")
+        combo = win.algorithm_panel.metric_combo
+        assert combo.itemText(combo.findData("linear")) == tr("Linear")
+        assert win.algorithm_panel.reset_button.text() == tr("Reset")
+    finally:
+        win.close()
+        qapp.processEvents()
+        set_language("en")
+
+
+def test_the_checklist_covers_the_h9_recipe() -> None:
+    """tests/manual/CHECKLIST.md names every source type, export path and round trip."""
+    assert CHECKLIST.is_file(), CHECKLIST
+    text = CHECKLIST.read_text(encoding="utf-8").lower()
+    missing = [term for term in CHECKLIST_TERMS if term not in text]
+    assert missing == [], missing

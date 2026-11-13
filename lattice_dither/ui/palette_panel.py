@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 
 from lattice_dither.core.pipeline import PipelineSpec
 from lattice_dither.core.types import Image
+from lattice_dither.i18n import tr
 from lattice_dither.palettes.builtin import builtin_names, get_builtin
 from lattice_dither.palettes.extract import MAX_K, MIN_K
 from lattice_dither.palettes.io import (
@@ -55,6 +56,11 @@ SWATCH_SIZE, GRID_COLUMNS, ICON_WIDTH, ICON_HEIGHT = 22, 8, 64, 16
 SWATCH_MIME = "application/x-lattice-swatch"
 LOCK_BORDER = "3px solid #FFD166"
 PLAIN_BORDER = "1px solid #141414"
+SWATCH_STYLE = "background-color: {color}; border: {border};"
+SWATCH_TIP = (
+    "{color} ({state}; click to edit, right click to remove, "
+    "middle click to lock, drag to reorder)"
+)
 
 
 def _normalise_colors(values: list[str]) -> list[str]:
@@ -143,12 +149,9 @@ class SwatchButton(QPushButton):
     def _restyle(self) -> None:
         """Apply the colour and the lock marker to the widget."""
         border = LOCK_BORDER if self._locked else PLAIN_BORDER
-        self.setStyleSheet(f"background-color: {self._color}; border: {border};")
-        state = "locked" if self._locked else "unlocked"
-        self.setToolTip(
-            f"{self._color} ({state}; click to edit, right click to remove, "
-            "middle click to lock, drag to reorder)"
-        )
+        self.setStyleSheet(SWATCH_STYLE.format(color=self._color, border=border))
+        state = tr("locked") if self._locked else tr("unlocked")
+        self.setToolTip(tr(SWATCH_TIP, color=self._color, state=state))
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         """Route the three buttons and remember where a drag would start."""
@@ -265,7 +268,7 @@ class PalettePanel(QWidget):
     def extract_now(self) -> None:
         """Extract colours from the source image on a helper thread."""
         if self._image is None:
-            self._set_error("Load an image before extracting a palette.")
+            self._set_error(tr("Load an image before extracting a palette."))
             return
         job = PaletteExtraction(
             self._image, int(self.extract_k.value()), str(self.extract_method.currentText())
@@ -293,9 +296,9 @@ class PalettePanel(QWidget):
         builtin = self._source == "builtin"
         colors = hex_list(get_builtin(self._builtin_name)) if builtin else list(self._colors)
         if len(colors) < MIN_COLORS:
-            self._set_error("A palette needs at least two colours.")
+            self._set_error(tr("A palette needs at least two colours."))
             return
-        name = self._builtin_name if builtin else "Lattice Dither"
+        name = self._builtin_name if builtin else tr("Lattice Dither")
         try:
             save_palette(Path(path), from_hex_list(colors), name)
         except (ValueError, OSError) as exc:
@@ -309,7 +312,7 @@ class PalettePanel(QWidget):
         outer.setContentsMargins(6, 6, 6, 6)
         for box in (self._build_source_box(), self._build_extract_box(), self._build_custom_box()):
             outer.addWidget(box)
-        self.error_label = QLabel("", self)
+        self.error_label = QLabel(self)
         self.error_label.setObjectName("palette_error")
         self.error_label.setWordWrap(True)
         outer.addWidget(self.error_label)
@@ -317,13 +320,13 @@ class PalettePanel(QWidget):
 
     def _build_source_box(self) -> QGroupBox:
         """Create the exclusive source radios and the built-in combo with swatch icons."""
-        box = QGroupBox("Source", self)
+        box = QGroupBox(tr("Source"), self)
         column = QVBoxLayout(box)
         row = QHBoxLayout()
         self.source_group = QButtonGroup(self)
         self.source_buttons: dict[str, QRadioButton] = {}
         for name in SOURCES:
-            button = QRadioButton(SOURCE_LABELS[name], box)
+            button = QRadioButton(tr(SOURCE_LABELS[name]), box)
             button.setObjectName(f"source_{name}")
             self.source_group.addButton(button)
             button.toggled.connect(lambda checked, key=name: self._on_source_toggled(key, checked))
@@ -340,7 +343,7 @@ class PalettePanel(QWidget):
         self.library_combo = QComboBox(box)
         self.library_combo.setObjectName("library_combo")
         self.library_combo.setIconSize(QPixmap(ICON_WIDTH, ICON_HEIGHT).size())
-        self.library_combo.addItem("Load from library...", "")
+        self.library_combo.addItem(tr("Load from library..."), "")
         for name in library_names():
             self.library_combo.addItem(_swatch_pixmap(hex_list(get_library(name))), name, name)
         self.library_combo.activated.connect(self._on_library_chosen)
@@ -349,7 +352,7 @@ class PalettePanel(QWidget):
 
     def _build_extract_box(self) -> QGroupBox:
         """Create the k spinbox, the method combo and the Extract button."""
-        box = QGroupBox("Extract from image", self)
+        box = QGroupBox(tr("Extract from image"), self)
         row = QHBoxLayout(box)
         self.extract_k = QSpinBox(box)
         self.extract_k.setObjectName("extract_k")
@@ -360,10 +363,10 @@ class PalettePanel(QWidget):
         self.extract_method.addItems(list(METHODS))
         self.extract_k.valueChanged.connect(self._emit_changed)
         self.extract_method.currentIndexChanged.connect(self._emit_changed)
-        self.extract_button = QPushButton("Extract", box)
+        self.extract_button = QPushButton(tr("Extract"), box)
         self.extract_button.setObjectName("extract_button")
         self.extract_button.clicked.connect(self.extract_now)
-        row.addWidget(QLabel("Colours", box))
+        row.addWidget(QLabel(tr("Colours"), box))
         row.addWidget(self.extract_k)
         row.addWidget(self.extract_method)
         row.addWidget(self.extract_button)
@@ -371,21 +374,21 @@ class PalettePanel(QWidget):
 
     def _build_custom_box(self) -> QGroupBox:
         """Create the swatch grid and the import/export buttons."""
-        box = QGroupBox("Colours", self)
+        box = QGroupBox(tr("Colours"), self)
         column = QVBoxLayout(box)
         self.grid_layout = QGridLayout()
         self.grid_layout.setContentsMargins(0, 0, 0, 0)
         self.grid_layout.setSpacing(2)
-        self.add_button = QPushButton("+", box)
+        self.add_button = QPushButton(tr("+"), box)
         self.add_button.setObjectName("add_swatch")
         self.add_button.setFixedSize(SWATCH_SIZE, SWATCH_SIZE)
         self.add_button.clicked.connect(self._on_add_swatch)
         column.addLayout(self.grid_layout)
         row = QHBoxLayout()
-        self.import_button = QPushButton("Import", box)
+        self.import_button = QPushButton(tr("Import"), box)
         self.import_button.setObjectName("import_palette")
         self.import_button.clicked.connect(lambda: self._on_file(False))
-        self.export_button = QPushButton("Export", box)
+        self.export_button = QPushButton(tr("Export"), box)
         self.export_button.setObjectName("export_palette")
         self.export_button.clicked.connect(lambda: self._on_file(True))
         row.addWidget(self.import_button)
@@ -480,7 +483,7 @@ class PalettePanel(QWidget):
         if self._loading or not 0 <= index < len(self._colors):
             return
         if len(self._colors) <= MIN_COLORS:
-            self._set_error("A palette needs at least two colours.")
+            self._set_error(tr("A palette needs at least two colours."))
             return
         del self._colors[index]
         self._locked = [color for color in self._locked if color in self._colors]
@@ -502,14 +505,15 @@ class PalettePanel(QWidget):
     def _on_file(self, export: bool) -> None:
         """Ask for a palette file and import it, or ask for a target and export."""
         dialog = QFileDialog.getSaveFileName if export else QFileDialog.getOpenFileName
-        title, start = ("Export palette", "palette.hex") if export else ("Import palette", "")
+        title = tr("Export palette") if export else tr("Import palette")
+        start = "palette.hex" if export else ""
         path, _ = dialog(self, title, start, PALETTE_FILTER)
         if path:
             (self.export_palette if export else self.import_palette)(Path(path))
 
     def _ask_color(self, initial: str) -> str | None:
         """Open a colour dialog and return the chosen "#RRGGBB", or None when cancelled."""
-        color = QColorDialog.getColor(QColor(initial), self, "Palette colour")
+        color = QColorDialog.getColor(QColor(initial), self, tr("Palette colour"))
         return color.name().upper() if color.isValid() else None
 
     def _refresh(self) -> None:

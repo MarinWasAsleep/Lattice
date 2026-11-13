@@ -46,6 +46,8 @@ TEST_IMAGE_SIZE = 200
 HASH_LENGTH = 12
 PLACEHOLDER_COLOR = "#2a2a30"
 JOIN_MS = 2000
+CELL_TIP = "{name} ({family})"
+FAILED_TIP = "{name}: {message}"
 
 
 def thumbs_dir() -> Path:
@@ -98,6 +100,11 @@ def palette_hash(palette: PaletteSpec) -> str:
 def cache_key(algorithm_id: str, params: dict, palette: PaletteSpec) -> str:
     """Return the cache key of one thumbnail: algorithm id, params hash and palette hash."""
     return f"{algorithm_id}-{params_hash(params)}-{palette_hash(palette)}"
+
+
+def family_label(family: str) -> str:
+    """Return the human-readable form of a registry family name."""
+    return family.replace("_", " ")
 
 
 def fold(text: str) -> str:
@@ -168,7 +175,9 @@ def thumbnail_for(
 def _pixmap(rgb8: RGB8) -> QPixmap:
     """Return a QPixmap copy of a uint8 RGB array."""
     data = np.ascontiguousarray(rgb8, dtype=np.uint8)
-    image = QImage(data.tobytes(), data.shape[1], data.shape[0], QImage.Format.Format_RGB888)
+    # QImage wraps the buffer instead of copying it, so the bytes must outlive the image.
+    buffer = data.tobytes()
+    image = QImage(buffer, data.shape[1], data.shape[0], QImage.Format.Format_RGB888)
     return QPixmap.fromImage(image)
 
 
@@ -196,6 +205,30 @@ class ThumbnailWorker(QObject):
 
 
 _ACTIVE_WORKERS: set[ThumbnailWorker] = set()
+# A QThread that outlived its join timeout must not be destroyed while it still runs, so
+# the module keeps it alive instead. Destroying a running QThread corrupts the heap.
+_ORPHAN_THREADS: set[QThread] = set()
+
+
+def _release_worker(gallery: AlgorithmGallery, worker: ThumbnailWorker) -> None:
+    """Drop every reference the gallery and this module keep to a stopped worker.
+
+    Without this the worker stays in ``_ACTIVE_WORKERS`` and its signal connections keep
+    the gallery, and through it the whole window, alive after the window is closed.
+    """
+    for signal, slot in (
+        (worker.thumbnail_ready, gallery._on_thumbnail_ready),
+        (worker.failed, gallery._on_thumbnail_failed),
+    ):
+        try:
+            signal.disconnect(slot)
+        except (RuntimeError, TypeError):
+            LOGGER.debug("a thumbnail signal was already disconnected")
+    try:
+        gallery._request.disconnect(worker.build)
+    except (RuntimeError, TypeError):
+        LOGGER.debug("the thumbnail request signal was already disconnected")
+    _ACTIVE_WORKERS.discard(worker)
 
 
 class ThumbnailCell(QWidget):
@@ -212,12 +245,12 @@ class ThumbnailCell(QWidget):
         self.name = info.name
         self.haystack = fold(f"{info.name} {info.family} {info.family.replace('_', ' ')}")
         self.setObjectName(f"gallery_cell_{info.id}")
-        self.setToolTip(f"{info.name} ({info.family.replace('_', ' ')})")
+        self.setToolTip(tr(CELL_TIP, name=tr(info.name), family=tr(family_label(info.family))))
         self.image_label = QLabel(self)
         self.image_label.setObjectName("gallery_thumb")
         self.image_label.setFixedSize(size, size)
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.name_label = QLabel(info.name, self)
+        self.name_label = QLabel(tr(info.name), self)
         self.name_label.setObjectName("gallery_name")
         self.name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.name_label.setWordWrap(True)
@@ -321,13 +354,19 @@ class AlgorithmGallery(QWidget):
         self._apply_filter()
 
     def shutdown(self) -> None:
-        """Stop the helper thread; safe to call more than once."""
-        thread, self._thread, self._worker = self._thread, None, None
+        """Stop the helper thread and release its worker; safe to call more than once."""
+        thread, worker = self._thread, self._worker
+        self._thread = self._worker = None
         if thread is None:
             return
+        if worker is not None:
+            # Disconnect first: a queued request must not start a new render after the
+            # quit below, and the worker must be gone before its thread is destroyed.
+            _release_worker(self, worker)
         thread.quit()
         if not thread.wait(JOIN_MS):
             LOGGER.warning("the thumbnail thread did not stop within %d ms", JOIN_MS)
+            _ORPHAN_THREADS.add(thread)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Stop the helper thread before the widget goes away."""
@@ -370,6 +409,7 @@ class AlgorithmGallery(QWidget):
         worker.failed.connect(self._on_thumbnail_failed)
         self._request.connect(worker.build)
         _ACTIVE_WORKERS.add(worker)
+        thread.finished.connect(worker.deleteLater)
         thread.finished.connect(lambda: _ACTIVE_WORKERS.discard(worker))
         thread.start()
         self._thread, self._worker = thread, worker
@@ -397,4 +437,4 @@ class AlgorithmGallery(QWidget):
         """Keep the placeholder of a cell whose thumbnail could not be rendered."""
         cell = self._by_key.get(key)
         if cell is not None:
-            cell.setToolTip(f"{cell.name}: {message}")
+            cell.setToolTip(tr(FAILED_TIP, name=tr(cell.name), message=message))
