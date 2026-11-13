@@ -312,16 +312,16 @@ _No entry yet._
 - raised by: coder | date: 2026-11-12
 - facts: the contract caps a source file at 400 lines. After T32, `main_window.py` is 516,
   `gallery.py` 440 and `palette_panel.py` 563. All three were already at or over the cap at HEAD
-  (401, 400, 559), and the repository has eight files over 400, so T32 did not introduce the
-  condition; it added 115 lines to `main_window.py` because the card's whole purpose is to wire the
-  panels into the window.
+  (401, 400, 559), and the repository has ten files over 400 — four in `lattice_dither/`, six in
+  `tests/` — so T32 did not introduce the condition; it added 115 lines to `main_window.py` because
+  the card's whole purpose is to wire the panels into the window.
 - assumption / proposal: the cap cannot be met inside this card without splitting `main_window.py`
   into modules, which is a refactor no card owns. Proposal: accept the overage, record it, and open
   a card for the split if the cap is to be enforced at all.
 - decision: **accepted, recorded in STATE.** Enforcing the cap now would mean a refactor in the last
   card of the last wave, with no test to prove the split is behaviour-preserving beyond the suite
   that already passes. | by: orchestrator
-- impact: no code change. The cap is unmet in eight files, three of them touched by T32.
+- impact: no code change. The cap is unmet in ten files, three of them touched by T32.
 
 ### DEV-112
 - class: E4 | task: T32 | contract: 1.1.0 | status: resolved

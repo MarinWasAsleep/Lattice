@@ -31,9 +31,9 @@ last_update: 2026-11-12
 | T27 | 6 | done | 0 | 0 | ad4ddc1 | undo, shortcuts, drag and drop, recent files |
 | T28 | 6 | done | 0 | 0 | 28232e5 | i18n + French catalogue, 160 keys |
 | T29 | 6 | done | 0 | 0 | 76fc68f | progressive preview, 8000 px guard |
-| T30 | 7 | todo | 0 | 0 | | Pixel Snapper + descreen |
-| T31 | 7 | todo | 0 | 0 | | bridge v2 |
-| T32 | 7 | todo | 0 | 0 | | integration + acceptance |
+| T30 | 7 | done | 0 | 0 | 238b82b | Pixel Snapper + descreen |
+| T31 | 7 | done | 0 | 0 | 987b2f2 | bridge v2 |
+| T32 | 7 | done | 0 | 0 | 2fd2fbf | integration + acceptance; AMD-105, AMD-106 |
 | T33 | 6 | done | 0 | 0 | 939d0b5 | export dialog + CLI subcommands |
 | T34 | 6 | done | 0 | 0 | 1182a55 | preset search order, two tiers |
 
@@ -230,6 +230,59 @@ last_update: 2026-11-12
 - 2026-11-12: the i18n JSON is data, not a module, so the frozen exe would have raised
   `FileNotFoundError` at startup. `scripts/build_exe.ps1` now collects `lattice_dither.i18n`. The
   `.spec` is a build artifact and is gitignored, so the script is the durable fix.
+- 2026-11-12: T30's confidence is the normalised peak height of the folded edge-magnitude phase
+  histogram, not the literal `r[k]/r[0]` the card's formula suggests. The literal ratio cannot reach
+  0.8 on a piecewise-constant upscale — measured ≈0.5 — so the card's own accept item would have been
+  unreachable. Measured with the shipped detector: a 4× nearest-neighbour upscale returns cell 4×4 at
+  confidence 1.0, an 8× upscale cell 8×8 at 1.0, and a photo-like gradient 0.003. The 0.5 floor in
+  `main_window.MIN_GRID_CONFIDENCE` is §23's, and it separates the two cases by three orders of
+  magnitude.
+- 2026-11-12: T31 keeps `place_as_layer`'s single `layer_name` parameter, now optional, rather than
+  gaining a second `name` parameter: §8.4 and §24 name the same concept differently and one parameter
+  is the honest reading. `CONTROL_TIMEOUT` drops from 10.0 s to 5.0 s, taking §24 as the amendment
+  over §8.5. `layer.replaceContent` is an invented command id and is the one thing that cannot be
+  verified without a real PhotoCraft.
+- 2026-11-12: **PhotoCraft is not installed on this machine** — there is no
+  `%LOCALAPPDATA%/PhotoCraft` — so T31 was verified against the fake control server only. H9's §8
+  cannot be taken until a real PhotoCraft is installed.
+- 2026-11-12: T32's `owns` was extended twice. AMD-105 adds `ui/gallery.py`, `ui/preset_browser.py`
+  and both catalogues, because the card's accept item requires zero literals in `ui/*.py` and six
+  files still had them, two of which it did not own. AMD-106 adds `tests/conftest.py`, where it put
+  the autouse fixture that pins the interface language to English.
+- 2026-11-12: **DEV-110 is accepted as a scope extension, not as a fix.** The machine locale is
+  `fr_CH`, so `tr()` returned French and eleven assertions in three files T32 does not own failed on
+  English literals: `test_ui_effects.py` on `"Add"`, `"Remove"`, `"Duplicate"`, `test_ui_presets.py`
+  on `"Preset 2/2: 02_b.json (read-only)"` and five siblings, `test_ui_canvas.py` on `"Render: -"`.
+  §19 says a test asserts on `tr()` output, never a literal, so those eleven are the real debt; the
+  fixture is the better of the two available repairs because it fixes the whole suite in one place
+  and `test_i18n.py` still switches languages explicitly. A future card should rewrite the eleven and
+  then delete the fixture.
+- 2026-11-12: **DEV-111 is accepted.** `main_window.py` 516, `gallery.py` 440, `palette_panel.py` 563
+  against a 400-line cap. All three were already at or over it at HEAD (401, 400, 559) and ten files
+  in the repository exceed it, six of them tests, so T32 did not introduce the condition. Enforcing
+  the cap in the last card of the last wave would be a refactor with no test to prove it
+  behaviour-preserving.
+- 2026-11-12: **DEV-112 records a real crash, not flakiness.** T32 hit an intermittent
+  `Windows fatal exception: access violation`, about one run in three, and bisected it to its own
+  `_release_hooks()`: disconnecting every `QAction.triggered` broke the window → action → lambda →
+  window cycle, making windows collectable, so `test_main_window_builds_offscreen` — which creates a
+  window and never closes it — was destroyed with a live `RenderWorker` QThread and the heap
+  corruption surfaced later inside numpy. Measured: with the disconnects 2/5, 2/8 and 3/8 runs
+  crashed; without them 3/3 clean. `__del__` is not a usable hook, PySide never calls it on a widget
+  (0 calls). `_release_hooks()` now detaches only the two application-wide hooks, and `shutdown()`
+  disconnects the request signal before `quit()` and parks threads that outlive their join in
+  `_ORPHAN_THREADS`. The same change removed an O(N²) event-filter pile-up: **148 s → 23 s** for the
+  full suite.
+- 2026-11-12: **residual defect, pre-existing and not fixed.** Closed `MainWindow`s are never
+  destroyed: 33 of 35 still live after `tests/test_ui_integration.py`, against a baseline that leaks
+  15 of 16. The root cause needs a change in `ui/worker.py` or a suite-wide window registry, both
+  outside T32's `owns`. It costs memory, not correctness, and is no worse in kind than HEAD.
+- 2026-11-12: the harness documents still name the package `dithercraft/` in 45 places while the code
+  is `lattice_dither/`, a drift left by the rename in `5641a46`. The frozen contract is not rewritten
+  for a cosmetic path: the cards were executed against the real package and the gates prove it. Noted
+  here so a reader of TASKS.md is not misled.
+- 2026-11-12: **wave 7 is complete and 1.1 is feature-complete.** All 18 cards T17 to T34 are done.
+  Gates at close: 1212 passed, ruff clean, contract OK, G5 and G6 18 passed.
 
 ## Human checkpoints
 
@@ -238,28 +291,23 @@ last_update: 2026-11-12
 | H5 | after T17 | done — CONTRACT 1.1.0 frozen on 2026-11-12 |
 | H6 | after wave 4 | pending — judge output on three real images |
 | H7 | after wave 5 | pending — run the CLI and the print export |
-| H8 | after wave 6 | in progress — DEV-109 found and fixed |
-| H9 | T32 | pending — acceptance in PhotoCraft |
+| H8 | after wave 6 | in progress — DEV-109 found and fixed; the gallery is now wired, so it can be judged |
+| H9 | T32 | ready — `tests/manual/CHECKLIST.md`, nine sections, about 45 minutes. §8 needs a real PhotoCraft, which is not installed |
 
 ## Next
 
-- NEXT: wave 6 is complete. Wave 7 opens with T30 (Pixel Snapper and descreen), then T31 (bridge v2),
-  then T32 (integration and acceptance).
-- No deviation is open. DEV-101 and DEV-103 to DEV-108 are all resolved, so nothing blocks a task.
-- H6 (judge output on three real images) can now be taken: T17 to T21 are in, so conditioning,
-  colour metrics, strength, both halftones and the palette library are usable from the GUI.
-- H7 (run the CLI and the print export) is ready and now reachable by a user: T33 added the export
-  dialog and the three CLI subcommands, so the SVG, print, GIF and video exports no longer need
-  Python.
-- H8 (use it for a week) can start now that wave 6 is in: the gallery, undo, shortcuts, drag and
-  drop, recent files, both languages and the export surface are all wired.
-- T32 must convert the remaining `ui/` files through `tr()` and add `export_dialog.py`, `gallery.py`
-  and `commands.py` to its literal-string check. The catalogue already holds every key those three
-  files use.
-- T32 must also expose `color_metric` in the algorithm panel. H8 confirmed it is absent from `ui/`
-  entirely: `strength` reaches the user through the generic param form because it is an algorithm
-  parameter, but `color_metric` is a `PipelineSpec` field with no control, so the four metrics are
-  unreachable from the GUI.
-- H8 is in progress. Its first pass found DEV-109 (dead F5 and Space, swallowed drops), fixed in
-  `5075027` and confirmed working by the human. The gallery is still unwired, so it cannot be
-  judged until T32.
+- NEXT: **1.1 is feature-complete; the remaining work is human.** No card is open and no deviation is
+  open. DEV-101 and DEV-103 to DEV-112 are all resolved.
+- H9 is the gate that closes 1.1. Run `tests/manual/CHECKLIST.md` on a clean profile first, then on
+  the normal profile, because the second run is the one that exercises remembered settings. Stop at
+  the first failure and write it up as a deviation; do not work around it.
+- §8 of the checklist cannot pass on this machine: PhotoCraft is not installed. Either install it or
+  sign off §1 to §7 and §9 and leave §8 open.
+- H6, H7 and H8 are still pending and are now all reachable: the gallery, the export dialog, the CLI
+  and both languages are wired.
+- Known debt, none of it blocking: eleven test assertions compare against English literals and only
+  pass because of the `english_interface` fixture (DEV-110); ten files exceed the 400-line cap
+  (DEV-111); closed `MainWindow`s are never destroyed (DEV-112); the harness documents still say
+  `dithercraft/` where the code says `lattice_dither/`.
+- After 1.1 is signed off, the Lattice harness 0.1 (L1 to L22) opens. It inherits §12 and §13, which
+  now exist in code.
