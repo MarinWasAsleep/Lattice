@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from lattice_dither.algorithms.halftone import coverage, spot_function
-from lattice_dither.core.registry import register_effect
-from lattice_dither.core.types import Image, ParamSpec
+from lattice_core.dither.halftone import coverage, spot_function
+from lattice_core.registry import register_effect
+from lattice_core.types import Image, ParamSpec
 
 _CMYK_SHAPES = ("round", "square", "diamond", "ellipse")
 

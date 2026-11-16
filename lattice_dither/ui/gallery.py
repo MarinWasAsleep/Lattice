@@ -28,10 +28,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from lattice_dither.core import color
-from lattice_dither.core.pipeline import PaletteSpec, PipelineSpec, render
-from lattice_dither.core.registry import AlgorithmInfo, list_algorithms
-from lattice_dither.core.types import RGB8, Image
+from lattice_core import color
+from lattice_core.pipeline import PaletteSpec, PipelineSpec, render
+from lattice_core.registry import AlgorithmInfo, list_algorithms
+from lattice_core.types import RGB8, Image
 from lattice_dither.i18n import tr
 
 LOGGER = logging.getLogger(__name__)

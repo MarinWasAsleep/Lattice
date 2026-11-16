@@ -15,7 +15,7 @@ from pathlib import Path
 
 import numpy as np
 
-from lattice_dither.core.types import RGB8
+from lattice_core.types import RGB8
 
 SVG_NS = "http://www.w3.org/2000/svg"
 CRISP = 'shape-rendering="crispEdges"'

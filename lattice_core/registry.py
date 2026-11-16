@@ -8,7 +8,7 @@ from typing import Literal
 
 import numpy as np
 
-from lattice_dither.core.types import Image, Indices, Palette, ParamSpec
+from lattice_core.types import Image, Indices, Palette, ParamSpec
 
 AlgorithmFn = Callable[[Image, Palette, dict], Indices]
 EffectFn = Callable[[Image, dict, np.random.Generator], Image]

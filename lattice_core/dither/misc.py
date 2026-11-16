@@ -5,14 +5,14 @@ from __future__ import annotations
 import numpy as np
 from numba import njit
 
-from lattice_dither.algorithms._strength import (
+from lattice_core.color import luminance, nearest_index_px
+from lattice_core.dither._strength import (
     blend_toward_nearest,
     metric_of,
     nearest_in_space,
 )
-from lattice_dither.core.color import luminance, nearest_index_px
-from lattice_dither.core.registry import register_algorithm
-from lattice_dither.core.types import Image, Indices, Palette, ParamSpec
+from lattice_core.registry import register_algorithm
+from lattice_core.types import Image, Indices, Palette, ParamSpec
 
 _LEVEL = ParamSpec("level", "Level", "float", 0.5, 0.0, 1.0, 0.01)
 _SPREAD = ParamSpec("spread", "Spread", "float", 1.0, 0.0, 2.0, 0.01)

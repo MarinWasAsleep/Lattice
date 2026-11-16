@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
     QTextEdit,
 )
 
-from lattice_dither.core.presets import is_within, list_presets, load_preset, save_preset
+from lattice_core.presets import is_within, list_presets, load_preset, save_preset
 from lattice_dither.i18n import tr
 
 if TYPE_CHECKING:

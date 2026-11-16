@@ -8,9 +8,9 @@ from pathlib import Path
 
 import numpy as np
 
-from lattice_dither.algorithms._strength import metric_of, nearest_in_space
-from lattice_dither.core.registry import AlgorithmFn, register_algorithm
-from lattice_dither.core.types import Image, Indices, Palette, ParamSpec
+from lattice_core.dither._strength import metric_of, nearest_in_space
+from lattice_core.registry import AlgorithmFn, register_algorithm
+from lattice_core.types import Image, Indices, Palette, ParamSpec
 
 _PARAMS = (
     ParamSpec("spread", "Spread", "float", 1.0, 0.0, 2.0, 0.05),

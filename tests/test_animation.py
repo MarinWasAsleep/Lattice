@@ -11,15 +11,15 @@ import numpy as np
 import pytest
 from PIL import Image
 
-import lattice_dither.algorithms  # noqa: F401
-from lattice_dither.core import animation
-from lattice_dither.core.animation import render_sequence
-from lattice_dither.core.pipeline import (
+import lattice_core.dither  # noqa: F401
+from lattice_core.pipeline import (
     PaletteSpec,
     PipelineSpec,
     prepare_image,
     resolve_palette,
 )
+from lattice_dither.core import animation
+from lattice_dither.core.animation import render_sequence
 from lattice_dither.export import video
 from lattice_dither.export.video import export_gif, export_video
 

@@ -6,14 +6,14 @@ from collections.abc import Callable
 
 import numpy as np
 
-from lattice_dither.algorithms._strength import (
+from lattice_core.color import luminance
+from lattice_core.dither._strength import (
     blend_toward_nearest,
     metric_of,
     nearest_in_space,
 )
-from lattice_dither.core.color import luminance
-from lattice_dither.core.registry import register_algorithm
-from lattice_dither.core.types import Image, Indices, Palette, ParamSpec
+from lattice_core.registry import register_algorithm
+from lattice_core.types import Image, Indices, Palette, ParamSpec
 
 _CELL_SIZE = ParamSpec("cell_size", "Cell size", "int", 8, 3, 64, 1)
 _ANGLE = ParamSpec("angle", "Angle", "float", 45.0, 0.0, 180.0, 1.0)

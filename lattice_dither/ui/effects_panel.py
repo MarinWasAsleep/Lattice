@@ -20,9 +20,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-import lattice_dither.effects  # noqa: F401  (importing the package registers every effect)
-from lattice_dither.core.pipeline import EffectInstance, PipelineSpec
-from lattice_dither.core.registry import get_effect, list_effects, resolve_params
+import lattice_core.effects  # noqa: F401  (importing the package registers every effect)
+from lattice_core.pipeline import EffectInstance, PipelineSpec
+from lattice_core.registry import get_effect, list_effects, resolve_params
 from lattice_dither.i18n import tr
 from lattice_dither.ui.param_form import ParamForm
 

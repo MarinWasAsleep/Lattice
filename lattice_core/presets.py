@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from dataclasses import asdict
 from pathlib import Path
 
-from lattice_dither.core.pipeline import (
+from lattice_core.pipeline import (
     COLOR_METRICS,
     PRESET_VERSION,
     EffectInstance,
@@ -16,7 +16,7 @@ from lattice_dither.core.pipeline import (
     PipelineSpec,
     PresetMeta,
 )
-from lattice_dither.core.registry import get_algorithm, get_effect
+from lattice_core.registry import get_algorithm, get_effect
 
 APP_DIR_NAME = "LatticeDither"
 PRESET_DIR_NAME = "presets"
@@ -27,7 +27,7 @@ SUPPORTED_VERSIONS = (1, 2)
 
 def shipped_preset_dir() -> Path:
     """Return the read-only shipped preset directory that sits next to the package."""
-    return Path(__file__).resolve().parents[2] / PRESET_DIR_NAME
+    return Path(__file__).resolve().parents[1] / PRESET_DIR_NAME
 
 
 def user_preset_dir() -> Path:

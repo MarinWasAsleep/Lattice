@@ -15,17 +15,17 @@ from dataclasses import dataclass
 import numpy as np
 from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
 
-from lattice_dither.bridge.photocraft import (
+from lattice_core import color
+from lattice_core.bridge.photocraft import (
     BridgeError,
     PhotoCraftClient,
     installed_photocraft_version,
     version_status,
 )
-from lattice_dither.core import color
-from lattice_dither.core.pipeline import PipelineSpec, render
-from lattice_dither.core.types import RGB8, Image
-from lattice_dither.palettes.extract import extract_palette
-from lattice_dither.palettes.io import hex_list
+from lattice_core.palettes.extract import extract_palette
+from lattice_core.palettes.io import hex_list
+from lattice_core.pipeline import PipelineSpec, render
+from lattice_core.types import RGB8, Image
 
 LOGGER = logging.getLogger(__name__)
 

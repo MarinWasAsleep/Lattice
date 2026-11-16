@@ -13,8 +13,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QFormLayout  # noqa: E402
 
+from lattice_core.types import ParamSpec  # noqa: E402
 from lattice_dither import i18n  # noqa: E402
-from lattice_dither.core.types import ParamSpec  # noqa: E402
 from lattice_dither.i18n import (  # noqa: E402
     current_language,
     init_language,
@@ -229,9 +229,9 @@ def test_french_catalogue_really_differs_from_english() -> None:
 
 def test_catalogue_covers_every_parameter_label() -> None:
     """Every ParamSpec label of every algorithm and effect is a catalogue key."""
-    import lattice_dither.algorithms  # noqa: F401  (registers the algorithms)
-    import lattice_dither.effects  # noqa: F401  (registers the effects)
-    from lattice_dither.core.registry import list_algorithms, list_effects
+    import lattice_core.dither  # noqa: F401  (registers the algorithms)
+    import lattice_core.effects  # noqa: F401  (registers the effects)
+    from lattice_core.registry import list_algorithms, list_effects
 
     catalogue = _load("en")
     labels = {spec.label for info in list_algorithms() for spec in info.params}

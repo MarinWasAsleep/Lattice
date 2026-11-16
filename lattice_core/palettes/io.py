@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
-from lattice_dither.core.types import Palette
+from lattice_core.types import Palette
 
 _HEX_DIGITS = frozenset(string.hexdigits)
 MIN_COLORS = 2

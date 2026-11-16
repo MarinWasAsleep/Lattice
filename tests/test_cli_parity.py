@@ -7,12 +7,12 @@ from pathlib import Path
 import pytest
 from PIL import Image as PILImage
 
-import lattice_dither.algorithms  # noqa: F401
-import lattice_dither.effects  # noqa: F401
+import lattice_core.dither  # noqa: F401
+import lattice_core.effects  # noqa: F401
+from lattice_core import color
+from lattice_core.pipeline import render
+from lattice_core.presets import load_preset
 from lattice_dither.cli import EXIT_OK, main
-from lattice_dither.core import color
-from lattice_dither.core.pipeline import render
-from lattice_dither.core.presets import load_preset
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "tests" / "data" / "baseline" / "source.png"

@@ -14,9 +14,9 @@ from PySide6.QtCore import QEvent, Qt  # noqa: E402
 from PySide6.QtGui import QKeyEvent  # noqa: E402
 from PySide6.QtWidgets import QApplication, QListWidget  # noqa: E402
 
-from lattice_dither.bridge.photocraft import PhotoCraftClient  # noqa: E402
-from lattice_dither.core.pipeline import PipelineSpec  # noqa: E402
-from lattice_dither.core.presets import to_json  # noqa: E402
+from lattice_core.bridge.photocraft import PhotoCraftClient  # noqa: E402
+from lattice_core.pipeline import PipelineSpec  # noqa: E402
+from lattice_core.presets import to_json  # noqa: E402
 from lattice_dither.ui import main_window as mw  # noqa: E402
 from lattice_dither.ui import preset_browser as pb  # noqa: E402
 from lattice_dither.ui import worker as worker_module  # noqa: E402

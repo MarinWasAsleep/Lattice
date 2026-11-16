@@ -13,8 +13,8 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from lattice_dither.bridge import photocraft
-from lattice_dither.bridge.photocraft import BridgeError, PhotoCraftClient
+from lattice_core.bridge import photocraft
+from lattice_core.bridge.photocraft import BridgeError, PhotoCraftClient
 
 TOKEN = "a" * 64
 ROOT = Path(__file__).resolve().parents[1]

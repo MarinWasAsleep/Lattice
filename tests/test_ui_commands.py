@@ -17,9 +17,9 @@ from PySide6.QtCore import QEvent, QMimeData, QPointF, Qt, QUrl  # noqa: E402
 from PySide6.QtGui import QDragEnterEvent, QDropEvent  # noqa: E402
 from PySide6.QtWidgets import QApplication, QMessageBox, QWidget  # noqa: E402
 
-from lattice_dither.bridge.photocraft import PhotoCraftClient  # noqa: E402
-from lattice_dither.core.pipeline import PipelineSpec  # noqa: E402
-from lattice_dither.core.presets import to_json  # noqa: E402
+from lattice_core.bridge.photocraft import PhotoCraftClient  # noqa: E402
+from lattice_core.pipeline import PipelineSpec  # noqa: E402
+from lattice_core.presets import to_json  # noqa: E402
 from lattice_dither.i18n import tr  # noqa: E402
 from lattice_dither.ui import commands as cmd  # noqa: E402
 from lattice_dither.ui import main_window as mw  # noqa: E402

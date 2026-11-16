@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from lattice_dither.core.types import Image, Palette
+from lattice_core.types import Image, Palette
 from lattice_dither.i18n import set_language
 
 

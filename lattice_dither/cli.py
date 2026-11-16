@@ -10,13 +10,13 @@ from pathlib import Path
 
 from PIL import Image as PILImage
 
-import lattice_dither.algorithms  # noqa: F401  (importing the package registers every algorithm)
-import lattice_dither.effects  # noqa: F401  (importing the package registers every effect)
-from lattice_dither.core import color
+import lattice_core.dither  # noqa: F401  (importing the package registers every algorithm)
+import lattice_core.effects  # noqa: F401  (importing the package registers every effect)
+from lattice_core import color
+from lattice_core.pipeline import PipelineSpec, render
+from lattice_core.presets import load_preset
+from lattice_core.types import RGB8
 from lattice_dither.core.animation import render_sequence
-from lattice_dither.core.pipeline import PipelineSpec, render
-from lattice_dither.core.presets import load_preset
-from lattice_dither.core.types import RGB8
 from lattice_dither.export.print import export_print
 from lattice_dither.export.svg import export_svg
 from lattice_dither.export.video import export_gif, export_video

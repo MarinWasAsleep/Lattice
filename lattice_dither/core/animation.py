@@ -13,13 +13,13 @@ identically in either mode.
 
 from __future__ import annotations
 
-from lattice_dither.core.pipeline import (
+from lattice_core.pipeline import (
     PipelineSpec,
     prepare_image,
     render_with_palette,
     resolve_palette,
 )
-from lattice_dither.core.types import RGB8, Image
+from lattice_core.types import RGB8, Image
 
 
 def render_sequence(

@@ -17,8 +17,8 @@ from pathlib import Path
 import numpy as np
 from PIL import Image as PILImage
 
-from lattice_dither.core.types import RGB8
-from lattice_dither.effects.halftone import plates
+from lattice_core.effects.halftone import plates
+from lattice_core.types import RGB8
 
 MM_PER_INCH = 25.4
 MARK_MM = 3.0

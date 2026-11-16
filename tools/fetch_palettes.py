@@ -21,7 +21,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-DATA_DIR = Path(__file__).resolve().parents[1] / "lattice_dither" / "palettes" / "data"
+DATA_DIR = Path(__file__).resolve().parents[1] / "lattice_core" / "palettes" / "data"
 TIMEOUT_SECONDS = 20
 MAX_BYTES = 1 << 20
 USER_AGENT = "lattice-dither-fetch-palettes/1.0"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from lattice_dither.core.types import Palette
+from lattice_core.types import Palette
 
 
 def _from_hex(values: str) -> Palette:

@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np  # noqa: E402
 from PIL import Image  # noqa: E402
 
-from lattice_dither.bridge.photocraft import (  # noqa: E402
+from lattice_core.bridge.photocraft import (  # noqa: E402
     EXCHANGE_DIR,
     BridgeError,
     PhotoCraftClient,

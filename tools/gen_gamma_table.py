@@ -15,7 +15,7 @@ Values: round(255 * (level/255) ** (1/gamma)) computed once in float64.
 A gamma outside the grid clamps to the nearest curve (documented deviation).
 
 Run from the repository root:
-    python tools/gen_gamma_table.py > lattice_dither/core/gamma_table.py
+    python tools/gen_gamma_table.py > lattice_core/gamma_table.py
 """
 
 START = 0.4

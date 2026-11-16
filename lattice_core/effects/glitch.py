@@ -8,9 +8,9 @@ import warnings
 import numpy as np
 from PIL import Image as PILImage
 
-from lattice_dither.core.color import to_float, to_pil, to_rgb8
-from lattice_dither.core.registry import register_effect
-from lattice_dither.core.types import Image, ParamSpec
+from lattice_core.color import to_float, to_pil, to_rgb8
+from lattice_core.registry import register_effect
+from lattice_core.types import Image, ParamSpec
 
 _SOS_MARKER = b"\xff\xda"
 _MAX_DECODE_ATTEMPTS = 8

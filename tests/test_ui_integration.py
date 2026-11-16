@@ -18,12 +18,12 @@ from PySide6.QtCore import QSize, Qt, QThread  # noqa: E402
 from PySide6.QtGui import QImage  # noqa: E402
 from PySide6.QtWidgets import QApplication, QGraphicsPixmapItem  # noqa: E402
 
-from lattice_dither.bridge.photocraft import PhotoCraftClient  # noqa: E402
-from lattice_dither.core import presets  # noqa: E402
-from lattice_dither.core.pipeline import COLOR_METRICS, PaletteSpec, PipelineSpec, render  # noqa: E402
-from lattice_dither.core.registry import list_algorithms, list_effects  # noqa: E402
+from lattice_core import presets  # noqa: E402
+from lattice_core.bridge.photocraft import PhotoCraftClient  # noqa: E402
+from lattice_core.palettes.library import library_names  # noqa: E402
+from lattice_core.pipeline import COLOR_METRICS, PaletteSpec, PipelineSpec, render  # noqa: E402
+from lattice_core.registry import list_algorithms, list_effects  # noqa: E402
 from lattice_dither.i18n import set_language, tr  # noqa: E402
-from lattice_dither.palettes.library import library_names  # noqa: E402
 from lattice_dither.preprocess import detect_grid, snap_to_grid  # noqa: E402
 from lattice_dither.ui import main_window as mw  # noqa: E402
 from lattice_dither.ui import worker as worker_module  # noqa: E402

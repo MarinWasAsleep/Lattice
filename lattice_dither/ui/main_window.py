@@ -30,13 +30,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-import lattice_dither.algorithms  # noqa: F401  (importing the package registers every algorithm)
-import lattice_dither.effects  # noqa: F401  (importing the package registers every effect)
-from lattice_dither.bridge.photocraft import TESTED_PHOTOCRAFT_VERSION
-from lattice_dither.core import color
-from lattice_dither.core.pipeline import PipelineSpec
-from lattice_dither.core.presets import is_within, shipped_preset_dir, user_preset_dir
-from lattice_dither.core.types import RGB8, Image
+import lattice_core.dither  # noqa: F401  (importing the package registers every algorithm)
+import lattice_core.effects  # noqa: F401  (importing the package registers every effect)
+from lattice_core import color
+from lattice_core.bridge.photocraft import TESTED_PHOTOCRAFT_VERSION
+from lattice_core.pipeline import PipelineSpec
+from lattice_core.presets import is_within, shipped_preset_dir, user_preset_dir
+from lattice_core.types import RGB8, Image
 from lattice_dither.i18n import tr
 from lattice_dither.preprocess import descreen, detect_grid, snap_to_grid
 from lattice_dither.ui.algorithm_panel import AlgorithmPanel

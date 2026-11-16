@@ -25,12 +25,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from lattice_dither.core.pipeline import PipelineSpec
-from lattice_dither.core.types import Image
-from lattice_dither.i18n import tr
-from lattice_dither.palettes.builtin import builtin_names, get_builtin
-from lattice_dither.palettes.extract import MAX_K, MIN_K
-from lattice_dither.palettes.io import (
+from lattice_core.palettes.builtin import builtin_names, get_builtin
+from lattice_core.palettes.extract import MAX_K, MIN_K
+from lattice_core.palettes.io import (
     MAX_COLORS,
     MIN_COLORS,
     from_hex_list,
@@ -38,7 +35,10 @@ from lattice_dither.palettes.io import (
     load_palette,
     save_palette,
 )
-from lattice_dither.palettes.library import get_library, library_names
+from lattice_core.palettes.library import get_library, library_names
+from lattice_core.pipeline import PipelineSpec
+from lattice_core.types import Image
+from lattice_dither.i18n import tr
 from lattice_dither.ui.worker import PaletteExtraction
 
 LOGGER = logging.getLogger(__name__)

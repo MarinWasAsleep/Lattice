@@ -6,13 +6,13 @@ import numpy as np
 from numba import njit
 from PIL import Image as PILImage
 
-from lattice_dither.core.gamma_table import (
+from lattice_core.gamma_table import (
     GAMMA_GRID_COUNT,
     GAMMA_GRID_START,
     GAMMA_GRID_STEP,
     GAMMA_LUT,
 )
-from lattice_dither.core.types import RGB8, Image, Indices, Palette
+from lattice_core.types import RGB8, Image, Indices, Palette
 
 _CHUNK_BYTES = 256 * 1024 * 1024
 _BYTES_PER_PALETTE_ENTRY = 16

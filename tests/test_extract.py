@@ -7,9 +7,9 @@ import time
 import numpy as np
 import pytest
 
-from lattice_dither.core.color import luminance
-from lattice_dither.core.types import Image, Palette
-from lattice_dither.palettes.extract import extract_palette
+from lattice_core.color import luminance
+from lattice_core.palettes.extract import extract_palette
+from lattice_core.types import Image, Palette
 
 METHODS = ("kmeans", "median_cut")
 FLAT = np.array(

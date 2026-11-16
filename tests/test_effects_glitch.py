@@ -9,10 +9,10 @@ import numpy as np
 import pytest
 from PIL import Image as PILImage
 
-from lattice_dither.core.color import to_float, to_pil, to_rgb8
-from lattice_dither.core.registry import get_effect, list_effects, resolve_params
-from lattice_dither.core.types import Image
-from lattice_dither.effects import glitch
+from lattice_core.color import to_float, to_pil, to_rgb8
+from lattice_core.effects import glitch
+from lattice_core.registry import get_effect, list_effects, resolve_params
+from lattice_core.types import Image
 
 GLITCH_IDS = ("chromatic_aberration", "rgb_shift", "jpeg_glitch", "scanlines")
 SHAPES = ((1, 1), (1, 5), (37, 23), (64, 64))

@@ -12,10 +12,10 @@ from __future__ import annotations
 import numpy as np
 from numba import njit
 
-from lattice_dither.algorithms._strength import metric_of
-from lattice_dither.core.color import nearest_index_px
-from lattice_dither.core.registry import register_algorithm
-from lattice_dither.core.types import Image, Indices, Palette, ParamSpec
+from lattice_core.color import nearest_index_px
+from lattice_core.dither._strength import metric_of
+from lattice_core.registry import register_algorithm
+from lattice_core.types import Image, Indices, Palette, ParamSpec
 
 _PARAMS = (ParamSpec("strength", "Strength", "float", 1.0, 0.0, 1.0, 0.05),)
 

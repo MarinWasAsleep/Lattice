@@ -32,7 +32,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from lattice_dither.core.types import RGB8
+from lattice_core.types import RGB8
 from lattice_dither.export.print import export_print
 from lattice_dither.export.svg import export_svg
 from lattice_dither.export.video import export_gif, export_video

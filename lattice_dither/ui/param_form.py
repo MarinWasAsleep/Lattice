@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from lattice_dither.core.types import ParamSpec
+from lattice_core.types import ParamSpec
 from lattice_dither.i18n import tr
 
 SLIDER_STEPS = 1000

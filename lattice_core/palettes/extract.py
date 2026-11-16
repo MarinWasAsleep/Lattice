@@ -6,8 +6,8 @@ from typing import Literal
 
 import numpy as np
 
-from lattice_dither.core.color import luminance
-from lattice_dither.core.types import Image, Palette
+from lattice_core.color import luminance
+from lattice_core.types import Image, Palette
 
 MAX_SAMPLES = 65536
 MAX_ITERATIONS = 30

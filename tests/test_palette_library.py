@@ -7,8 +7,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from lattice_dither.palettes.io import MAX_COLORS, MIN_COLORS, from_hex_text, hex_list
-from lattice_dither.palettes.library import DATA_DIR, get_library, library_names
+from lattice_core.palettes.io import MAX_COLORS, MIN_COLORS, from_hex_text, hex_list
+from lattice_core.palettes.library import DATA_DIR, get_library, library_names
 
 MIN_LIBRARY = 12
 

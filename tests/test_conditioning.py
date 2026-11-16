@@ -5,10 +5,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-import lattice_dither.algorithms  # noqa: F401
-import lattice_dither.effects  # noqa: F401
-from lattice_dither.core import color
-from lattice_dither.core.pipeline import PaletteSpec, PipelineSpec, render, resolve_palette
+import lattice_core.dither  # noqa: F401
+import lattice_core.effects  # noqa: F401
+from lattice_core import color
+from lattice_core.pipeline import PaletteSpec, PipelineSpec, render, resolve_palette
 
 
 def _image(height: int = 37, width: int = 23, seed: int = 7) -> np.ndarray:

@@ -22,8 +22,8 @@ from PIL import Image as PILImage
 from PySide6.QtCore import QMimeData, QObject, QSettings
 from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeySequence
 
-from lattice_dither.core import color
-from lattice_dither.core.pipeline import PipelineSpec
+from lattice_core import color
+from lattice_core.pipeline import PipelineSpec
 from lattice_dither.i18n import tr
 from lattice_dither.ui.export_dialog import run_export_dialog
 

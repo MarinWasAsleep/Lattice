@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from lattice_dither.core.color import METRIC_LAB2000, _nearest_euclidean, _nearest_lab2000
-from lattice_dither.core.types import Image, Indices, Palette
+from lattice_core.color import METRIC_LAB2000, _nearest_euclidean, _nearest_lab2000
+from lattice_core.types import Image, Indices, Palette
 
 STRENGTH = "strength"
 METRIC_KEY = "_color_metric"

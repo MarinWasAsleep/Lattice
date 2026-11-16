@@ -17,9 +17,9 @@ from PySide6.QtWidgets import (  # noqa: E402
     QSpinBox,
 )
 
-from lattice_dither.core import registry  # noqa: E402
-from lattice_dither.core.pipeline import EffectInstance, PipelineSpec  # noqa: E402
-from lattice_dither.core.types import ParamSpec  # noqa: E402
+from lattice_core import registry  # noqa: E402
+from lattice_core.pipeline import EffectInstance, PipelineSpec  # noqa: E402
+from lattice_core.types import ParamSpec  # noqa: E402
 from lattice_dither.ui.effects_panel import (  # noqa: E402
     NO_SELECTION_TEXT,
     PARAMS_TITLE,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from lattice_dither.core.types import Image
+from lattice_core.types import Image
 from lattice_dither.preprocess.grid import _luminance
 
 _NOTCH_RADIUS = 4

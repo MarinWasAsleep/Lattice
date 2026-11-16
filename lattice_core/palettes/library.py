@@ -5,8 +5,8 @@ from __future__ import annotations
 from functools import cache
 from pathlib import Path
 
-from lattice_dither.core.types import Palette
-from lattice_dither.palettes.io import load_palette
+from lattice_core.palettes.io import load_palette
+from lattice_core.types import Palette
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 

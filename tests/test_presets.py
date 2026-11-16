@@ -9,10 +9,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from lattice_dither.core import presets, registry
-from lattice_dither.core.pipeline import EffectInstance, PaletteSpec, PipelineSpec, PresetMeta
-from lattice_dither.core.presets import from_json, load_preset, save_preset, to_json
-from lattice_dither.core.registry import AlgorithmInfo, EffectInfo
+from lattice_core import presets, registry
+from lattice_core.pipeline import EffectInstance, PaletteSpec, PipelineSpec, PresetMeta
+from lattice_core.presets import from_json, load_preset, save_preset, to_json
+from lattice_core.registry import AlgorithmInfo, EffectInfo
 
 
 def _nearest(img, palette, params):

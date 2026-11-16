@@ -18,9 +18,9 @@ from PySide6.QtCore import Qt, QThread  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QWidget  # noqa: E402
 
-import lattice_dither.algorithms  # noqa: E402,F401  (registers every algorithm)
-from lattice_dither.core.pipeline import PaletteSpec  # noqa: E402
-from lattice_dither.core.registry import AlgorithmInfo  # noqa: E402
+import lattice_core.dither  # noqa: E402,F401  (registers every algorithm)
+from lattice_core.pipeline import PaletteSpec  # noqa: E402
+from lattice_core.registry import AlgorithmInfo  # noqa: E402
 from lattice_dither.ui import gallery as gallery_module  # noqa: E402
 from lattice_dither.ui.gallery import (  # noqa: E402
     THUMB_SIZE,

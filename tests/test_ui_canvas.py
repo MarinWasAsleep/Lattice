@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (  # noqa: E402
     QTabWidget,
 )
 
-from lattice_dither.bridge.photocraft import PhotoCraftClient  # noqa: E402
+from lattice_core.bridge.photocraft import PhotoCraftClient  # noqa: E402
 from lattice_dither.ui import main_window as mw  # noqa: E402
 from lattice_dither.ui import worker as worker_module  # noqa: E402
 from lattice_dither.ui.algorithm_panel import AlgorithmPanel  # noqa: E402

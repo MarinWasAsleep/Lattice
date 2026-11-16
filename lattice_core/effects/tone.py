@@ -6,8 +6,8 @@ import math
 
 import numpy as np
 
-from lattice_dither.core.registry import register_effect
-from lattice_dither.core.types import Image, ParamSpec
+from lattice_core.registry import register_effect
+from lattice_core.types import Image, ParamSpec
 
 _BLUR_PARAMS = (ParamSpec("radius", "Radius", "float", 0.0, 0.0, 50.0, 0.5),)
 

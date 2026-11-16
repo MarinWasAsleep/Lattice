@@ -7,9 +7,9 @@ from typing import Literal
 
 import numpy as np
 
-from lattice_dither.core import color
-from lattice_dither.core.registry import get_algorithm, get_effect, resolve_params
-from lattice_dither.core.types import RGB8, Image, Palette
+from lattice_core import color
+from lattice_core.registry import get_algorithm, get_effect, resolve_params
+from lattice_core.types import RGB8, Image, Palette
 
 MIN_PALETTE_SIZE = 2
 MAX_PALETTE_SIZE = 256
@@ -87,13 +87,13 @@ def resolve_palette(spec: PaletteSpec, img: Image) -> Palette:
 def _palette_for(spec: PaletteSpec, img: Image) -> Palette:
     """Build the palette of spec without validating its display order."""
     if spec.source == "builtin":
-        from lattice_dither.palettes.builtin import get_builtin
+        from lattice_core.palettes.builtin import get_builtin
 
         return np.ascontiguousarray(get_builtin(spec.name), dtype=np.float32)
     if spec.source == "custom":
         return _palette_from_hex(spec.colors)
     if spec.source == "extracted":
-        from lattice_dither.palettes.extract import MAX_K, MIN_K, extract_palette
+        from lattice_core.palettes.extract import MAX_K, MIN_K, extract_palette
 
         k = int(spec.extract_k)
         if not MIN_K <= k <= MAX_K:

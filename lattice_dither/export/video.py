@@ -19,7 +19,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image as PILImage
 
-from lattice_dither.core.types import RGB8
+from lattice_core.types import RGB8
 
 FFMPEG = "ffmpeg"
 FRAME_PATTERN = "frame_%06d.png"

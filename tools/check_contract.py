@@ -14,9 +14,9 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import lattice_dither.algorithms  # noqa: E402, F401
-import lattice_dither.effects  # noqa: E402, F401
-from lattice_dither.core.registry import list_algorithms, list_effects, resolve_params  # noqa: E402
+import lattice_core.dither  # noqa: E402, F401
+import lattice_core.effects  # noqa: E402, F401
+from lattice_core.registry import list_algorithms, list_effects, resolve_params  # noqa: E402
 
 SHAPES: tuple[tuple[int, int], ...] = ((37, 23), (64, 64), (1, 5))
 SNAKE_CASE = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
