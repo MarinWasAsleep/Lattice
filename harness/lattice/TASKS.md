@@ -25,21 +25,35 @@ l'orchestrateur ne code jamais.
 - wave: 0 (critical path, do first, alone) · deps: none · executor: OMH ultrabrain · review: strict · size: L
 - owns: `pyproject.toml`, `lattice_core/**`, `lattice_dither/**`, `tests/**`, `tools/**`
 - context: §1 §2 §5 §19
-- spec: create the `lattice_core` package and move into it, **without changing behaviour**:
-  `core/color.py`, `core/palette.py`, `core/pipeline.py`, `core/presets.py`, `core/types.py`,
-  `algorithms/**`, `effects/**`, `bridge/**`. `lattice_dither` keeps only its UI, its entry point and
-  its app-specific glue, and imports everything else from `lattice_core`. Rename imports
-  mechanically; do not refactor logic. Before touching anything, render the three witness presets
-  (`01_gameboy`, `05_ega_riemersma`, `07_grey16_stucki`) with the current code and commit the PNGs
-  under `tests/data/baseline/`. `pyproject.toml` becomes the `lattice-core` distribution with
-  `[project.optional-dependencies] ui = ["PySide6"]`; the base install must not pull Qt.
+- spec: create the `lattice_core` package and move into it, **without changing behaviour**. Arbre
+  réel au HEAD `d66c4ca` (2026-11-16) :
+  - `lattice_dither/core/{color,pipeline,presets,types,registry}.py` → `lattice_core/`
+  - `lattice_dither/palettes/` (le paquet entier : `builtin.py`, `extract.py`, `io.py`,
+    `library.py`, `data/`) → `lattice_core/palettes/`
+  - `lattice_dither/algorithms/**` → `lattice_core/dither/` (les 33 algorithmes, `_strength.py` et
+    `ostromoukhov_table.py` compris)
+  - `lattice_dither/effects/**` → `lattice_core/effects/`
+  - `lattice_dither/bridge/**` → `lattice_core/bridge/`
+  Restent dans `lattice_dither` : `ui/`, `export/`, `preprocess/`, `i18n/`, `core/animation.py`
+  (animation/vidéo = fonction de l'app, hors périmètre de la suite), `cli.py` (verbes 1.1
+  spécifiques à l'app ; le cadre CLI partagé de §8 sera créé avec les coquilles L12/L20),
+  `__init__.py`, `__main__.py` et la colle d'application. Il n'existe pas de `core/palette.py` :
+  les palettes sont un package. Rename imports mechanically; do not refactor logic. Les baselines
+  témoins existent déjà (`tests/data/baseline/` : `01_gameboy.png`, `05_ega_riemersma.png`,
+  `07_grey16_stucki.png`, `source.png`, générées à la clôture du 1.1) : au démarrage, re-rendre
+  les trois presets témoins (`01_gameboy`, `05_ega_riemersma`, `07_grey16_stucki`) au HEAD et
+  vérifier la conformité bit-à-bit avant de toucher au code — recommitter un PNG seulement s'il
+  diffère du HEAD. `pyproject.toml` devient la distribution `lattice-core` avec
+  `[project.optional-dependencies] ui = ["PySide6"]` ; la base d'installation ne doit pas tirer Qt.
 - accept:
   - `pip install -e .` in a clean venv installs numpy, numba and Pillow only; `import
     lattice_core` works and `import PySide6` is not attempted.
-  - the three witness presets render byte-identically to their baselines (G5).
+  - the three witness presets render byte-identically to their baselines (G7).
   - the full existing test suite passes unchanged, except for import paths.
   - `ruff check .` is clean.
-  - `lattice_core` imports no module from `lattice_dither` (checked by a test that walks the package).
+  - `lattice_core` imports no module from `lattice_dither`, and contains no application module
+    (`ui`, `export`, `preprocess`, `i18n`, `cli`, `animation`) — both checked by tests that walk
+    the package.
 
 ### L2 · `CellRenderer` contract and `PixelRenderer`
 - wave: 0 · deps: L1 · executor: OMH architect · review: strict · size: M
@@ -221,7 +235,7 @@ l'orchestrateur ne code jamais.
   DesignCraft. Works standalone on a dropped file. No new dependency.
 - accept:
   - the app launches, opens an image, renders, and saves.
-  - the CLI `render` and the GUI produce identical bytes for the same preset (G7).
+  - the CLI `render` and the GUI produce identical bytes for the same preset (G9).
   - `bridge status` reports the host state without crashing when no host runs.
   - the app runs with `lattice-core` installed without the `[ui]` extra only for the CLI path.
   - every renderer in the registry is selectable in the UI.
@@ -344,7 +358,7 @@ l'orchestrateur ne code jamais.
   verbs of §8. Bridge to PhotoCraft and DesignCraft. Works standalone.
 - accept:
   - the app launches, opens an image, stacks two effects, reorders them, and saves.
-  - the CLI `render` and the GUI produce identical bytes for the same preset (G7).
+  - the CLI `render` and the GUI produce identical bytes for the same preset (G9).
   - reroll changes the output; locking a module keeps that module's contribution.
   - the mask painter produces a mask that the renderer honours.
   - the app runs with `lattice-core` without the `[ui]` extra only for the CLI path.
@@ -371,15 +385,16 @@ l'orchestrateur ne code jamais.
 
 ### L22 · Acceptance in PhotoCraft and DesignCraft
 - wave: 3 · deps: L21 · executor: OMH capable · review: strict · size: M
-- owns: `tools/acceptance.py`, `harness/lattice/STATE.md`
+- owns: `tools/acceptance.py`
 - context: §7 §19
 - spec: an end-to-end acceptance script. For each of the three applications: pull the visible
   document from a running PhotoCraft, render, push as a layer, verify the layer exists and its
   pixels match. Then place the same render into a DesignCraft document via `file.place` and verify
-  the placed object. Record the results in `STATE.md`.
+  the placed object. The script prints a JSON summary (run date, host versions, per-app results) ;
+  the orchestrator records it in `STATE.md` — the card does not write `STATE.md` directly.
 - accept:
   - the script runs green against a live PhotoCraft and a live DesignCraft.
   - the pushed layer's pixels match the render within 1/255.
   - the placed DesignCraft object exists and its bounds match the requested width.
   - the script exits non-zero and names the failing host when a host is absent.
-  - `STATE.md` records the run date and the host versions.
+  - the JSON summary carries the run date and the host versions (orchestrator reports it in `STATE.md`).

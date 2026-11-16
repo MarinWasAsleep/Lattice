@@ -1,6 +1,6 @@
 # Deviation protocol and register — harness 1.1
 
-The protocol is **unchanged** from `harness/DEVIATIONS.md` (1.0): same five classes E1 to E5, same
+The protocol is **unchanged** from `harness/v1.0/DEVIATIONS.md` (1.0): same five classes E1 to E5, same
 retry budget (3 gate retries, 2 review cycles), same impact rule. Read that file; it is not repeated
 here.
 
@@ -19,11 +19,11 @@ Two additions for 1.1:
 
 Format: one block per deviation, newest at the bottom. Status: open | accepted | rejected | resolved.
 
-The 1.0 register (DEV-001 to DEV-008) is closed and stays in `harness/DEVIATIONS.md`. Nothing is
+The 1.0 register (DEV-001 to DEV-008) is closed and stays in `harness/v1.0/DEVIATIONS.md`. Nothing is
 carried over.
 
 ```
-### DEV-101
+### DEV-100 (gabarit — à copier)<!-- template sample -->
 - class: E6 | task: Txx | contract: 1.1.0 | status: open
 - raised by: reviewer | date: 2026-11-xx
 - facts: <what regressed, quote the gate output or the baseline>

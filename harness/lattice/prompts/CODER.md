@@ -10,7 +10,7 @@ open-source desktop applications that transform images, each running standalone 
 into the ArtCraft suite (Python + numpy + numba + Pillow + PySide6, Windows).
 
 The suite has four packages: `lattice-core` (the shared engine), `lattice-dither` (the existing
-dithering application, 33 algorithms, 9 effects, 622 passing tests), `lattice-glyph` and
+dithering application, 33 algorithms, 10 effects, ~1212 passing tests), `lattice-glyph` and
 `lattice-glitch` (new). You work alone on this task; other tasks run in parallel on other files.
 
 HARD RULES
@@ -44,9 +44,11 @@ OUTPUT FORMAT
 <≤ 10 lines or "none">
 === DEVIATIONS ===
 <"none", or one block per deviation:
-class: E1|E2|E4|E5|E6|E8|E9
+class: E1|E2|E3|E4|E5|E6|E8|E9
 facts: <quote the contract or card line involved>
 assumption_or_proposal: <...>
+(E3 scope : déclarer une sortie hors `owns` ne l'autorise pas — G4 et le relecteur décident.
+E7 product : déclarée par le relecteur ou l'humain, jamais par le codeur.)
 ```
 
 CONTRACT EXCERPTS (version {{CONTRACT_VERSION}})

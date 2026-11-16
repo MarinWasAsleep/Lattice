@@ -22,7 +22,7 @@ original.
 ## Features
 
 - **33 algorithms** across four families — error diffusion, ordered, halftone and search-based.
-- **9 effects** applied before or after the dither, each with its own parameters.
+- **10 effects** applied before or after the dither, each with its own parameters.
 - **11 built-in palettes** (Game Boy, PICO-8, CGA, EGA, greys, CMYK, RGB) plus palette extraction
   from the image itself (k-means or median cut) and hand-edited palettes.
 - **Live preview** rendered on a worker thread, with Before / After / Split comparison and zoom.
@@ -42,7 +42,7 @@ original.
 ### Effects
 
 Chromatic Aberration, Gaussian Blur, Glow, JPEG Glitch, Noise, Posterize, RGB Shift, Scanlines,
-Sharpen.
+Sharpen, Halftone CMYK.
 
 ### Palettes
 
@@ -162,7 +162,7 @@ applies to effects (`register_effect`) and palettes.
 ## Development
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest      # 622 tests
+.\.venv\Scripts\python.exe -m pytest      # ~1212 tests (clôture du harness 1.1 ; G2 du harness 0.1)
 .\.venv\Scripts\ruff.exe check .          # lint
 .\.venv\Scripts\python.exe tools\check_contract.py
 ```
@@ -182,10 +182,12 @@ lattice_dither/
   ui/           PySide6 window, panels, canvas, render worker
 presets/        starter presets
 tools/          contract check, contact sheet, smoke test, icon and noise generators
-tests/          622 tests
+tests/          ~1212 tests (clôture du 1.1)
 ```
 
 ## License
 
-No license file is provided yet, so the code is published for reference only. Open an issue if you
-want to reuse it and we will sort out terms.
+No license file is provided yet, so the code is published for reference only. The suite contract
+(`harness/lattice/CONTRACT.md` §1) fixes **MIT OR Apache-2.0** for every package; the `LICENSE`
+file will be added at the first publication (`lattice-core`). Open an issue if you want to reuse
+the code before that and we will sort out terms.

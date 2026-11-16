@@ -92,7 +92,7 @@
         <text x="415" y="238" fill="#fbbf24" font-size="9" text-anchor="middle">orchestrateur (terminal)</text>
         <text x="415" y="254" fill="#94a3b8" font-size="8" text-anchor="middle">G1 ruff · G2 pytest · G3 check_contract</text>
         <text x="415" y="267" fill="#94a3b8" font-size="8" text-anchor="middle">G4 fichiers owns respectés</text>
-        <text x="415" y="280" fill="#94a3b8" font-size="8" text-anchor="middle">G5 régression core · G6 renderers · G7 CLI/GUI</text>
+        <text x="415" y="280" fill="#94a3b8" font-size="8" text-anchor="middle">G7 régression core · G8 renderers · G9 CLI/GUI</text>
         <text x="415" y="296" fill="#94a3b8" font-size="8" text-anchor="middle">échec → retry ≤3 → sinon déviation</text>
 
         <!-- RElectEUR -->
@@ -110,15 +110,15 @@
         <rect x="830" y="30" width="150" height="290" rx="6" fill="rgba(136,19,55,0.4)" stroke="#fb7185" stroke-width="1.5"/>
         <text x="905" y="52" fill="white" font-size="11" font-weight="700" text-anchor="middle">HUMAIN (toi)</text>
         <text x="905" y="70" fill="#fb7185" font-size="8" text-anchor="middle">checkpoints :</text>
-        <text x="905" y="84" fill="#94a3b8" font-size="8" text-anchor="middle">H1 après L1 (core intact)</text>
-        <text x="905" y="96" fill="#94a3b8" font-size="8" text-anchor="middle">H2 après L2 (geler §3)</text>
-        <text x="905" y="108" fill="#94a3b8" font-size="8" text-anchor="middle">H3 après vague 1 (juger)</text>
-        <text x="905" y="120" fill="#94a3b8" font-size="8" text-anchor="middle">H4 après vague 2 (vivant ?)</text>
-        <text x="905" y="132" fill="#94a3b8" font-size="8" text-anchor="middle">H5 à L22 (recette complète)</text>
+        <text x="905" y="84" fill="#94a3b8" font-size="8" text-anchor="middle">H10 après L1 (core intact)</text>
+        <text x="905" y="96" fill="#94a3b8" font-size="8" text-anchor="middle">H11 après L2 (geler §3)</text>
+        <text x="905" y="108" fill="#94a3b8" font-size="8" text-anchor="middle">H12 après vague 1 (juger)</text>
+        <text x="905" y="120" fill="#94a3b8" font-size="8" text-anchor="middle">H13 après vague 2 (vivant ?)</text>
+        <text x="905" y="132" fill="#94a3b8" font-size="8" text-anchor="middle">H14 à L22 (recette complète)</text>
         <text x="905" y="152" fill="#fb7185" font-size="8" text-anchor="middle">décisions :</text>
         <text x="905" y="166" fill="#94a3b8" font-size="8" text-anchor="middle">déviations E1-E9 (accepter/rejeter)</text>
         <text x="905" y="178" fill="#94a3b8" font-size="8" text-anchor="middle">ESCALATE · budget épuisé</text>
-        <text x="905" y="190" fill="#94a3b8" font-size="8" text-anchor="middle">H2 = geler le contrat 0.1.0</text>
+        <text x="905" y="190" fill="#94a3b8" font-size="8" text-anchor="middle">H11 = geler le contrat 0.1.0</text>
 
         <!-- FLUX -->
         <line x1="250" y1="68" x2="318" y2="68" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#ah)"/>
@@ -150,7 +150,7 @@
         <path d="M 760 250 L 800 250 L 800 396 L 58 396 L 58 110" fill="none" stroke="#34d399" stroke-width="1.2" stroke-dasharray="4,4" marker-end="url(#ah-green)"/>
         <text x="420" y="390" fill="#34d399" font-size="8" text-anchor="middle">PASS → carte done · commit noté · STATE.md à jour · carte suivante (≤4 en parallèle)</text>
 
-        <text x="30" y="420" fill="#475569" font-size="8">L1 démarre seul (chemin critique) · vagues 1 et 2 indépendantes · après H2 le contrat 0.1.0 est gelé</text>
+        <text x="30" y="420" fill="#475569" font-size="8">L1 démarre seul (chemin critique) · vagues 1 et 2 indépendantes · après H11 le contrat 0.1.0 est gelé</text>
       </svg>
     </div>
 
@@ -271,7 +271,7 @@
         <text x="300" y="560" fill="#94a3b8" font-size="8">revue après chaque carte : strict / full / light</text>
         <text x="300" y="576" fill="#94a3b8" font-size="8">relecteur = catégorie review · orchestrateur ne code pas</text>
         <text x="300" y="592" fill="#94a3b8" font-size="8">≤ 4 cartes en parallèle · owns disjoints obligatoires</text>
-        <text x="300" y="608" fill="#94a3b8" font-size="8">checkpoints humains : H1 (après L1) · H2 (après L2) · H3/H4 · H5</text>
+        <text x="300" y="608" fill="#94a3b8" font-size="8">checkpoints humains : H10 (après L1) · H11 (après L2) · H12/H13 · H14</text>
         <text x="300" y="624" fill="#94a3b8" font-size="8">budgets : 3 retries gates · 2 cycles de revue · déviations E1-E9</text>
       </svg>
     </div>
@@ -283,31 +283,31 @@
           <li>• Orchestrateur · Hermes — planifie, génère les prompts, court les gates, tient STATE.md. Ne code jamais.</li>
           <li>• Codeur · sous-agents via la chaîne OMH — une carte à la fois, fichiers owns seulement, sort ses fichiers + NOTES + DEVIATIONS.</li>
           <li>• Relecteur · catégorie OMH review — verdict PASS / FIX / ESCALATE, contrats avant tests.</li>
-          <li>• Humain (toi) — checkpoints H1-H5, décide les déviations, gèle le contrat après H2.</li>
+          <li>• Humain (toi) — checkpoints H10-H14, décide les déviations, gèle le contrat après H11.</li>
         </ul>
       </div>
       <div class="card">
         <div class="card-header"><div class="card-dot amber"></div><h3>Ordre d'exécution</h3></div>
         <ul>
-          <li>• L1 d'abord, seul (tout le projet bouge) → gates → revue → H1.</li>
-          <li>• Vague 0 en parallèle (L2-L5), ≤4 cartes, owns disjoints → H2 (gel du contrat).</li>
-          <li>• Vagues 1 et 2 indépendantes (glyphes / glitch) → H3 puis H4.</li>
-          <li>• Vague 3 séquentielle : L21 → L22 (recette PhotoCraft + DesignCraft) → H5.</li>
+          <li>• L1 d'abord, seul (tout le projet bouge) → gates → revue → H10.</li>
+          <li>• Vague 0 en parallèle (L2-L5), ≤4 cartes, owns disjoints → H11 (gel du contrat).</li>
+          <li>• Vagues 1 et 2 indépendantes (glyphes / glitch) → H12 puis H13.</li>
+          <li>• Vague 3 séquentielle : L21 → L22 (recette PhotoCraft + DesignCraft) → H14.</li>
           <li>• Chemin critique : L1 → L2 → L12/L20 → L21 → L22. Toujours prioriser L1 puis L2.</li>
         </ul>
       </div>
       <div class="card">
         <div class="card-header"><div class="card-dot rose"></div><h3>Garde-fous</h3></div>
         <ul>
-          <li>• Gates G1-G4 (ruff, pytest, check_contract, owns) + G5 régression du core (bit à bit) + G6 renderers + G7 parité CLI/GUI.</li>
+          <li>• Gates G1-G4 (ruff, pytest, check_contract, owns) + G7 régression du core (bit à bit) + G8 renderers + G9 parité CLI/GUI.</li>
           <li>• 3 retries de gates, 2 cycles de revue, puis déviation E1-E9 → décision humaine.</li>
           <li>• E8 : aucune fuite core→app · E9 : chaque app marche sans hôte.</li>
-          <li>• L1 impose les baselines PNG avant de toucher au code — G5 compare au bit près.</li>
+          <li>• L1 impose les baselines PNG avant de toucher au code — G7 compare au bit près.</li>
         </ul>
       </div>
     </div>
 
-    <p class="footer">MarinWasAsleep/Lattice · harness/lattice/docs/graph.html · 2026-11-16 · thème sombre généré pour le lancement Windows</p>
+    <p class="footer">MarinWasAsleep/Lattice · harness/lattice/docs/graph.html · 2026-11-16 · index unifié : harness/README.md · thème sombre généré pour le lancement Windows</p>
   </div>
 </body>
 </html>

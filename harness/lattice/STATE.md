@@ -1,5 +1,8 @@
 # Project state — Lattice harness 0.1 (updated by the orchestrator only)
 
+> La carte L22 transmet son résumé d'acceptation (JSON, via `tools/acceptance.py`) ; l'orchestrateur
+> le reporte dans STATE.md — la carte n'écrit pas STATE.md directement.
+
 contract_version: 0.1.0-draft
 base_contracts: DitherCraft 1.0.0 (§1–§11) and 1.1.0 (§12–§25), frozen, in force for the dithering app
 max_concurrency: 4
@@ -7,10 +10,13 @@ last_update: 2026-11-12
 
 ## Environment
 
-- python: 3.15.2 · numpy 2.5.4 · numba 0.68.1 · Pillow 13.0.0 · PySide6 6.12.0 · pytest 9.2.0 · ruff 0.17.4
+- python: 3.13.18 (environnement reconstruit de zéro à la clôture du 1.1 — voir STATE 1.1) · numpy 2.5.4 · numba 0.68.1 · Pillow 13.0.0 · PySide6 6.12.0 · pytest 9.2.0 · ruff 0.17.4
 - venv: `.venv` at the Lattice root. All four packages installed editable in it.
-- Hosts: PhotoCraft 0.22.0, DesignCraft, PdfCraft — installed under `C:\Program Files\ArtCraft\`.
-- Baseline before L1: 622 tests green, ruff clean, `check_contract` OK, commit `5f3a7f4`.
+- Hosts: prévus sur la machine Windows (PhotoCraft 0.22.0, DesignCraft, PdfCraft). Le 1.1 a tourné
+  **sans PhotoCraft réel** (voir STATE 1.1) : installer l'hôte avant la carte pont L5 et avant L22.
+- Baseline before L1: harness 1.1 feature-complete, HEAD `d66c4ca` (2026-11-16) — ~1212 test cases at
+  wave-7 close (re-confirmés par G2 sur la machine Windows au kickoff), ruff clean, `check_contract`
+  OK. Les checkpoints humains H6-H9 de l'app appartiennent au harness 1.1, pas à celui-ci.
 
 ## Decisions log
 
@@ -32,10 +38,17 @@ last_update: 2026-11-12
 - 2026-11-12: licence is **MIT OR Apache-2.0**, matching ArtCraft. This is what makes libdither,
   histerdither, pyxelate and Pixel Art Fixer reusable.
 - 2026-11-12: every application works **standalone and bridged**. The bridge is never fatal.
-- 2026-11-12: three new gates — G5 core regression, G6 renderer contract, G7 CLI/GUI parity.
+- 2026-11-12: three new gates for the suite — numbered **G7** (core regression), **G8** (renderer
+  contract) and **G9** (CLI/GUI parity, generalising the 1.1 G6) so every gate number stays unique
+  across the project's history (registry: `harness/README.md`). Originally drafted as G5-G7, renamed
+  on 2026-11-16 during the harness unification.
 - 2026-11-12: **repositories split.** `MarinWasAsleep/Lattice` is the private working repository and
   tracks everything, harness included. `MarinWasAsleep/lattice-dither` is the public product
   repository: code, README, `docs/` and presets, with no harness. See AMD-001.
+- 2026-11-16: harness unification (see `harness/README.md`) — gates of this harness renumbered
+  G7-G9, checkpoints renamed H10-H14 (continuing the 1.0 H0-H4 / 1.1 H5-H9 sequence), baseline
+  pinned to HEAD `d66c4ca`, card L1 realigned on the actual tree, Python pinned to 3.13.18,
+  `STATE.md` stays orchestrator-only (L22 hands its acceptance summary to the orchestrator).
 
 ## Task table
 
@@ -70,12 +83,15 @@ last_update: 2026-11-12
 
 | Id | When | Status |
 |---|---|---|
-| H1 | after L1 | pending — verify Lattice Dither is intact and `lattice-core` installs alone |
-| H2 | after L2 | pending — read and freeze the `CellRenderer` protocol |
-| H3 | after wave 1 | pending — judge GlyphCraft on three real images |
-| H4 | after wave 2 | pending — verify GlitchCraft is alive, not a filter |
-| H5 | L22 | pending — acceptance in PhotoCraft then DesignCraft |
+| H10 | after L1 | pending — verify Lattice Dither is intact and `lattice-core` installs alone |
+| H11 | after L2 | pending — read and freeze the `CellRenderer` protocol |
+| H12 | after wave 1 | pending — judge GlyphCraft on three real images |
+| H13 | after wave 2 | pending — verify GlitchCraft is alive, not a filter |
+| H14 | L22 | pending — acceptance in PhotoCraft then DesignCraft |
+
+La numérotation des checkpoints continue à travers les générations : 1.0 H0-H4, 1.1 H5-H9,
+0.1 H10-H14 (registre : `harness/README.md`).
 
 ## Next
 
-- NEXT: L1 alone. Nothing else may start until it is done and H1 is passed.
+- NEXT: L1 alone. Nothing else may start until it is done and H10 is passed.

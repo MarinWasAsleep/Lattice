@@ -1,5 +1,10 @@
 # DitherCraft : harness 1.1 — de l'outil qui marche à l'outil qu'on utilise
 
+> **Document d'époque.** Ce README décrit le harness 1.1 au moment où il tournait. Depuis : le produit
+> s'appelle **Lattice Dither** (renommage décidé après ce document, AMD-001 du harness 0.1 — la phrase
+> « Pas de renommage » plus bas est donc dépassée), l'app est passée de 622 à ~1212 cas de test, et le
+> vocabulaire des exécuteurs (DeepSeek/Sonnet) est historique. Référence actuelle : `harness/README.md`.
+
 Le harness 1.0 a construit un produit complet et correct : 33 algorithmes, 9 effets, 11 palettes,
 aperçu temps réel, presets, pont PhotoCraft, 622 tests. Il répondait à la question « est-ce que ça
 marche ». Le harness 1.1 répond à une autre question : **est-ce que ça vaut le coup de l'ouvrir
@@ -15,7 +20,7 @@ sections §1 à §11, et ce dossier n'ajoute que ce qui manque.
 | Objectif | Couvrir le contrat | Gagner en qualité de sortie, en couverture de workflow, en plaisir d'usage |
 | Critère de réussite | Les gates passent | Un utilisateur qui n'a jamais vu l'outil obtient un bon résultat en moins d'une minute, et un utilisateur avancé peut l'automatiser |
 | Revue | Proportionnée au risque | Idem, plus une revue « produit » sur les cartes d'ergonomie |
-| Nombre de cartes | 18 | 16 (T17 à T32) |
+| Nombre de cartes | 18 (T00-T16, T07 en A/B) | 18 (T17 à T34) |
 | Vagues | 4 | 4 (vagues 4 à 7) |
 
 ## Les quatre questions auxquelles le 1.1 répond
@@ -99,7 +104,7 @@ G1 à G4 inchangés (ruff, pytest, check_contract, propriété des fichiers). De
 
 ## Comment démarrer
 
-1. Lire `CONTRACT.md` §12 à §24. Si une décision ne te va pas, c'est maintenant qu'il faut la
+1. Lire `CONTRACT.md` §12 à §25. Si une décision ne te va pas, c'est maintenant qu'il faut la
    changer, pas après H5.
 2. Lancer l'orchestrateur avec `prompts/ORCHESTRATOR.md`, section KICKOFF.
 3. T17 d'abord, seule. Puis la vague 4 en parallèle.

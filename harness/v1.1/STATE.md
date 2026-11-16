@@ -7,7 +7,8 @@ last_update: 2026-11-12
 
 ## Environment (inherited from 1.0, unchanged)
 
-- python: 3.15.2 · numpy 2.5.4 · numba 0.68.1 · Pillow 13.0.0 · PySide6 6.12.0 · pytest 9.2.0 · ruff 0.17.4
+- python: 3.13.18 (environnement reconstruit de zéro le 2026-11-12 — voir le journal des décisions plus
+  bas) · numpy 2.5.4 · numba 0.68.1 · Pillow 13.0.0 · PySide6 6.12.0 · pytest 9.2.0 · ruff 0.17.4
 - venv: `.venv` at the project root. No new dependency in 1.1.
 - ffmpeg: provided by the `imageio-ffmpeg==0.8.1` dependency, which ships ffmpeg 9.0.2 (essentials
   build) inside its wheel. A system ffmpeg on `PATH` is the fallback. The video export returns

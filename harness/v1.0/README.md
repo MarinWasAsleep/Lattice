@@ -1,5 +1,10 @@
 # DitherCraft : kit de pilotage du harness IA
 
+> **Document d'époque.** Ce kit a construit l'app sous le nom **DitherCraft** (harness 1.0, 18 cartes,
+> 622 tests verts à la clôture). Depuis : l'app s'appelle **Lattice Dither** (renommage AMD-001 du
+> harness 0.1), le package est `lattice_dither/`, l'env a été reconstruit en Python 3.13.18 (STATE 1.1),
+> et les modèles cités ici (DeepSeek/Sonnet) sont historiques. Référence actuelle : `harness/README.md`.
+
 Ce dossier contient tout ce qu'il faut pour faire développer DitherCraft par un harness à deux modèles :
 un **codeur** bon marché (DeepSeek v4.1 flash) et un **relecteur** (Sonnet). Les documents lus par les
 modèles sont en anglais : c'est plus économe en tokens et plus fiable pour du code. Ce README est pour toi.
@@ -90,7 +95,7 @@ T00 (env + sonde protocole, humain + Sonnet)
 
 | Id | Risque | Statut | Parade |
 |---|---|---|---|
-| R1 | numba ou PySide6 sans wheel pour Python 3.15.2 | [incertain] | T00 teste ; repli : Python 3.13 via `py` (avec ta confirmation). |
+| R1 | numba ou PySide6 sans wheel pour le Python système | [résolu] | T00 a sondé 3.15.2 ; l'environnement a été reconstruit en **Python 3.13.18** à la clôture du 1.1 (cf. STATE 1.1). |
 | R2 | Authentification par jeton sur TCP inconnue | [à vérifier] | T00 sonde avec un appel `methods` en lecture seule. |
 | R3 | `doc.place` exige une automation read root sur l'app desktop | [vérifié en headless] | T00 : tu la règles dans PhotoCraft ; le dossier d'échange est fixé dans le contrat §8. |
 | R4 | Le calque placé est un Smart Object | [vérifié] | T00 teste `layer.rasterize.layer` via `engine.execute` ; sinon on garde le Smart Object (acceptable). |

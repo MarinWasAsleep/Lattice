@@ -31,7 +31,7 @@ When a contract change is accepted, every task whose `context` includes the chan
 Format: one block per deviation, newest at the bottom. Status: open | accepted | rejected | resolved.
 
 ```
-### DEV-001
+### DEV-000 (gabarit — à copier)<!-- template sample -->
 - class: E1 | task: T02 | contract: 1.0.0 | status: open
 - raised by: coder | date: 2026-11-xx
 - facts: <what conflicts, quote the contract line>

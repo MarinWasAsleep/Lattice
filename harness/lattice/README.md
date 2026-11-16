@@ -1,7 +1,7 @@
 # Lattice — harness 0.1 : d'un outil à une suite
 
-Lattice Dither est un produit fini : 33 algorithmes, 9 effets, 11 palettes, aperçu temps réel,
-presets JSON, pont PhotoCraft, 622 tests. Il répond à « est-ce que ça marche ». Lattice répond à
+Lattice Dither est un produit fini : 33 algorithmes, 10 effets, 11 palettes, aperçu temps réel,
+presets JSON, pont PhotoCraft, 1212 tests (clôture du harness 1.1). Il répond à « est-ce que ça marche ». Lattice répond à
 une autre question : **est-ce qu'une même mécanique peut produire plusieurs outils qui se sentent
 différents, s'installent séparément, et se branchent tous sur ArtCraft.**
 
@@ -59,6 +59,19 @@ le même pari que Studio AAA a fait commercialement avec Dither Boy, Script Slay
 | `docs/graph.html` (+ `graph.png`) | toi, tous les agents | Graphe d'exécution : boucle d'agents + carte par vague/agent, chemin critique. |
 | `DEMARRAGE.md` | toi | Transfert vers Windows et ordre de lancement. |
 
+## Rôles et exécuteurs (le vocabulaire unifié)
+
+| Rôle | Qui | Fait | Ne fait jamais |
+|---|---|---|---|
+| Orchestrateur | Hermes (session TUI) ou un agent équivalent | planifie ≤ 4 cartes (owns disjoints), génère les prompts, court les gates, tient `STATE.md`, applique DEVIATIONS | écrire du code produit |
+| Codeur | sous-agent routé par la chaîne OMH (`omh_delegate_route`), catégorie = champ `executor` de la carte | une carte à la fois, fichiers `owns` seulement ; sort `FILE` + `NOTES` + `DEVIATIONS` | toucher au reste du dépôt |
+| Relecteur | catégorie OMH `review` | verdict PASS / FIX / ESCALATE, contrats avant tests | écrire du code |
+| Humain (toi) | toi | checkpoints H10-H14, décisions de déviation E1-E9 | — |
+
+Les générations 1.0/1.1 nommaient les modèles dans les cartes (DeepSeek codeur, Sonnet relecteur et
+orchestrateur). Depuis le 0.1, cartes et gabarits ne nomment plus aucun modèle : le routage vit dans
+la chaîne OMH. Historique, registre des gates et registre des checkpoints : `harness/README.md`.
+
 ## Graphe de dépendances
 
 ```
@@ -89,32 +102,33 @@ L1 (extraire lattice-core)  ← chemin critique, tout en dépend
 
 ## Gates
 
-G1 à G4 sont repris du harness 1.0 (ruff, pytest, check_contract, propriété des fichiers). Trois
-gates nouveaux, propres à la suite :
+G1 à G4 sont hérités du 1.0 (ruff, pytest, check_contract, propriété des fichiers). L'app de tramage
+a déjà ses G5 (compat presets v1) et G6 (parité CLI/GUI) du 1.1. Pour que chaque numéro reste unique
+dans l'histoire du projet, les gates propres à la suite commencent à **G7** (registre : `harness/README.md`) :
 
-- **G5 régression du core** : après L1, Lattice Dither rend ses trois presets témoins exactement comme
+- **G7 régression du core** : après L1, Lattice Dither rend ses trois presets témoins exactement comme
   avant l'extraction, au bit près. C'est le gate qui empêche la suite de casser le produit existant.
-- **G6 contrat des renderers** : chaque `CellRenderer` enregistré satisfait le protocole §3 sur une
+- **G8 contrat des renderers** : chaque `CellRenderer` enregistré satisfait le protocole §3 sur une
   grille de test commune, vérifié en itérant le registre pour que tout renderer futur soit couvert
   d'office.
-- **G7 parité CLI / GUI** : pour un même preset et une même image, le rendu CLI et le rendu GUI
+- **G9 parité CLI / GUI** : pour un même preset et une même image, le rendu CLI et le rendu GUI
   donnent des octets identiques, dans chaque app.
 
 ## Points de contrôle humains
 
 | Id | Quand | Ce que tu fais |
 |---|---|---|
-| H1 | Après L1 | Vérifier que Lattice Dither est intact et que le paquet `lattice-core` s'installe seul. |
-| H2 | Après L2 | Relire le protocole `CellRenderer` et le geler. C'est la décision la plus rentable du projet. |
-| H3 | Après la vague 1 | Ouvrir GlyphCraft sur trois images réelles et juger. Si les glyphes ne convainquent pas, ne pas continuer. |
-| H4 | Après la vague 2 | Ouvrir GlitchCraft et vérifier qu'il est vivant, pas un filtre. |
-| H5 | L22 | Recette complète dans PhotoCraft puis DesignCraft. |
+| H10 | Après L1 | Vérifier que Lattice Dither est intact et que le paquet `lattice-core` s'installe seul. |
+| H11 | Après L2 | Relire le protocole `CellRenderer` et le geler. C'est la décision la plus rentable du projet. |
+| H12 | Après la vague 1 | Ouvrir GlyphCraft sur trois images réelles et juger. Si les glyphes ne convainquent pas, ne pas continuer. |
+| H13 | Après la vague 2 | Ouvrir GlitchCraft et vérifier qu'il est vivant, pas un filtre. |
+| H14 | L22 | Recette complète dans PhotoCraft puis DesignCraft. |
 
 ## Risques
 
 | Id | Risque | Parade |
 |---|---|---|
-| R1 | L'extraction du core casse Lattice Dither | L1 impose des baselines PNG rendues **avant** de commencer, et G5 compare au bit près. |
+| R1 | L'extraction du core casse Lattice Dither | L1 impose des baselines PNG rendues **avant** de commencer, et G7 compare au bit près. |
 | R2 | L'abstraction `CellRenderer` ne couvre pas le texte-halftone, qui n'est pas une grille | L9 est autorisée à produire une grille de cellules de tailles variables ; le protocole §3 le prévoit dès le départ. |
 | R3 | L'appariement par forme est trop lent pour l'aperçu | L7 impose un budget : 1024×1024, 64 glyphes, sous 200 ms après pré-calcul des vecteurs de forme. Sinon table de correspondance précalculée. |
 | R4 | Le tampon de rétroaction diverge ou explose en mémoire | L13 impose un decay < 1 strict et une normalisation par image ; test de stabilité sur 200 itérations. |
@@ -126,7 +140,7 @@ gates nouveaux, propres à la suite :
 ## Comment démarrer
 
 1. Lire `CONTRACT.md` §1 à §20. Si une décision ne te va pas, c'est maintenant qu'il faut la
-   changer, pas après H2.
+   changer, pas après H11.
 2. Lancer l'orchestrateur avec `prompts/ORCHESTRATOR.md`, section KICKOFF.
 3. L1 d'abord, seule. Puis la vague 0 en parallèle.
 

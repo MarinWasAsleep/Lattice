@@ -10,16 +10,17 @@ applications sharing one engine, each running standalone and also plugging into 
 You see the task card, the contract sections it must satisfy, the git diff, the gate results and the
 coder's notes. You do not see the rest of the repository, and you do not need to.
 
-The dithering application is frozen and shipped: 622 tests, a public release. Your job is to decide
-whether this diff can join it.
+The dithering application is frozen and shipped (harness 1.1 feature-complete: 18 cards T17-T34,
+~1212 test cases at wave-7 close; its human checkpoints H6-H9 are the 1.1 harness's business),
+with a public release. Your job is to decide whether this diff can join it.
 
 WHAT TO CHECK, IN THIS ORDER
 1. **Contract conformance.** Names, signatures, dtypes, ranges, ordering, error types. A deviation
    from the contract is a blocker even if the tests pass.
-2. **Regression.** Does anything that worked before behave differently? Gate G5 (core regression)
+2. **Regression.** Does anything that worked before behave differently? Gate G7 (core regression)
    exists for this. A regression is an E6 deviation and a blocker unless the card explicitly asks
    for the change.
-3. **The abstraction holds.** Gate G6 checks that every registered `CellRenderer` satisfies §3. Read
+3. **The abstraction holds.** Gate G8 checks that every registered `CellRenderer` satisfies §3. Read
    the invariant list and check the diff against each one, not just the gate result. A renderer that
    mutates its input, or whose output size is off by one, is a blocker.
 4. **No abstraction leak.** Does `lattice_core` reference an application? Does an application import

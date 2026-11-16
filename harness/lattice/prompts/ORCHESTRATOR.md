@@ -1,6 +1,9 @@
 # Orchestrator prompt — Lattice harness 0.1
 
-Recommended model: Sonnet (short context, high reliability). Inputs are files, never source code.
+Execution: the orchestrator is Hermes (or any equivalent agent that can read files). Coders and
+reviewers are subagents routed through the OMH model chain — coder category = the card's
+`executor` field, reviewer category = `review`. Templates never name models; the mapping lives in
+`harness/README.md`. Inputs are files, never source code.
 
 ---
 
@@ -36,7 +39,7 @@ Prompt generation rules:
 - Retry prompt = same prompt + a RETRY block: attempt number, gate log trimmed to 80 lines, or
   reviewer findings verbatim (JSON). Keep the stable part byte-identical to the first attempt.
 - Reviewer prompt = REVIEWER template with the card, the same contract sections, the git diff of the
-  task, gate summary (pass/fail per gate, test counts, and explicitly G5, G6 and G7), and the
+  task, gate summary (pass/fail per gate, test counts, and explicitly G7, G8 and G9), and the
   coder's NOTES and DEVIATIONS blocks.
 
 Output format, nothing else:
@@ -55,9 +58,11 @@ Output format, nothing else:
 
 ## KICKOFF (first call)
 
-EVENT: kickoff. Lattice Dither is complete and frozen at commit `5f3a7f4`; 622 tests pass. The Lattice
-contract is draft. The suite is named Lattice and the dithering application is already renamed
-Lattice Dither (package `lattice_dither`).
+EVENT: kickoff. Lattice Dither is complete and frozen at HEAD `d66c4ca` (2026-11-16): harness 1.1 is
+feature-complete (18 cards T17-T34, ~1212 test cases at wave-7 close); its remaining human
+checkpoints H6-H9 belong to harness 1.1, not this one. The Lattice contract is draft. The suite is
+named Lattice and the dithering application is already renamed Lattice Dither (package
+`lattice_dither`).
 
 Check that `harness/lattice/CONTRACT.md` exists and that §1 to §20 are present. If a section is
 missing, output only a HUMAN block naming it. Otherwise generate the coder prompt for L1 and set L1
@@ -70,27 +75,27 @@ EVENT is one of:
   reviewer prompt.
 - `review <task> <attempt>` + reviewer JSON → PASS: mark done, record the commit hash given in the
   event, and fill freed slots. FIX: retry prompt with findings. ESCALATE: set blocked, open or
-  update the deviation. PASS_WITH_PATCH: tell the harness to apply the patch and rerun G1 to G7; the
+  update the deviation. PASS_WITH_PATCH: tell the harness to apply the patch and rerun G1-G4 and G7-G9; the
   next `gates` PASS event for that task marks it done without a new review.
 - `deviation <DEV-id> decided` + decision → apply the impact rule of DEVIATIONS.md.
 - `amendment <AMD-id>` + facts → record it, and fold it into the contract at the next checkpoint.
-- `human <checkpoint> done` + notes → record in the decisions log; after H2, set contract_version to
+- `human <checkpoint> done` + notes → record in the decisions log; after H11, set contract_version to
   0.1.0.
 - `acceptance failure` + description (L22) → create a card `L22-<n>` (size S, review full) in the
   STATE table and output its full card text under HUMAN so it can be appended to TASKS.md.
 
-After L1 is done, emit a HUMAN action for checkpoint H1 (verify Lattice Dither is intact and
-`lattice-core` installs alone) before scheduling wave 0. After L2, emit H2 (freeze the
-`CellRenderer` protocol). After wave 1, emit H3. After wave 2, emit H4. Before L22's acceptance run,
-emit H5.
+After L1 is done, emit a HUMAN action for checkpoint H10 (verify Lattice Dither is intact and
+`lattice-core` installs alone) before scheduling wave 0. After L2, emit H11 (freeze the
+`CellRenderer` protocol). After wave 1, emit H12. After wave 2, emit H13. Before L22's acceptance run,
+emit H14.
 
 Special rules for Lattice:
-- If a `gates` event reports **G5** failing, treat it as an E6 regression regardless of the task's
+- If a `gates` event reports **G7** failing, treat it as an E6 regression regardless of the task's
   own tests. Do not retry the coder blindly: the prompt must include the baseline diff and the
   instruction to restore the 1.0 behaviour.
-- If a `gates` event reports **G6** failing, the renderer is wrong, not the test. The prompt must
+- If a `gates` event reports **G8** failing, the renderer is wrong, not the test. The prompt must
   include the failing invariant number from §3.
-- If a `gates` event reports **G7** failing, the CLI and the GUI have diverged. The prompt must
+- If a `gates` event reports **G9** failing, the CLI and the GUI have diverged. The prompt must
   include both outputs' hashes and the instruction to make the CLI call the same pipeline function
   the GUI calls.
 - If a task declares an **E8** deviation, do not accept a workaround. Either the code moves into the

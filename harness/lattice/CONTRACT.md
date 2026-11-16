@@ -7,7 +7,7 @@ This document governs everything shared between applications, and every new appl
 Versioning: PATCH = clarification, no code impact. MINOR = additive, backward compatible.
 MAJOR = breaking; forbidden without human approval.
 
-Freeze at checkpoint H2, after L2.
+Freeze at checkpoint H11, after L2.
 
 ---
 
@@ -40,6 +40,13 @@ lattice-glyph     import lattice_glyph     depends on lattice-core>=0.1,<0.2
 lattice-glitch    import lattice_glitch    depends on lattice-core>=0.1,<0.2
 ```
 
+**What L1 actually moves** (current tree at HEAD `d66c4ca`): `core/{color,pipeline,presets,types,registry}.py`,
+the `palettes/` package, `dither/` (from `algorithms/`), `effects/`, `bridge/`. The application keeps
+`ui/`, `export/`, `preprocess/`, `i18n/`, `core/animation.py` (video export is an app feature; video
+is out of scope for the suite) and its own `cli.py` (the 1.1 verbs are app-specific; the shared CLI
+frame is created with the application shells). There is no `core/palette.py` in the current tree:
+palettes are a package. `image.py`, `cell.py` and `renderers/` are created by the cards (L2+).
+
 - `lattice-core` base install depends on **numpy, numba, Pillow only**. PySide6 is an optional
   extra: `lattice-core[ui]`. A CLI-only user must never download Qt.
 - Applications depend on core, never the reverse. Core must not import any application.
@@ -56,11 +63,11 @@ lattice_core/
   cell.py         CellGrid, RenderStyle, CellRenderer, registry
   renderers/      pixel.py, glyph_ramp.py, glyph_shape.py, bitmask.py, text.py
   dither/         the 33 algorithms, moved from Lattice Dither unchanged
-  effects/        the 9 Lattice Dither effects plus the glitch effects
+  effects/        the 10 Lattice Dither effects plus the glitch effects
   pipeline.py     PipelineSpec, render
   preset.py       preset v3 read/write
   bridge/         ArtCraftClient, photocraft.py, designcraft.py
-  cli.py          shared argument parsing and exit codes
+  cli.py          shared argument parsing and exit codes   (frame built with the app shells, L12/L20)
   ui/             shared widgets, imported only under the [ui] extra
 ```
 
@@ -216,7 +223,7 @@ Every application exposes the same four verbs:
 <app> bridge  status|pull|push
 ```
 
-- `render` and the GUI must produce **byte-identical** output for the same preset and image (G7).
+- `render` and the GUI must produce **byte-identical** output for the same preset and image (G9).
 - Exit codes: 0 success, 1 usage error, 2 render error, 3 bridge error.
 - `--json` on any verb prints a machine-readable result on stdout and nothing else.
 - No verb may require a display. `import lattice_core.ui` must not happen on the CLI path.
@@ -371,12 +378,17 @@ mask.
 G1 to G4 are inherited from the DitherCraft harness: ruff clean, pytest green, `check_contract`
 passes, a task writes only the files it owns.
 
-- **G5 core regression.** After L1, Lattice Dither renders its three witness presets byte-identically
-  to baselines committed before the extraction starts.
-- **G6 renderer contract.** Every registered `CellRenderer` satisfies §3, verified by iterating
+The dithering application already owns **G5 (v1 preset compatibility)** and **G6 (CLI/GUI parity)**
+from the 1.1 harness — those two numbers mean something different there. To keep every gate number
+unique across the project's history, this harness numbers its own gates from **G7** (gate registry
+in `harness/README.md`; the next new gate is G10):
+
+- **G7 core regression.** After L1, Lattice Dither renders its three witness presets byte-identically
+  to the baselines committed at HEAD (`tests/data/baseline/`).
+- **G8 renderer contract.** Every registered `CellRenderer` satisfies §3, verified by iterating
   `list_renderers()` so any future renderer is covered automatically.
-- **G7 CLI/GUI parity.** For the same preset and image, the CLI and the GUI produce identical
-  bytes, in every application.
+- **G9 CLI/GUI parity.** For the same preset and image, the CLI and the GUI produce identical
+  bytes, in every application (generalises the 1.1 G6).
 
 ## §20 Non-goals
 

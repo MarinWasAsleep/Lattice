@@ -1,6 +1,6 @@
 # Deviation protocol and register — Lattice harness 0.1
 
-The protocol is **unchanged** from `harness/DEVIATIONS.md` (DitherCraft 1.0): same five classes E1
+The protocol is **unchanged** from `harness/v1.0/DEVIATIONS.md` (DitherCraft 1.0): same five classes E1
 to E5, same retry budget (3 gate retries, 2 review cycles), same impact rule. Read that file; it is
 not repeated here.
 
@@ -16,7 +16,7 @@ Two additions for the suite:
 - **E9 Host coupling.** A change that makes an application unusable without ArtCraft: a hard
   dependency on a running host, a crash when the bridge is absent, or a UI that only makes sense
   when bridged. Every application must open a file and render it with no host present. Declared by
-  the reviewer or caught at H3, H4 or H5.
+  the reviewer or caught at H12, H13 or H14.
 
 ## Register
 
