@@ -59,7 +59,9 @@ l'orchestrateur ne code jamais.
 ### L2 · `CellRenderer` contract and `PixelRenderer`
 - wave: 0 · deps: L1 · executor: OMH architect · review: strict · size: M
 - owns: `lattice_core/cell.py`, `lattice_core/renderers/__init__.py`,
-  `lattice_core/renderers/pixel.py`, `tests/test_cell.py`
+  `lattice_core/renderers/pixel.py`, `tests/test_cell.py` + `lattice_core/pipeline.py`
+  (ajout DEV-203 : l'étape 11 de §5 et la dérivation coverage/luma/samples de §3 vivent
+  dans `pipeline.render` — la carte ne peut pas les implémenter sans ce fichier)
 - context: §3 §5
 - spec: implement §3 exactly: `CellGrid`, `RenderStyle`, the `CellRenderer` protocol, the registry
   (`register_renderer`, `get_renderer`, `list_renderers`), and the `coverage` derivation. Implement

@@ -57,6 +57,38 @@ their own files. Nothing is carried over.
 - impact: none — all five are constraints of the card, none alters behaviour or packaging.
 ```
 
+### DEV-203
+- class: E1 (ambiguïté de carte) + E3 (scope) | task: L2 | contract: 0.1.0 | status: accepted
+- raised by: orchestrator | date: 2026-11-16
+- facts: la carte L2 liste `owns` sans `lattice_core/pipeline.py`, mais sa spec exige de
+  câbler l'étape 11 de §5 dans `pipeline.render` ("Wire step 11 of §5 into `pipeline.render`
+  behind the registry") et §3 pose la dérivation de `coverage`/`luma`/`samples` aux étapes
+  6-10 du pipeline. Sans `pipeline.py` dans owns, G4 échoue mécaniquement (écriture hors
+  owns) et aucun appelant existant ne peut passer par le registre, alors que les `accept`
+  exigent "every existing caller keeps working" et les tests pixel/coverage.
+- assumption / proposal: ajouter `lattice_core/pipeline.py` aux `owns` de L2. C'est le seul
+  fichier manquant ; `pipeline.py` n'est possédé par aucune autre carte du plan (L1 l'a
+  déplacé, L-UI et les coquilles touchent leurs propres paquets).
+- decision: accepted | by: orchestrator | date: 2026-11-16
+- impact: owns de L2 élargi d'un fichier, aucun autre effet de plan ni de contrat ; à
+  ré-examiner à H11 (gel §3/§5).
+
+### DEV-204
+- class: E1 (×2) | task: L2 | contract: 0.1.0 | status: accepted
+- raised by: coder (attempt 1) | date: 2026-11-16
+- facts:
+  1. Le contrat ne dit pas quoi mettre dans `samples` pour `pixel` (k=1) → le codeur met la
+     luma de la cellule source (`luma[:, :, None]`), comportement conservateur le plus simple.
+     Cohérent avec §3 : échantillon 1 point = luminance moyenne de la cellule.
+  2. `RenderStyle.options` est passé vide (`{}`) par le pipeline — `PipelineSpec` n'a pas
+     encore de champ renderer/style ; la sélection d'un renderer autre que `pixel` et le style
+     sont prévus pour les cartes suivantes (voir finding minor « renderer hardcodé » de la
+     revue — adressé dans le retry attempt 2).
+- decision: accepted | by: orchestrateur (après revue FIX : ni l'un ni l'autre n'est un
+  blocker ; le 2 est adressé dans l'attempt 2 qui câble le champ renderer)
+- impact: aucun sur le contrat ; le 1 reste le comportement `pixel` (il ne consomme que
+  `index`), le 2 est résorbé par le retry.
+
 ## Amendments
 
 Facts discovered during a task that the contract could not have known, recorded here rather than

@@ -84,14 +84,26 @@ last_update: 2026-11-16
   fichiers UI pré-existants > 400 l, baselines 01/05 octets ≠ mais pixels identiques, install
   vérifiée en offline). Vérification H10 rejouée par l'orchestrateur : venv uv vierge + `pip install
   -e .` → `lattice_core` importe, PySide6 non importé, requires = numpy/numba/Pillow (+ extra ui).
-  H10 passe en attente de l'humain (app à relancer depuis le menu).
+  H10 done 2026-11-16 (humain) — app relancée depuis le menu.
+- 2026-11-16: **L2 done — commit `7394b8b`**. Review pass 2 : **PASS (Opus, effort medium)** —
+  verdict archivé `prompts/generated/L2-reviewer-result-2.json` ; les 5 findings du pass 1
+  (dont le blocker E6) résolus, vérification indépendante orchestrateur à 0/25 octets (palettes
+  flottantes + post-effects, module pipeline HEAD rejoué). 7 minors non bloquants, à traiter aux
+  cartes suivantes : `prepare_image` calcule toujours la géométrie pixel (renderer param absent),
+  `_cell_geometry` arrondit half-to-even (aspect perdu si aspect > 1 et pixel_size petit),
+  `_render_frame` duck-type sans contrôle de shape, formule Rec.709 dupliquée, docstrings §5
+  (11 vs 12 étapes), `RenderStyle` stocke le mapping mutable du caller, `noqa: F401` redondant +
+  reload interdit. G2 : 1257 tests (1216 + 41). **Retry attempt 2 dispatché puis exécuté sur
+  deepseek-v4-1-flash-1017** (modèle standard éco, règle de routage humain). Route lourde suivie :
+  Opus ×3 complet (review pass 1, review pass 2, prochain = analyse H11) → prochain creneau lourd
+  = mistral-large-4.
 
 ## Task table
 
 | Task | Wave | Status | g | r | Commit | Notes |
 |---|---|---|---|---|---|---|
 | L1 | 0 | done | 1 | 1 | 696964d | extract lattice-core; critical path — gates G1-G7 verts, review PASS, DEV-202 (E1 ×5 acceptés) |
-| L2 | 0 | todo | 0 | 0 | | CellRenderer + PixelRenderer |
+| L2 | 0 | done | 1 | 2 | 7394b8b | CellRenderer + PixelRenderer; gates G1-G4+G7-G9 verts (1257 tests), review Opus PASS (pass 1 FIX → retry), DEV-203 (owns pipeline.py), DEV-204 (2 × E1) |
 | L3 | 0 | todo | 0 | 0 | | colour metrics + palette |
 | L4 | 0 | todo | 0 | 0 | | preset v3 |
 | L5 | 0 | todo | 0 | 0 | | bridge generalisation (PhotoCraft + DesignCraft) |
@@ -132,4 +144,7 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
 
 ## Next
 
-- NEXT: L1 alone. Nothing else may start until it is done and H10 is passed.
+- **H11 (toi)** — gel du contrat 0.1.0 : analyse Opus en cours (gabarit ANALYSTE-PRODUIT) puis
+  tu tranches les questions. Après H11 : contrat 0.1.0, version `contract_version: 0.1.0`.
+- Vague 0 après H11 : L3, L4, L5 en parallèle (owns disjoints, ≤ 4 cartes) ; L-UI après L5.
+  Chemin critique : L2 done → coquilles L12/L20.
