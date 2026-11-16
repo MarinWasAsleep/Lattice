@@ -120,7 +120,7 @@ last_update: 2026-11-16
 
 | Id | When | Status |
 |---|---|---|
-| H10 | after L1 | pending (humain) — dossiers prêts 2026-11-16 : app intacte + lattice-core installable seul |
+| H10 | after L1 | ✅ done 2026-11-16 — app lancée par l'humain (`.venv/bin/python -m lattice_dither`, intacte) ; `lattice_core` s'installe seul en venv vierge (sans PySide6) |
 | H11 | after L2 | pending — analyse Opus du contrat (gabarit ANALYSTE-PRODUIT) → toi : trancher le gel |
 | H12 | after wave 1 | pending — analyse Opus de Lattice Glyph sur trois images réelles (captures/parcours) → toi : trancher |
 | H13 | after wave 2 | pending — analyse Opus (Lattice Glitch vivant, pas un filtre ?) → toi : trancher |
