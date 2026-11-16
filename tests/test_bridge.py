@@ -1,7 +1,12 @@
-"""Tests for the PhotoCraft bridge (CONTRACT §8), against an in-process fake server."""
+"""Tests for the ArtCraft bridge (CONTRACT §7): PhotoCraft and DesignCraft adapters.
+
+Every test runs against an in-process fake server, so the suite needs no host.
+"""
 
 from __future__ import annotations
 
+import base64
+import io
 import json
 import os
 import socket
@@ -13,7 +18,8 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from lattice_core.bridge import photocraft
+from lattice_core.bridge import ArtCraftClient, photocraft
+from lattice_core.bridge.designcraft import DesignCraftClient
 from lattice_core.bridge.photocraft import BridgeError, PhotoCraftClient
 
 TOKEN = "a" * 64
@@ -38,7 +44,7 @@ def _send(conn: socket.socket, payload: dict) -> None:
 class FakeDesktopServer:
     """In-process fake of the PhotoCraft desktop control server."""
 
-    def __init__(self, handler, token: str = TOKEN) -> None:
+    def __init__(self, handler, token: str | None = TOKEN) -> None:
         self.token, self.handler = token, handler
         self.connections: list[list[dict]] = []
         self._listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -86,7 +92,7 @@ class FakeDesktopServer:
             while line := reader.readline():
                 request = json.loads(line.decode("utf-8"))
                 record.append(request)
-                if len(record) == 1:
+                if len(record) == 1 and self.token is not None:
                     params = request.get("params") or {}
                     if request.get("method") != "auth" or params.get("token") != self.token:
                         refusal = {"id": request.get("id"), "ok": False}
@@ -656,3 +662,287 @@ def test_save_timeout_is_sixty_seconds_for_large_documents(
     small = server(handler((4000, 100)))
     PhotoCraftClient(small.port, TOKEN).render_document()
     assert 60.0 not in values
+
+# --------------------------------------------------------------------------- DesignCraft
+
+
+def _png_b64(size: tuple[int, int], colour: tuple[int, int, int]) -> str:
+    """Return a base64 PNG of that size and colour, as file.exportBatch sends it."""
+    buffer = io.BytesIO()
+    Image.new("RGB", size, colour).save(buffer, format="PNG")
+    return base64.b64encode(buffer.getvalue()).decode("ascii")
+
+
+PAGE = [0.0, 0.0, 595.0, 842.0]
+
+
+def _inspect(
+    selection: list[int] | None = None,
+    items: list[dict] | None = None,
+    page: list[float] | None = None,
+) -> dict:
+    """Build a document.inspect result with one page and the given objects."""
+    return {
+        "selection": {"content": False, "items": selection or []},
+        "spreads": [
+            {"index": 0, "pages": [{"bounds": page or PAGE}], "items": items or []},
+        ],
+    }
+
+
+class DesignCraftHandler:
+    """Scripted DesignCraft responder: inspect, file.place and file.exportBatch."""
+
+    def __init__(self, exchange: Path, page: list[float] | None = None, fail: str | None = None,
+                 unreadable: bool = False, inspect: dict | None = None) -> None:
+        self.exchange = exchange
+        self.page = page or PAGE
+        self.fail = fail
+        self.unreadable = unreadable
+        self.inspect = inspect if inspect is not None else _inspect(page=self.page)
+        self.placed: list[dict] = []
+        self.png_present_at_place = False
+        self._next_id = 40
+
+    def __call__(self, request: dict) -> dict:
+        params = request.get("params") or {}
+        command = params.get("command")
+        if params.get("command") is None and request["method"] == "engine.commands":
+            return _ok(request, [{"id": "file.place"}])
+        if self.fail == command:
+            return _error(request, f"{command} failed")
+        if command == "document.inspect":
+            return _ok(request, self.inspect)
+        if command == "file.place":
+            payload = params["params"]
+            if self.unreadable and "path" in payload:
+                return _error(request, f"{payload['path']}: No such file or directory")
+            self.png_present_at_place = "path" in payload and Path(payload["path"]).is_file()
+            self.placed.append(payload)
+            self._next_id += 1
+            return _ok(request, {"asset": 7, "id": self._next_id})
+        if command == "file.exportBatch":
+            width = int(round(self.page[2] - self.page[0]))
+            height = int(round(self.page[3] - self.page[1]))
+            return _ok(request, {"files": [{"base64": _png_b64((width, height), (12, 34, 56))}]})
+        return _error(request, f"unexpected {request['method']}")
+
+
+@pytest.fixture
+def designcraft_server(server):
+    """Start an unauthenticated fake DesignCraft server: its channel has no token."""
+
+    def start(handler) -> FakeDesktopServer:
+        return server(handler, token=None)
+
+    return start
+
+
+def test_artcraft_discover_photocraft_needs_a_token(
+    tmp_path: Path, exchange: Path, server, monkeypatch
+) -> None:
+    """discover("photocraft") is None without a token file and live when the host answers."""
+    monkeypatch.setattr(photocraft, "TOKEN_PATH", tmp_path / "absent.token")
+    monkeypatch.setattr(photocraft, "LEGACY_TOKEN_PATH", tmp_path / "absent-legacy.token")
+    assert ArtCraftClient.discover("photocraft", port=47998) is None
+    fake = server(lambda request: _ok(request, []))
+    monkeypatch.setattr(photocraft, "TOKEN_PATH", _token_file(tmp_path))
+    assert ArtCraftClient.discover("photocraft", port=47998) is None
+    found = ArtCraftClient.discover("photocraft", port=fake.port)
+    assert found is not None and found.host == "photocraft"
+    assert found.ping()
+    assert [request["method"] for request in fake.requests] == ["auth", "engine.commands"] * 2
+
+
+def test_artcraft_photocraft_facade_places_a_layer(exchange: Path, server, monkeypatch,
+                                                   tmp_path: Path) -> None:
+    """The facade reaches PhotoCraft's own §8.4 sequence unchanged."""
+    tokens = tmp_path / "tokens"
+    tokens.mkdir()
+    monkeypatch.setattr(photocraft, "TOKEN_PATH", _token_file(tokens))
+    places = PlaceHandler(exchange)
+
+    def handler(request: dict) -> dict:
+        if request["method"] == "engine.commands":
+            return _ok(request, [{"id": "document.inspect"}])
+        return places(request)
+
+    fake = server(handler)
+    client = ArtCraftClient.discover("photocraft", port=fake.port)
+    assert client is not None
+    assert client.place_as_layer(Image.new("RGB", (4, 4)), "Lattice Dither") == 24
+    assert _sequence(fake)[2:4] == [
+        ("engine.execute", "document.activate"), ("app.open", None),
+    ]
+    assert not list(exchange.glob("*.png"))
+
+
+def test_artcraft_discover_designcraft_needs_no_token(exchange: Path, designcraft_server) -> None:
+    """discover("designcraft") is None when the port is closed and live when it answers."""
+    assert ArtCraftClient.discover("designcraft", port=47997) is None
+    fake = designcraft_server(lambda request: _ok(request, [{"id": "file.place"}]))
+    found = ArtCraftClient.discover("designcraft", port=fake.port)
+    assert found is not None and found.host == "designcraft"
+    assert found.ping()
+    assert [request["method"] for request in fake.requests] == ["engine.commands"] * 2
+
+
+def test_artcraft_discover_rejects_an_unknown_host() -> None:
+    """A host name outside the two adapters is a programming error, not a bridge failure."""
+    with pytest.raises(ValueError, match="unknown ArtCraft host"):
+        ArtCraftClient.discover("pdfcraft")
+
+
+def test_designcraft_render_document_matches_the_inspected_page(
+    exchange: Path, designcraft_server
+) -> None:
+    """render_document exports the page at 72 ppi and returns its pixels."""
+    handler = DesignCraftHandler(exchange, page=[0.0, 0.0, 300.0, 200.0])
+    fake = designcraft_server(handler)
+    image = DesignCraftClient(fake.port).render_document()
+    assert image.size == (300, 200)
+    assert image.getpixel((0, 0)) == (12, 34, 56)
+    export = [request for request in fake.requests
+              if (request.get("params") or {}).get("command") == "file.exportBatch"]
+    assert export[0]["params"]["params"]["job"]["versions"][0]["ppi"] == 72
+    assert "dir" not in export[0]["params"]["params"]
+    assert list(exchange.iterdir()) == []
+
+
+def test_designcraft_place_creates_a_frame_when_nothing_is_selected(
+    exchange: Path, designcraft_server
+) -> None:
+    """With no selection, file.place gets {path, x, y, width} taken from the page."""
+    handler = DesignCraftHandler(exchange)
+    fake = designcraft_server(handler)
+    placed = DesignCraftClient(fake.port).place_as_layer(Image.new("RGB", (4, 4)), "Lattice Dither")
+    assert isinstance(placed, int) and placed == 41
+    assert handler.placed == [
+        {"x": 0.0, "y": 0.0, "width": 595.0, "name": "Lattice Dither",
+         "path": handler.placed[0]["path"]}
+    ]
+    assert handler.png_present_at_place
+    assert Path(handler.placed[0]["path"]).parent == exchange
+    assert list(exchange.iterdir()) == []
+
+
+def test_designcraft_place_uses_the_selected_frame(exchange: Path, designcraft_server) -> None:
+    """A selected frame is passed as `frame`, and a selected image is not a frame."""
+    inspect = _inspect(selection=[12], items=[{"id": 12, "kind": "<rectangle>"},
+                                             {"id": 9, "kind": "<image>"}])
+    handler = DesignCraftHandler(exchange, inspect=inspect)
+    fake = designcraft_server(handler)
+    DesignCraftClient(fake.port).place_as_layer(Image.new("RGB", (4, 4)), "in frame")
+    assert handler.placed[0]["frame"] == 12
+    assert "x" not in handler.placed[0] and "width" not in handler.placed[0]
+
+    image_only = _inspect(selection=[9], items=[{"id": 9, "kind": "<image>"}])
+    other = DesignCraftHandler(exchange, inspect=image_only)
+    DesignCraftClient(designcraft_server(other).port).place_as_layer(Image.new("RGB", (4, 4)), "x")
+    assert "frame" not in other.placed[0]
+    assert other.placed[0]["width"] == 595.0
+
+
+def test_designcraft_place_falls_back_to_base64(exchange: Path, designcraft_server) -> None:
+    """A host that cannot read the exchange path gets the same PNG as base64."""
+    handler = DesignCraftHandler(exchange, unreadable=True)
+    fake = designcraft_server(handler)
+    assert DesignCraftClient(fake.port).place_as_layer(Image.new("RGB", (4, 4)), "b64") == 41
+    assert len(handler.placed) == 1
+    payload = handler.placed[0]
+    assert "path" not in payload and payload["name"] == "b64"
+    assert Image.open(io.BytesIO(base64.b64decode(payload["base64"]))).size == (4, 4)
+    assert list(exchange.iterdir()) == []
+
+
+@pytest.mark.parametrize("command", ["file.place", "file.exportBatch", "document.inspect"])
+def test_designcraft_failures_are_typed_and_leave_no_file(
+    exchange: Path, designcraft_server, command: str
+) -> None:
+    """A refused command raises BridgeError and the exchange directory stays empty."""
+    handler = DesignCraftHandler(exchange, fail=command)
+    client = DesignCraftClient(designcraft_server(handler).port)
+    with pytest.raises(BridgeError, match=f"{command} failed"):
+        if command == "file.exportBatch":
+            client.render_document()
+        else:
+            client.place_as_layer(Image.new("RGB", (4, 4)), "Lattice Dither")
+    assert list(exchange.iterdir()) == []
+
+
+def test_designcraft_does_not_retry_a_broken_connection(
+    exchange: Path, designcraft_server
+) -> None:
+    """A dead connection is not retried as base64: the failure is reported once."""
+    calls: list[str] = []
+
+    def handler(request: dict) -> dict | None:
+        command = (request.get("params") or {}).get("command")
+        calls.append(command or request["method"])
+        if command == "document.inspect":
+            return _ok(request, _inspect())
+        return None
+
+    fake = designcraft_server(handler)
+    with pytest.raises(BridgeError, match="closed the connection"):
+        DesignCraftClient(fake.port).place_as_layer(Image.new("RGB", (4, 4)), "x")
+    assert calls.count("file.place") == 1
+    assert list(exchange.iterdir()) == []
+
+
+def test_designcraft_timeout_raises_bridge_error(exchange: Path, designcraft_server) -> None:
+    """A host that never answers makes the call fail with BridgeError, not hang."""
+    def handler(request: dict) -> dict:
+        time.sleep(0.4)
+        return _ok(request, _inspect())
+
+    with pytest.raises(BridgeError):
+        DesignCraftClient(designcraft_server(handler).port, timeout=0.1).render_document()
+
+
+def test_designcraft_discards_old_exchange_files(exchange: Path, designcraft_server) -> None:
+    """Files older than one hour are deleted on the next call, fresh ones are kept."""
+    stale = exchange / "stale.png"
+    stale.write_bytes(b"x")
+    os.utime(stale, (time.time() - 7200.0,) * 2)
+    fresh = exchange / "fresh.png"
+    fresh.write_bytes(b"x")
+    fake = designcraft_server(DesignCraftHandler(exchange))
+    DesignCraftClient(fake.port).render_document()
+    assert not stale.exists()
+    assert fresh.exists()
+
+
+def test_designcraft_rejects_a_result_without_a_file(exchange: Path, designcraft_server) -> None:
+    """A file.exportBatch result with no PNG is a BridgeError, never an AttributeError."""
+    fake = designcraft_server(lambda request: _ok(request, {"files": []}))
+    with pytest.raises(BridgeError, match="returned no file"):
+        DesignCraftClient(fake.port).render_document()
+
+
+def test_exchange_dir_follows_the_platform_app_data_directory(monkeypatch, tmp_path: Path) -> None:
+    """§7: %LOCALAPPDATA%/<App> on Windows, ~/.local/share/<App> on Linux."""
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "win"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    monkeypatch.setattr(photocraft, "_IS_WINDOWS", True)
+    assert photocraft._app_dir("LatticeDither") == tmp_path / "win" / "LatticeDither"
+    monkeypatch.setattr(photocraft, "_IS_WINDOWS", False)
+    monkeypatch.setattr(photocraft.sys, "platform", "linux")
+    assert photocraft._app_dir("LatticeDither") == tmp_path / "xdg" / "LatticeDither"
+    monkeypatch.delenv("XDG_DATA_HOME")
+    expected = Path.home() / ".local" / "share" / "LatticeDither"
+    assert photocraft._app_dir("LatticeDither") == expected
+
+
+def test_artcraft_client_delegates_to_the_adapter(exchange: Path, designcraft_server) -> None:
+    """The facade forwards ping, call, render_document, place_as_layer and disconnect."""
+    handler = DesignCraftHandler(exchange)
+    fake = designcraft_server(handler)
+    client = ArtCraftClient.discover("designcraft", port=fake.port)
+    assert client is not None
+    assert client.ping()
+    assert client.call("engine.commands") == [{"id": "file.place"}]
+    assert client.render_document().size == (595, 842)
+    assert client.place_as_layer(Image.new("RGB", (4, 4)), "Lattice Dither") == 41
+    client.disconnect()
+    assert list(exchange.iterdir()) == []

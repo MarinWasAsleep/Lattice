@@ -7,6 +7,7 @@ import os
 import re
 import socket
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Literal
@@ -26,12 +27,18 @@ SAVE_TIMEOUT = 60.0
 LARGE_DOCUMENT_SIDE = 4000
 DEFAULT_LAYER_NAME = "Lattice Dither"
 PREVIEW_LAYER_NAME = "Lattice Dither preview"
+_IS_WINDOWS = os.name == "nt"
 
 
-def _local_appdata() -> Path:
-    """Return %LOCALAPPDATA%, falling back to the default Windows location."""
-    value = os.environ.get("LOCALAPPDATA")
-    return Path(value) if value else Path.home() / "AppData" / "Local"
+def _app_data_root() -> Path:
+    """Return the platform app-data directory: %LOCALAPPDATA% on Windows, XDG on Linux."""
+    if _IS_WINDOWS:
+        value = os.environ.get("LOCALAPPDATA")
+        return Path(value) if value else Path.home() / "AppData" / "Local"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support"
+    value = os.environ.get("XDG_DATA_HOME")
+    return Path(value) if value else Path.home() / ".local" / "share"
 
 
 APP_DIR_NAME = "LatticeDither"
@@ -39,8 +46,8 @@ LEGACY_APP_DIR_NAME = "DitherCraft"
 
 
 def _app_dir(name: str) -> Path:
-    """Return the per-application directory under %LOCALAPPDATA%."""
-    return _local_appdata() / name
+    """Return the per-application directory under the platform app-data directory."""
+    return _app_data_root() / name
 
 
 def _exchange_dir() -> Path:

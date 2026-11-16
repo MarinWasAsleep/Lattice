@@ -1,15 +1,21 @@
-"""Tests for the manual PhotoCraft smoke tool (CONTRACT section 8.6)."""
+"""Tests for the manual PhotoCraft smoke tool (§8.6) and the ArtCraft generalisation (§7)."""
 
 from __future__ import annotations
 
 import importlib.util
 import os
+import socket
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import pytest
 from PIL import Image
+
+from lattice_core.bridge import ArtCraftClient, photocraft
+from lattice_core.bridge.designcraft import DesignCraftClient
+from lattice_core.bridge.photocraft import BridgeError
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -103,3 +109,74 @@ def test_smoke_tool_checks_the_new_layer_and_closes_the_document(
     assert f"FAIL at step {step}" in out
     close = {"command": "file.close", "params": {"document": 1, "save": "discard"}}
     assert ("engine.execute", close) in stub.calls
+
+
+# --------------------------------------------------------------------- ArtCraft generalisation
+
+
+@pytest.fixture
+def exchange(tmp_path, monkeypatch) -> Path:
+    """Point the shared exchange directory at a temporary directory."""
+    monkeypatch.setattr(photocraft, "EXCHANGE_DIR", tmp_path)
+    return tmp_path
+
+
+def test_a_host_that_hangs_up_is_a_typed_error(exchange: Path) -> None:
+    """A host that accepts and closes at once raises BridgeError, never OSError or a hang."""
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(4)
+    listener.settimeout(0.02)
+    port = listener.getsockname()[1]
+    stop = threading.Event()
+
+    def serve() -> None:
+        while not stop.is_set():
+            try:
+                conn, _ = listener.accept()
+            except TimeoutError:
+                continue
+            except OSError:
+                return
+            conn.close()
+
+    threading.Thread(target=serve, daemon=True).start()
+    try:
+        assert DesignCraftClient.discover(port) is None
+        with pytest.raises(BridgeError):
+            DesignCraftClient(port).render_document()
+    finally:
+        stop.set()
+        listener.close()
+    assert list(exchange.iterdir()) == []
+
+
+@pytest.mark.manual
+@pytest.mark.skipif(
+    os.environ.get("LATTICE_BRIDGE_LIVE") != "1",
+    reason="set LATTICE_BRIDGE_LIVE=1 to touch a real ArtCraft host",
+)
+def test_live_hosts_smoke(monkeypatch) -> None:
+    """Manual: against a running host, place a layer, render it back and verify the placement."""
+    shared = os.environ.get("LATTICE_BRIDGE_EXCHANGE")
+    if shared:
+        monkeypatch.setattr(photocraft, "EXCHANGE_DIR", Path(shared))
+    client = ArtCraftClient.discover("photocraft") or ArtCraftClient.discover("designcraft")
+    if client is None:
+        pytest.skip("no ArtCraft host is running")
+    assert client.ping()
+    image = Image.new("RGB", (64, 48), (200, 30, 40))
+    try:
+        if client.host == "photocraft" and not client.client.documents():
+            client.call("engine.execute", {"command": "file.new", "params": {"width": 400}})
+        placed = client.place_as_layer(image, "Lattice Dither smoke")
+        rendered = client.render_document()
+    except BridgeError as exc:
+        pytest.skip(f"host is running but not ready for automation: {exc}")
+    assert isinstance(placed, int)
+    assert rendered.width > 0 and rendered.height > 0
+    if client.host == "designcraft":
+        inspected = client.call("engine.execute", {"command": "document.inspect"})
+        ids = [item["id"] for spread in inspected["spreads"] for item in spread["items"]]
+        assert placed in ids
