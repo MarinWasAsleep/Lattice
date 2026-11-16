@@ -1,0 +1,28 @@
+"""Built-in CellRenderer implementations."""
+
+from __future__ import annotations
+
+from lattice_core.cell import (  # noqa: F401  (re-exported for callers)
+    CellGrid,
+    CellRenderer,
+    FloatFrameRenderer,
+    RenderStyle,
+    get_renderer,
+    list_renderers,
+    register_renderer,
+)
+from lattice_core.renderers.pixel import PixelRenderer, register_pixel_renderer
+
+__all__ = [
+    "CellGrid",
+    "CellRenderer",
+    "FloatFrameRenderer",
+    "PixelRenderer",
+    "RenderStyle",
+    "get_renderer",
+    "list_renderers",
+    "register_pixel_renderer",
+    "register_renderer",
+]
+
+register_pixel_renderer()

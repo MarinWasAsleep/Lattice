@@ -8,7 +8,9 @@ from typing import Literal
 import numpy as np
 
 from lattice_core import color
+from lattice_core.cell import CellGrid, CellRenderer, RenderStyle
 from lattice_core.registry import get_algorithm, get_effect, resolve_params
+from lattice_core.renderers import get_renderer
 from lattice_core.types import RGB8, Image, Palette
 
 MIN_PALETTE_SIZE = 2
@@ -16,6 +18,7 @@ MAX_PALETTE_SIZE = 256
 MIN_PIXEL_SIZE = 1
 MAX_PIXEL_SIZE = 32
 POST_EFFECT_SEED_OFFSET = 1000
+DEFAULT_RENDERER = "pixel"
 COLOR_METRICS = ("srgb", "linear", "oklab", "lab2000")
 PRESET_VERSION = 2
 RESERVED_METRIC = "_color_metric"
@@ -127,29 +130,44 @@ def _validate_order(order: list[int], size: int) -> None:
         raise ValueError(f"palette order is missing index {missing}")
 
 
-def render(src: Image, spec: PipelineSpec, *, max_side: int | None = None) -> RGB8:
+def render(
+    src: Image,
+    spec: PipelineSpec,
+    *,
+    max_side: int | None = None,
+    renderer: str = DEFAULT_RENDERER,
+    style: RenderStyle | None = None,
+) -> RGB8:
     """Render src through the eleven normative pipeline steps and return uint8 RGB."""
-    work, target, factor = _prepare(src, spec, max_side)
-    return _finish(work, target, factor, spec, resolve_palette(spec.palette, work))
+    work, target = _prepare(src, spec, max_side)
+    return _finish(work, target, spec, None, renderer, style)
 
 
 def prepare_image(src: Image, spec: PipelineSpec, *, max_side: int | None = None) -> Image:
     """Return src after steps 1 to 5, the image palette resolution reads."""
-    return _prepare(src, spec, max_side)[0]
+    work, _ = _prepare(src, spec, max_side)
+    cell_w, cell_h = _cell_geometry(get_renderer(DEFAULT_RENDERER), spec.pixel_size)
+    return _to_cells(work, cell_w, cell_h)
 
 
 def render_with_palette(
-    src: Image, spec: PipelineSpec, palette: Palette, *, max_side: int | None = None
+    src: Image,
+    spec: PipelineSpec,
+    palette: Palette,
+    *,
+    max_side: int | None = None,
+    renderer: str = DEFAULT_RENDERER,
+    style: RenderStyle | None = None,
 ) -> RGB8:
     """Render src with an already resolved palette, skipping step 5's resolution."""
-    work, target, factor = _prepare(src, spec, max_side)
-    return _finish(work, target, factor, spec, palette)
+    work, target = _prepare(src, spec, max_side)
+    return _finish(work, target, spec, palette, renderer, style)
 
 
 def _prepare(
     src: Image, spec: PipelineSpec, max_side: int | None
-) -> tuple[Image, tuple[int, int], int]:
-    """Run steps 1 to 5 and return the working image, the target shape and the pixel factor."""
+) -> tuple[Image, tuple[int, int]]:
+    """Run steps 1 to 5 and return the working image with the target shape of step 1."""
     work = _as_image(src)
     work = _proxy(work, max_side)
     target = work.shape[:2]
@@ -159,26 +177,109 @@ def _prepare(
     work = color.adjust(work, spec.brightness, spec.contrast, spec.gamma, spec.saturation)
     if spec.pre_blur > 0.0:
         work = color.gaussian_blur(work, spec.pre_blur / 3.0)
-    factor = _pixel_size(spec.pixel_size)
-    work = color.downscale(work, factor)
-    return work, target, factor
+    return work, target
 
 
 def _finish(
-    work: Image, target: tuple[int, int], factor: int, spec: PipelineSpec, palette: Palette
+    work: Image,
+    target: tuple[int, int],
+    spec: PipelineSpec,
+    palette: Palette | None,
+    renderer_name: str = DEFAULT_RENDERER,
+    style: RenderStyle | None = None,
 ) -> RGB8:
-    """Run steps 6 to 11 on the prepared image with a resolved palette."""
+    """Run steps 6 to 12: choose the grid, quantise, render, then the post-effects."""
+    renderer = get_renderer(renderer_name)
+    cell_w, cell_h = _cell_geometry(renderer, spec.pixel_size)
+    cells = _to_cells(work, cell_w, cell_h)
+    if palette is None:
+        palette = resolve_palette(spec.palette, cells)
     info = get_algorithm(spec.algorithm_id)
     params = resolve_params(info.params, spec.algorithm_params)
     code = color.metric_code(spec.color_metric)
     params[RESERVED_METRIC] = code
     indices = info.fn(
-        color.to_working_space(work, code), color.to_working_space(palette, code), params
+        color.to_working_space(cells, code), color.to_working_space(palette, code), params
     )
-    work = color.apply_palette(indices, palette)
-    work = color.upscale_nearest(work, factor, target)
-    work = _apply_effects(work, spec.post_effects, spec.seed, POST_EFFECT_SEED_OFFSET)
-    return color.to_rgb8(work)
+    grid = _make_grid(cells, indices, cell_w, cell_h, palette)
+    style = RenderStyle(options={}) if style is None else style
+    frame = _render_frame(renderer, grid, palette, style)
+    frame = frame[: target[0], : target[1]]
+    frame = _apply_effects(frame, spec.post_effects, spec.seed, POST_EFFECT_SEED_OFFSET)
+    return color.to_rgb8(frame)
+
+
+def _cell_geometry(renderer: CellRenderer, pixel_size: int) -> tuple[int, int]:
+    """Return (cell_w, cell_h) from the renderer's cell aspect and the clamped pixel size."""
+    size = _pixel_size(pixel_size)
+    aspect = float(renderer.cell_aspect())
+    if not aspect > 0.0:
+        raise ValueError(f"renderer {renderer.name!r} returned cell_aspect {aspect!r}")
+    return size, max(1, int(round(size / aspect)))
+
+
+def _to_cells(work: Image, cell_w: int, cell_h: int) -> Image:
+    """Step 7: downscale the prepared image to the grid of cell_w x cell_h blocks."""
+    if cell_w == cell_h:
+        return color.downscale(work, cell_w)
+    pad_y = (-work.shape[0]) % cell_h
+    pad_x = (-work.shape[1]) % cell_w
+    if pad_y or pad_x:
+        work = np.pad(work, ((0, pad_y), (0, pad_x), (0, 0)), mode="edge")
+    rows = work.shape[0] // cell_h
+    cols = work.shape[1] // cell_w
+    blocks = work.reshape(rows, cell_h, cols, cell_w, 3)
+    return np.ascontiguousarray(blocks.mean(axis=(1, 3), dtype=np.float32))
+
+
+def _render_frame(
+    renderer: CellRenderer, grid: CellGrid, palette: Palette, style: RenderStyle
+) -> Image:
+    """Return the step-11 frame as float32, skipping the uint8 round-trip when exact."""
+    exact = getattr(renderer, "render_frame", None)
+    if callable(exact):
+        return np.ascontiguousarray(np.asarray(exact(grid, palette, style), dtype=np.float32))
+    return color.to_float(renderer.render(grid, palette, style))
+
+
+def _make_grid(
+    work: Image, indices: np.ndarray, cell_w: int, cell_h: int, palette: Palette
+) -> CellGrid:
+    """Build the CellGrid of step 10: index, coverage, luma and samples per cell."""
+    rows, cols = indices.shape
+    linear = color.srgb_to_linear(work)
+    luma = (
+        np.float32(0.2126) * linear[:, :, 0]
+        + np.float32(0.7152) * linear[:, :, 1]
+        + np.float32(0.0722) * linear[:, :, 2]
+    ).astype(np.float32)
+    samples = luma[:, :, None].copy()
+    coverage = _coverage_table(palette)[np.ascontiguousarray(indices, dtype=np.int32)]
+    return CellGrid(
+        cols=cols,
+        rows=rows,
+        cell_w=cell_w,
+        cell_h=cell_h,
+        index=np.ascontiguousarray(indices, dtype=np.int32),
+        coverage=np.ascontiguousarray(coverage, dtype=np.float32),
+        luma=np.ascontiguousarray(luma, dtype=np.float32),
+        samples=np.ascontiguousarray(samples, dtype=np.float32),
+    )
+
+
+def _coverage_table(palette: Palette) -> np.ndarray:
+    """Derive ink coverage per palette entry, 0.0 on a single-luminance palette."""
+    linear = color.srgb_to_linear(palette)
+    lum = (
+        np.float32(0.2126) * linear[:, 0]
+        + np.float32(0.7152) * linear[:, 1]
+        + np.float32(0.0722) * linear[:, 2]
+    )
+    lum_min = float(lum.min())
+    lum_max = float(lum.max())
+    if lum_max == lum_min:
+        return np.zeros(palette.shape[0], dtype=np.float32)
+    return np.ascontiguousarray(((lum - lum_min) / (lum_max - lum_min)).astype(np.float32))
 
 
 def _as_image(src: Image) -> Image:
