@@ -63,18 +63,23 @@ last_update: 2026-11-16
   `tools/gen_gamma_table.py`) : rendu bit-à-bit identique Windows/Linux (E6 approuvé par l'humain).
   Baseline témoin `07_grey16_stucki` régénérée ; `01_gameboy`/`05_ega_riemersma` inchangés
   (gamma 1.0). Suite : **1212 verts sur Mint**. Nouvelle carte L23 (packaging Win/Linux).
-- 2026-11-16: **kickoff exécuté.** Baseline confirmée au HEAD `6996b98` sur la machine de build
-  (Mint) : G2 = 1212 test cases passed, ruff propre, `check_contract` OK — les trois presets
-  témoins rendent bit-à-bit (couvert par `test_preset_compat`). L1 passe en `in_progress` et part
-  seule (chemin critique). Codeur : sous-agent (famille de modèles héritée du parent), conforme à
-  l'historique DeepSeek du 1.0/1.1 ; il ne commite pas, l'orchestrateur valide les gates puis
-  commite la carte.
+- 2026-11-16: **L1 done — commit `696964d`**, gates G1-G7 verts côté orchestrateur (G2 : 1216 test
+  cases passed, dont 4 nouveaux tests de packaging AST ; G3 ruff propre ; G4 `check_contract` OK ;
+  G5/G7 témoins bit-à-bit), **review PASS** (39 paires renommées vérifiées au niveau tokens :
+  0 changement non-import ; `shipped_preset_dir` parents[2]→parents[1] même cible ; split
+  `bridge/_client.py` préserve le monkeypatching runtime). Corrigé par l'orchestrateur :
+  `tools/fetch_palettes.py` (chemin résiduel `lattice_dither/palettes` → `lattice_core/palettes`).
+  **DEV-202** enregistré : 5 × E1 acceptés (table gamma générée > 400 l, kernels JIT > 60 l,
+  fichiers UI pré-existants > 400 l, baselines 01/05 octets ≠ mais pixels identiques, install
+  vérifiée en offline). Vérification H10 rejouée par l'orchestrateur : venv uv vierge + `pip install
+  -e .` → `lattice_core` importe, PySide6 non importé, requires = numpy/numba/Pillow (+ extra ui).
+  H10 passe en attente de l'humain (app à relancer depuis le menu).
 
 ## Task table
 
 | Task | Wave | Status | g | r | Commit | Notes |
 |---|---|---|---|---|---|---|
-| L1 | 0 | in_progress | 0 | 0 | | extract lattice-core; critical path, alone — kickoff 2026-11-16 |
+| L1 | 0 | done | 1 | 1 | 696964d | extract lattice-core; critical path — gates G1-G7 verts, review PASS, DEV-202 (E1 ×5 acceptés) |
 | L2 | 0 | todo | 0 | 0 | | CellRenderer + PixelRenderer |
 | L3 | 0 | todo | 0 | 0 | | colour metrics + palette |
 | L4 | 0 | todo | 0 | 0 | | preset v3 |
@@ -104,7 +109,7 @@ last_update: 2026-11-16
 
 | Id | When | Status |
 |---|---|---|
-| H10 | after L1 | pending — verify Lattice Dither is intact and `lattice-core` installs alone |
+| H10 | after L1 | pending (humain) — dossiers prêts 2026-11-16 : app intacte + lattice-core installable seul |
 | H11 | after L2 | pending — analyse Opus du contrat (gabarit ANALYSTE-PRODUIT) → toi : trancher le gel |
 | H12 | after wave 1 | pending — analyse Opus de Lattice Glyph sur trois images réelles (captures/parcours) → toi : trancher |
 | H13 | after wave 2 | pending — analyse Opus (Lattice Glitch vivant, pas un filtre ?) → toi : trancher |
