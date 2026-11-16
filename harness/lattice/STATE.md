@@ -14,8 +14,11 @@ last_update: 2026-11-12
 - machine de build : **Linux Mint (cette machine)**, repo vivant dans `~/Lattice`. Windows reste
   une cible de publication (carte L23).
 - venv: `.venv` at the repo root. Editable installs au fil des cartes.
-- Hosts: ArtCraft existe aussi sous Linux (décision 2026-11-16) : installer PhotoCraft 0.22.0 et
-  DesignCraft Linux avant la carte pont L5 et avant L22 ; le pont est vérifiable sur les deux OS.
+- Hosts: **installés en Flatpak (user) sur cette machine** : PhotoCraft 0.23.1
+  (`ai.storyteller.photocraft`), DesignCraft 0.20.1, PdfCraft 0.21.1, ArtCraft Launcher 0.19.2.
+  Le pont y accède par `flatpak run` ; le token file vit sous `~/.var/app/ai.storyteller.photocraft/…`
+  (à confirmer à la carte L5). Le port 47600 n'est ouvert que lorsque l'hôte tourne. Le 1.1 a tourné
+  sans hôte réel : H9 §8 (recette) est maintenant exécutable si besoin.
 - Baseline before L1: harness 1.1 feature-complete, portage Linux approuvé, HEAD `b4b0aea`
   (2026-11-16) — **1212 test cases green sur Mint (G2 Linux effectué), ruff clean, `check_contract`
   OK**. Le gamma est appliqué par table committée : les rendus sont bit-identiques cross-plateforme

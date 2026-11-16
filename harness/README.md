@@ -87,8 +87,9 @@ DesignCraft).
 ## Conventions de travail
 
 - Build sur la **machine Linux Mint** de l'utilisateur (repo `~/Lattice`, Python 3.13 via `uv`,
-  venv `.venv`) ; Windows reste une cible de publication (carte L23). La suite ArtCraft existe
-  aussi sous Linux : le pont se vérifie sur les deux OS (L5, L22).
+  venv `.venv`) ; Windows reste une cible de publication (carte L23). La suite ArtCraft est déjà
+  installée en Flatpak sur cette machine (PhotoCraft 0.23.1, DesignCraft 0.20.1, PdfCraft 0.21.1) :
+  le pont passe par `flatpak run` et se vérifie localement (L5, L22).
 - Livraison : commit + **push direct sur master** ; le repo vit sur cette machine et se clone
   d'un coup sur Windows à la publication (L23).
 - Chemin critique de la suite : **L1 → L2 → L12/L20 → L21 → L22**. Toujours prioriser L1 puis L2.
