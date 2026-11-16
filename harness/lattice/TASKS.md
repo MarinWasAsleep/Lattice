@@ -26,7 +26,7 @@ l'orchestrateur ne code jamais.
 - owns: `pyproject.toml`, `lattice_core/**`, `lattice_dither/**`, `tests/**`, `tools/**`
 - context: §1 §2 §5 §19
 - spec: create the `lattice_core` package and move into it, **without changing behaviour**. Arbre
-  réel au HEAD `d66c4ca` (2026-11-16) :
+  réel au HEAD `b4b0aea` (2026-11-16 — portage Linux approuvé, suite 1212 verte sur Mint) :
   - `lattice_dither/core/{color,pipeline,presets,types,registry}.py` → `lattice_core/`
   - `lattice_dither/palettes/` (le paquet entier : `builtin.py`, `extract.py`, `io.py`,
     `library.py`, `data/`) → `lattice_core/palettes/`
@@ -40,11 +40,12 @@ l'orchestrateur ne code jamais.
   `__init__.py`, `__main__.py` et la colle d'application. Il n'existe pas de `core/palette.py` :
   les palettes sont un package. Rename imports mechanically; do not refactor logic. Les baselines
   témoins existent déjà (`tests/data/baseline/` : `01_gameboy.png`, `05_ega_riemersma.png`,
-  `07_grey16_stucki.png`, `source.png`, générées à la clôture du 1.1) : au démarrage, re-rendre
-  les trois presets témoins (`01_gameboy`, `05_ega_riemersma`, `07_grey16_stucki`) au HEAD et
-  vérifier la conformité bit-à-bit avant de toucher au code — recommitter un PNG seulement s'il
-  diffère du HEAD. `pyproject.toml` devient la distribution `lattice-core` avec
-  `[project.optional-dependencies] ui = ["PySide6"]` ; la base d'installation ne doit pas tirer Qt.
+  `07_grey16_stucki.png`, `source.png` — 07 régénérée au portage Linux, gamma par table committée,
+  voir décision 2026-11-16) : au démarrage, re-rendre les trois presets témoins (`01_gameboy`,
+  `05_ega_riemersma`, `07_grey16_stucki`) au HEAD et vérifier la conformité bit-à-bit avant de toucher
+  au code — recommitter un PNG seulement s'il diffère du HEAD. `pyproject.toml` devient la distribution
+  `lattice-core` avec `[project.optional-dependencies] ui = ["PySide6"]` ; la base d'installation ne
+  doit pas tirer Qt.
 - accept:
   - `pip install -e .` in a clean venv installs numpy, numba and Pillow only; `import
     lattice_core` works and `import PySide6` is not attempted.
@@ -398,3 +399,19 @@ l'orchestrateur ne code jamais.
   - the placed DesignCraft object exists and its bounds match the requested width.
   - the script exits non-zero and names the failing host when a host is absent.
   - the JSON summary carries the run date and the host versions (orchestrator reports it in `STATE.md`).
+
+### L23 · Packaging multi-plateforme et installation
+- wave: 3 · deps: L12, L20 · executor: OMH capable · review: light · size: S
+- owns: `scripts/**`, `tools/**`
+- context: §1 §2
+- spec: chaque app de la suite se lance en développement sur Windows ET Linux, et se distribue sur
+  les deux. Scripts de build et d'installation par plateforme : binaire PyInstaller par OS, entrée de
+  menu (`.desktop` sur Linux, raccourcis PowerShell sur Windows), mêmes numéros de version. Aucune
+  nouvelle dépendance d'exécution. Les hôtes ArtCraft restent une intégration détectée au runtime (E9).
+- accept:
+  - sur un venv vierge de chaque plateforme, l'installation des paquets puis `python -m <app>` ouvrent
+    la fenêtre avec une image chargée.
+  - le script de build produit un binaire par plateforme qui lance l'app sans Python installé.
+  - l'entrée de menu (`.desktop` / raccourcis) lance l'app ; un échec d'installation échoue avec une
+    ligne nommée dans les logs.
+  - la release d'une app embarque les deux binaires construits à partir de la même version de code.

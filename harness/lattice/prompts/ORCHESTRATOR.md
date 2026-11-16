@@ -58,11 +58,12 @@ Output format, nothing else:
 
 ## KICKOFF (first call)
 
-EVENT: kickoff. Lattice Dither is complete and frozen at HEAD `d66c4ca` (2026-11-16): harness 1.1 is
-feature-complete (18 cards T17-T34, ~1212 test cases at wave-7 close); its remaining human
-checkpoints H6-H9 belong to harness 1.1, not this one. The Lattice contract is draft. The suite is
-named Lattice and the dithering application is already renamed Lattice Dither (package
-`lattice_dither`).
+EVENT: kickoff. Lattice Dither is complete and frozen at HEAD `b4b0aea` (2026-11-16): harness 1.1 is
+feature-complete (18 cards T17-T34) and the suite now runs on Linux — 1212 test cases green on Mint
+(G2 Linux done, gamma via committed LUT: renders bit-identical on Windows and Linux). The dither
+app's remaining human checkpoints H6-H9 belong to harness 1.1, not this one. The Lattice contract is
+draft. The suite is named Lattice and the dithering application is already renamed Lattice Dither
+(package `lattice_dither`).
 
 Check that `harness/lattice/CONTRACT.md` exists and that §1 to §20 are present. If a section is
 missing, output only a HUMAN block naming it. Otherwise generate the coder prompt for L1 and set L1

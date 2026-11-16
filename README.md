@@ -59,7 +59,7 @@ own ffmpeg, so video export works out of the box.
 
 ## Install
 
-Windows 11, Python 3.13 or newer.
+Windows 11 or Linux, Python 3.13 or newer.
 
 ```powershell
 git clone https://github.com/MarinWasAsleep/lattice-dither.git
@@ -68,14 +68,31 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
+```bash
+# Linux (Python 3.13 via uv, ou python3.13 -m venv)
+cd lattice-dither
+uv venv --python 3.13 .venv
+uv pip install -r requirements.txt --python .venv/bin/python
+```
+
+The Windows and Linux installs share the same pinned `requirements.txt`; the render pipeline uses
+committed lookup tables (including the gamma curve), so both platforms produce byte-identical
+output for the same preset and image.
+
 That is the whole install. Video export needs ffmpeg, and `imageio-ffmpeg` ships one inside its
 wheel, so there is no separate system step. If you already have a newer ffmpeg on `PATH` and prefer
 it, uninstall the dependency and the export falls back to yours.
 
 ## Run
 
+Windows:
 ```powershell
 .\.venv\Scripts\python.exe -m lattice_dither
+```
+
+Linux:
+```bash
+.venv/bin/python -m lattice_dither
 ```
 
 Or double-click `LatticeDither.pyw`, which starts the GUI without a console window. To get Desktop

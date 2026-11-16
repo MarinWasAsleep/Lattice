@@ -11,10 +11,10 @@ checkpoints. Tout se joue sur des fichiers (`CONTRACT.md`, `TASKS.md`, `STATE.md
 |---|---|---|---|---|---|
 | `v1.0/` | **terminé** | L'app de tramage (alors nommée DitherCraft), v1 | 18 (T00-T16, T07 en A/B) | G1-G4 | H0-H4 |
 | `v1.1/` | **feature-complete** | L'app de tramage, v1.1 (qualité, workflow, ergonomie) | 18 (T17-T34) | +G5, G6 | H5-H9 — H6/H7/H8/H9 encore ouverts (humain) |
-| `lattice/` | **en cours (0.1)** | La suite : `lattice-core` + Lattice Dither, Lattice Glyph, Lattice Glitch | 22 (L1-L22, 4 vagues) — tout « todo », NEXT : L1 seul | +G7, G8, G9 | H10-H14 |
+| `lattice/` | **en cours (0.1)** | La suite : `lattice-core` + Lattice Dither, Lattice Glyph, Lattice Glitch | 23 (L1-L23, 4 vagues) — tout « todo », NEXT : L1 seul | +G7, G8, G9 | H10-H14 |
 
 `docs/graph.html` (+ `graph.png`) : le graph « par quel agent » — boucle d'agents + cartes par vague.
-`lattice/DEMARRAGE.md` : transfert vers Windows et ordre de lancement.
+`lattice/DEMARRAGE.md` : installer l'environnement et lancer le harness sur cette machine.
 
 ## Noms (piège historique)
 
@@ -57,7 +57,7 @@ sera G10.
 | G4 | 1.0 | propriété des fichiers | une carte n'écrit que ses `owns` |
 | G5 | 1.1 | compat presets v1 | les presets v1 se chargent et rendent à l'identique |
 | G6 | 1.1 | parité CLI/GUI (dither) | CLI et GUI rendent des octets identiques |
-| G7 | 0.1 | régression du core | après L1, Lattice Dither rend ses presets témoins au bit près (baselines `tests/data/baseline/`) |
+| G7 | 0.1 | régression du core | après L1, les apps rendent leurs presets témoins au bit près (baselines `tests/data/baseline/` ; tables committées — gamma LUT — donc reproductible Windows ET Linux) |
 | G8 | 0.1 | contrat des renderers | chaque `CellRenderer` du registre satisfait §3 |
 | G9 | 0.1 | parité CLI/GUI (multi-apps) | dans chaque app, CLI et GUI rendent des octets identiques (généralise G6) |
 
@@ -86,9 +86,11 @@ DesignCraft).
 
 ## Conventions de travail
 
-- Build sur la **machine Windows** de l'utilisateur (Python 3.13.18, venv `.venv`, hôtes ArtCraft
-  pour les cartes pont et l'acceptation). La machine Linux (Hermes) prépare et pousse.
-- Livraison : commit + **push direct sur master** ; l'utilisateur tire sur Windows.
+- Build sur la **machine Linux Mint** de l'utilisateur (repo `~/Lattice`, Python 3.13 via `uv`,
+  venv `.venv`) ; Windows reste une cible de publication (carte L23). La suite ArtCraft existe
+  aussi sous Linux : le pont se vérifie sur les deux OS (L5, L22).
+- Livraison : commit + **push direct sur master** ; le repo vit sur cette machine et se clone
+  d'un coup sur Windows à la publication (L23).
 - Chemin critique de la suite : **L1 → L2 → L12/L20 → L21 → L22**. Toujours prioriser L1 puis L2.
 - Concurrence max 4, deux cartes ensemble seulement si `owns` disjoints ; L1 démarre seul.
 - Contrat 0.1.0 : brouillon jusqu'à H11 (gel). Tout changement passe par `DEVIATIONS.md`, jamais

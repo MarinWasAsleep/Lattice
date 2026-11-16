@@ -44,14 +44,14 @@ le même pari que Studio AAA a fait commercialement avec Dither Boy, Script Slay
    vivant est le tampon de rétroaction. Tout le reste s'y branche. L'anti-patron à éviter est le
    slider d'intensité unique. → Cartes L13 à L20.
 4. **La suite se comporte-t-elle comme une suite ?** Presets qui circulent d'une app à l'autre,
-   pont qui marche sur PhotoCraft et DesignCraft, installation indépendante. → Cartes L21 à L22.
+   pont qui marche sur PhotoCraft et DesignCraft, installation indépendante. → Cartes L21 à L23.
 
 ## Fichiers
 
 | Fichier | Lu par | Rôle |
 |---|---|---|
 | `CONTRACT.md` | codeur (extraits), relecteur (extraits), orchestrateur | Contrat 0.1.0 : §1 à §20. Remplace le contrat Lattice Dither pour tout ce qui est partagé ; §1 à §11 du 1.0 restent en vigueur pour l'app de tramage. |
-| `TASKS.md` | orchestrateur | Les 22 cartes L1 à L22 : dépendances, vagues, fichiers possédés, critères d'acceptation. |
+| `TASKS.md` | orchestrateur | Les 23 cartes L1 à L23 : dépendances, vagues, fichiers possédés, critères d'acceptation. |
 | `STATE.md` | orchestrateur, toi | Registre vivant. |
 | `DEVIATIONS.md` | orchestrateur, relecteur, toi | Protocole et registre. |
 | `prompts/` | orchestrateur, codeur, relecteur | Gabarits adaptés à la suite. |
@@ -91,7 +91,7 @@ L1 (extraire lattice-core)  ← chemin critique, tout en dépend
  │   L16 décalage de canal      L17 NTSC/VHS      L18 CRT/scanlines
  │   L19 graine + masques       L20 coquille Lattice Glitch + pont
  └─ VAGUE 3, séquentielle :
-     L21 échange de presets + galerie → L22 recette dans PhotoCraft et DesignCraft
+    L21 échange de presets + galerie → L22 recette dans PhotoCraft et DesignCraft → L23 packaging multi-OS
 ```
 
 - **Chemin critique** : L1 → L2 → L12/L20 → L22. Priorise toujours L1 puis L2.

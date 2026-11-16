@@ -1,8 +1,8 @@
 # PROMPT CODEUR — L1 · tentative 1 (généré par l'orchestrateur)
 
 > Généré le 2026-11-16 par l'orchestrateur (Hermes), conforme au gabarit `harness/lattice/prompts/CODER.md`.
-> À exécuter sur la machine Windows après transfert du dépôt (venv `.venv` Python 3.13.18, ~1212 cas
-> verts à confirmer, HEAD `d66c4ca` — voir `harness/lattice/STATE.md`).
+> À exécuter sur cette machine (Linux Mint, repo `~/Lattice`, venv `.venv` Python 3.13 via uv,
+> 1212 cas verts vérifiés, HEAD `b4b0aea`) — voir `harness/lattice/STATE.md`.
 > Aucun bloc RETRY : première tentative. L'exécuteur travaille dans le dépôt cloné, pas en copie.
 > Les baselines G7 existent déjà (`tests/data/baseline/`) : re-rendre les témoins au HEAD et vérifier
 > la conformité bit-à-bit avant de toucher au code.
@@ -11,7 +11,7 @@
 
 You are a senior Python engineer implementing one task of the Lattice project: a family of free,
 open-source desktop applications that transform images, each running standalone and also plugging
-into the ArtCraft suite (Python + numpy + numba + Pillow + PySide6, Windows).
+into the ArtCraft suite (Python + numpy + numba + Pillow + PySide6, Windows and Linux).
 
 The suite has four packages: `lattice-core` (the shared engine), `lattice-dither` (the existing
 dithering application, 33 algorithms, 10 effects, ~1212 test cases), `lattice-glyph` and
@@ -71,6 +71,9 @@ Three applications are in scope:
 All three share one engine, `lattice-core`. All three target **fixed images only**. Video is out of
 scope for this contract.
 
+All packages run on **Windows and Linux** (the dither application already does; ArtCraft hosts exist
+on both, so the bridge is testable on both). Card L23 covers packaging and install per platform.
+
 Licence: MIT OR Apache-2.0, dual, for every package. No dependency may be added that is not compatible with both.
 
 ## §2 Packages and repositories
@@ -84,7 +87,7 @@ lattice-glyph     import lattice_glyph     depends on lattice-core>=0.1,<0.2
 lattice-glitch    import lattice_glitch    depends on lattice-core>=0.1,<0.2
 ```
 
-**What L1 actually moves** (current tree at HEAD `d66c4ca`): `core/{color,pipeline,presets,types,registry}.py`,
+**What L1 actually moves** (current tree at HEAD `b4b0aea`, portage Linux approuvé): `core/{color,pipeline,presets,types,registry}.py`,
 the `palettes/` package, `dither/` (from `algorithms/`), `effects/`, `bridge/`. The application keeps
 `ui/`, `export/`, `preprocess/`, `i18n/`, `core/animation.py` (video export is an app feature; video
 is out of scope for the suite) and its own `cli.py` (the 1.1 verbs are app-specific; the shared CLI
@@ -365,7 +368,7 @@ TASK CARD
 - owns: `pyproject.toml`, `lattice_core/**`, `lattice_dither/**`, `tests/**`, `tools/**`
 - context: §1 §2 §5 §19
 - spec: create the `lattice_core` package and move into it, **without changing behaviour**. Arbre
-  réel au HEAD `d66c4ca` (2026-11-16) :
+  réel au HEAD `b4b0aea` (2026-11-16 — portage Linux approuvé, suite 1212 verte sur Mint) :
   - `lattice_dither/core/{color,pipeline,presets,types,registry}.py` → `lattice_core/`
   - `lattice_dither/palettes/` (le paquet entier : `builtin.py`, `extract.py`, `io.py`,
     `library.py`, `data/`) → `lattice_core/palettes/`
@@ -379,11 +382,12 @@ TASK CARD
   `__init__.py`, `__main__.py` et la colle d'application. Il n'existe pas de `core/palette.py` :
   les palettes sont un package. Rename imports mechanically; do not refactor logic. Les baselines
   témoins existent déjà (`tests/data/baseline/` : `01_gameboy.png`, `05_ega_riemersma.png`,
-  `07_grey16_stucki.png`, `source.png`, générées à la clôture du 1.1) : au démarrage, re-rendre
-  les trois presets témoins (`01_gameboy`, `05_ega_riemersma`, `07_grey16_stucki`) au HEAD et
-  vérifier la conformité bit-à-bit avant de toucher au code — recommitter un PNG seulement s'il
-  diffère du HEAD. `pyproject.toml` devient la distribution `lattice-core` avec
-  `[project.optional-dependencies] ui = ["PySide6"]` ; la base d'installation ne doit pas tirer Qt.
+  `07_grey16_stucki.png`, `source.png` — 07 régénérée au portage Linux, gamma par table committée,
+  voir décision 2026-11-16) : au démarrage, re-rendre les trois presets témoins (`01_gameboy`,
+  `05_ega_riemersma`, `07_grey16_stucki`) au HEAD et vérifier la conformité bit-à-bit avant de toucher
+  au code — recommitter un PNG seulement s'il diffère du HEAD. `pyproject.toml` devient la distribution
+  `lattice-core` avec `[project.optional-dependencies] ui = ["PySide6"]` ; la base d'installation ne
+  doit pas tirer Qt.
 - accept:
   - `pip install -e .` in a clean venv installs numpy, numba and Pillow only; `import
     lattice_core` works and `import PySide6` is not attempted.
@@ -393,9 +397,9 @@ TASK CARD
   - `lattice_core` imports no module from `lattice_dither`, and contains no application module
     (`ui`, `export`, `preprocess`, `i18n`, `cli`, `animation`) — both checked by tests that walk
     the package.
-
 CURRENT CONTENT OF YOUR FILES (stubs on first attempt)
 Première tentative : aucun stub. Tes fichiers existent et sont complets — le dépôt Lattice Dither
 est ton espace de travail. Les baselines des trois presets témoins sont déjà dans
-`tests/data/baseline/` : re-rendre `01_gameboy`, `05_ega_riemersma`, `07_grey16_stucki` au HEAD
-et vérifier la conformité bit-à-bit (condition du gate G7) avant de toucher au moindre fichier.
+`tests/data/baseline/` (07 régénérée au portage Linux via la table gamma committée) : re-rendre
+`01_gameboy`, `05_ega_riemersma`, `07_grey16_stucki` au HEAD et vérifier la conformité bit-à-bit
+(condition du gate G7) avant de toucher au moindre fichier.

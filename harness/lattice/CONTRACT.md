@@ -27,6 +27,9 @@ Three applications are in scope:
 All three share one engine, `lattice-core`. All three target **fixed images only**. Video is out of
 scope for this contract.
 
+All packages run on **Windows and Linux** (the dither application already does; ArtCraft hosts exist
+on both, so the bridge is testable on both). Card L23 covers packaging and install per platform.
+
 Licence: MIT OR Apache-2.0, dual, for every package. No dependency may be added that is not compatible with both.
 
 ## §2 Packages and repositories
@@ -40,7 +43,7 @@ lattice-glyph     import lattice_glyph     depends on lattice-core>=0.1,<0.2
 lattice-glitch    import lattice_glitch    depends on lattice-core>=0.1,<0.2
 ```
 
-**What L1 actually moves** (current tree at HEAD `d66c4ca`): `core/{color,pipeline,presets,types,registry}.py`,
+**What L1 actually moves** (current tree at HEAD `b4b0aea`, portage Linux approuvé): `core/{color,pipeline,presets,types,registry}.py`,
 the `palettes/` package, `dither/` (from `algorithms/`), `effects/`, `bridge/`. The application keeps
 `ui/`, `export/`, `preprocess/`, `i18n/`, `core/animation.py` (video export is an app feature; video
 is out of scope for the suite) and its own `cli.py` (the 1.1 verbs are app-specific; the shared CLI
@@ -209,8 +212,9 @@ class ArtCraftClient:
 - Discovery reads the token file, opens one authenticated connection, and calls `engine.commands`
   as the liveness probe. A missing token, a refused connection or a failed probe returns `None`.
 - Every call is bounded by a timeout. A bridge failure surfaces as a typed error, never a crash.
-- The exchange directory is per-application, under `%LOCALAPPDATA%/<App>/exchange`, and files older
-  than one hour are discarded on each call.
+- The exchange directory is per-application, under the platform app-data directory
+  (QStandardPaths: `%LOCALAPPDATA%/<App>` on Windows, `~/.local/share/<App>` on Linux), and files
+  older than one hour are discarded on each call.
 
 ## §8 CLI
 

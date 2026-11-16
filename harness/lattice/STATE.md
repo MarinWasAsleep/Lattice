@@ -10,13 +10,16 @@ last_update: 2026-11-12
 
 ## Environment
 
-- python: 3.13.18 (environnement reconstruit de zéro à la clôture du 1.1 — voir STATE 1.1) · numpy 2.5.4 · numba 0.68.1 · Pillow 13.0.0 · PySide6 6.12.0 · pytest 9.2.0 · ruff 0.17.4
-- venv: `.venv` at the Lattice root. All four packages installed editable in it.
-- Hosts: prévus sur la machine Windows (PhotoCraft 0.22.0, DesignCraft, PdfCraft). Le 1.1 a tourné
-  **sans PhotoCraft réel** (voir STATE 1.1) : installer l'hôte avant la carte pont L5 et avant L22.
-- Baseline before L1: harness 1.1 feature-complete, HEAD `d66c4ca` (2026-11-16) — ~1212 test cases at
-  wave-7 close (re-confirmés par G2 sur la machine Windows au kickoff), ruff clean, `check_contract`
-  OK. Les checkpoints humains H6-H9 de l'app appartiennent au harness 1.1, pas à celui-ci.
+- python: 3.13.14 (géré par `uv` — cpython-3.13.14-linux-x86_64) · numpy 2.5.4 · numba 0.68.1 · Pillow 13.0.0 · PySide6 6.12.0 · pytest 9.2.0 · ruff 0.17.4
+- machine de build : **Linux Mint (cette machine)**, repo vivant dans `~/Lattice`. Windows reste
+  une cible de publication (carte L23).
+- venv: `.venv` at the repo root. Editable installs au fil des cartes.
+- Hosts: ArtCraft existe aussi sous Linux (décision 2026-11-16) : installer PhotoCraft 0.22.0 et
+  DesignCraft Linux avant la carte pont L5 et avant L22 ; le pont est vérifiable sur les deux OS.
+- Baseline before L1: harness 1.1 feature-complete, portage Linux approuvé, HEAD `b4b0aea`
+  (2026-11-16) — **1212 test cases green sur Mint (G2 Linux effectué), ruff clean, `check_contract`
+  OK**. Le gamma est appliqué par table committée : les rendus sont bit-identiques cross-plateforme
+  (décision ci-dessous). Les checkpoints humains H6-H9 de l'app appartiennent au harness 1.1.
 
 ## Decisions log
 
@@ -47,8 +50,16 @@ last_update: 2026-11-12
   repository: code, README, `docs/` and presets, with no harness. See AMD-001.
 - 2026-11-16: harness unification (see `harness/README.md`) — gates of this harness renumbered
   G7-G9, checkpoints renamed H10-H14 (continuing the 1.0 H0-H4 / 1.1 H5-H9 sequence), baseline
-  pinned to HEAD `d66c4ca`, card L1 realigned on the actual tree, Python pinned to 3.13.18,
+  pinned to HEAD `b4b0aea`, card L1 realigned on the actual tree, Python pinned via uv 3.13.14,
   `STATE.md` stays orchestrator-only (L22 hands its acceptance summary to the orchestrator).
+- 2026-11-16: **portage Linux approuvé par l'utilisateur** — le build continue sur cette machine
+  (Mint), le repo vivant est `~/Lattice`. ArtCraft étant disponible sous Linux, le pont n'est pas
+  Windows-only : les cartes L5 et L22 s'exécutent contre les hôtes Linux. Le gamma de l'application
+  passe de `np.power` (libm — dernier bit dépendant de la plateforme) à une courbe 8 bits committée
+  (`lattice_dither/core/gamma_table.py`, 73 gammas × 256 niveaux, générée par
+  `tools/gen_gamma_table.py`) : rendu bit-à-bit identique Windows/Linux (E6 approuvé par l'humain).
+  Baseline témoin `07_grey16_stucki` régénérée ; `01_gameboy`/`05_ega_riemersma` inchangés
+  (gamma 1.0). Suite : **1212 verts sur Mint**. Nouvelle carte L23 (packaging Win/Linux).
 
 ## Task table
 
@@ -76,6 +87,7 @@ last_update: 2026-11-12
 | L20 | 2 | todo | 0 | 0 | | Lattice Glitch shell |
 | L21 | 3 | todo | 0 | 0 | | preset interchange + gallery |
 | L22 | 3 | todo | 0 | 0 | | acceptance in PhotoCraft and DesignCraft |
+| L23 | 3 | todo | 0 | 0 | | packaging multi-plateforme + installation |
 
 `g` = gate retries used (max 3), `r` = review cycles used (max 2).
 
