@@ -11,17 +11,23 @@ checkpoints. Tout se joue sur des fichiers (`CONTRACT.md`, `TASKS.md`, `STATE.md
 |---|---|---|---|---|---|
 | `v1.0/` | **terminé** | L'app de tramage (alors nommée DitherCraft), v1 | 18 (T00-T16, T07 en A/B) | G1-G4 | H0-H4 |
 | `v1.1/` | **feature-complete** | L'app de tramage, v1.1 (qualité, workflow, ergonomie) | 18 (T17-T34) | +G5, G6 | H5-H9 — H6/H7/H8/H9 encore ouverts (humain) |
-| `lattice/` | **en cours (0.1)** | La suite : `lattice-core` + Lattice Dither, GlyphCraft, GlitchCraft | 22 (L1-L22, 4 vagues) — tout « todo », NEXT : L1 seul | +G7, G8, G9 | H10-H14 |
+| `lattice/` | **en cours (0.1)** | La suite : `lattice-core` + Lattice Dither, Lattice Glyph, Lattice Glitch | 22 (L1-L22, 4 vagues) — tout « todo », NEXT : L1 seul | +G7, G8, G9 | H10-H14 |
 
 `docs/graph.html` (+ `graph.png`) : le graph « par quel agent » — boucle d'agents + cartes par vague.
 `lattice/DEMARRAGE.md` : transfert vers Windows et ordre de lancement.
 
 ## Noms (piège historique)
 
-- L'app s'appelait **DitherCraft** pendant les harness 1.0/1.1 ; elle a été renommée **Lattice
-  Dither** (package `lattice_dither/`) le 2026-11-12 (AMD-001). Les documents 1.0/1.1 parlent encore
-  de « dithercraft/ » : lisez `lattice_dither/`.
-- « Lattice » sans suffixe = la **suite** (le plan 0.1), pas l'app.
+- L'app s'appelait **DitherCraft** pendant les harness 1.0/1.1 ; elle s'appelle depuis **Lattice
+  Dither** (package `lattice_dither/`, renommage AMD-001). Les documents 1.0/1.1 parlent encore de
+  « dithercraft/ » : lisez `lattice_dither/`.
+- **Tous les outils suivent le même schéma : Lattice \<ce qu'il transforme\>** — Lattice Dither,
+  Lattice Glyph, Lattice Glitch. Le préfixe commun rappelle l'idée fondatrice : un cœur modulable
+  (`lattice-core`) et des outils construits par-dessus. Les noms GlyphCraft / GlitchCraft / DitherCraft
+  sont abandonnés.
+- « Lattice » sans suffixe = la **suite** (le plan 0.1), pas une app.
+- C'est du marketing assumé, mais la suite reste **open source et gratuite** (MIT OR Apache-2.0,
+  §1 du contrat 0.1) : elle ne deviendra jamais un produit.
 
 ## Rôles et exécuteurs (le vocabulaire unifié)
 
@@ -64,7 +70,7 @@ machine de build — la doc ne fait pas foi, le registre si.
 1.1 : H5 (geler le contrat 1.1) → H6 (juger la sortie) → H7 (CLI + export) → H8 (une semaine d'usage)
 → H9 (recette PhotoCraft) — **H6 à H9 sont encore ouverts** et appartiennent au harness 1.1.
 0.1 : H10 (après L1 : core intact) → H11 (après L2 : geler le contrat 0.1.0) → H12 (après vague 1 :
-juger GlyphCraft) → H13 (après vague 2 : GlitchCraft vivant) → H14 (L22 : recette PhotoCraft puis
+juger Lattice Glyph) → H13 (après vague 2 : Lattice Glitch vivant) → H14 (L22 : recette PhotoCraft puis
 DesignCraft).
 
 ## Budgets et déviations

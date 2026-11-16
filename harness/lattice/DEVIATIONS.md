@@ -10,7 +10,7 @@ Two additions for the suite:
 
 - **E8 Abstraction leak.** A change that makes an application import from another application, or
   that puts application-specific logic into `lattice_core`. Caught by the L1 test that walks the
-  package, or by the reviewer. Never acceptable: core must not know that GlyphCraft exists. The
+  package, or by the reviewer. Never acceptable: core must not know that Lattice Glyph exists. The
   resolution is either to move the code into the application, or to generalise it behind a
   documented core interface.
 - **E9 Host coupling.** A change that makes an application unusable without ArtCraft: a hard

@@ -226,7 +226,7 @@ l'orchestrateur ne code jamais.
   - the 8 MB budget triggers a merge and a warning on a large render.
   - the file opens in a browser without repair (checked by parsing, not by launching a browser).
 
-### L12 · GlyphCraft application shell
+### L12 · Lattice Glyph application shell
 - wave: 1 · deps: L6, L8, L9, L11 · executor: OMH deep-work · review: full · size: L
 - owns: `lattice_glyph/**`, `tests/test_glyph_app.py`
 - context: §1 §2 §7 §8 §9 §10 §11
@@ -349,7 +349,7 @@ l'orchestrateur ne code jamais.
   - a mask over 64 KB is referenced by path, not embedded.
   - the seed is serialised into the preset and restored on load.
 
-### L20 · GlitchCraft application shell
+### L20 · Lattice Glitch application shell
 - wave: 2 · deps: L13, L14, L15, L16, L17, L18, L19 · executor: OMH deep-work · review: full · size: L
 - owns: `lattice_glitch/**`, `tests/test_glitch_app.py`
 - context: §1 §2 §7 §8 §12 §13 §14 §15 §16 §17 §18

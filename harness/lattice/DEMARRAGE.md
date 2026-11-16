@@ -59,7 +59,7 @@ deep-work (L12, L20) · capable (le reste) · quick (L16). Toutes les relectures
 5. **H10 (toi)** : vérifier que Lattice Dither est intact et que `lattice-core` s'installe seul
    (`pip install -e .` sans Qt : numpy + numba + Pillow uniquement, `import lattice_core` OK).
 6. Vague 0 en parallèle (L2-L5, ≤ 4 cartes) → **H11** : relire et **geler** le protocole `CellRenderer` §3.
-7. Vagues 1 (glyphes) et 2 (glitch), indépendantes → **H12** (ouvrir GlyphCraft, juger) puis **H13**.
+7. Vagues 1 (glyphes) et 2 (glitch), indépendantes → **H12** (ouvrir Lattice Glyph, juger) puis **H13**.
 8. Vague 3 séquentielle : L21 → L22 (recette PhotoCraft puis DesignCraft) → **H14**.
 
 ## 4 · Règles qui ne se négocient pas

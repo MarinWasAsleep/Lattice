@@ -85,11 +85,11 @@ L1 (extraire lattice-core)  ← chemin critique, tout en dépend
  │   L9 texte-halftone
  │   L10 navigateur de jeux + rampes non-latines
  │   L11 export vectoriel
- │   L12 coquille GlyphCraft + pont
+ │   L12 coquille Lattice Glyph + pont
  ├─ VAGUE 2, glitch (après L2, indépendante de la vague 1) :
  │   L13 tampon de rétroaction → L14 déplacement → L15 tri de pixels
  │   L16 décalage de canal      L17 NTSC/VHS      L18 CRT/scanlines
- │   L19 graine + masques       L20 coquille GlitchCraft + pont
+ │   L19 graine + masques       L20 coquille Lattice Glitch + pont
  └─ VAGUE 3, séquentielle :
      L21 échange de presets + galerie → L22 recette dans PhotoCraft et DesignCraft
 ```
@@ -120,8 +120,8 @@ dans l'histoire du projet, les gates propres à la suite commencent à **G7** (r
 |---|---|---|
 | H10 | Après L1 | Vérifier que Lattice Dither est intact et que le paquet `lattice-core` s'installe seul. |
 | H11 | Après L2 | Relire le protocole `CellRenderer` et le geler. C'est la décision la plus rentable du projet. |
-| H12 | Après la vague 1 | Ouvrir GlyphCraft sur trois images réelles et juger. Si les glyphes ne convainquent pas, ne pas continuer. |
-| H13 | Après la vague 2 | Ouvrir GlitchCraft et vérifier qu'il est vivant, pas un filtre. |
+| H12 | Après la vague 1 | Ouvrir Lattice Glyph sur trois images réelles et juger. Si les glyphes ne convainquent pas, ne pas continuer. |
+| H13 | Après la vague 2 | Ouvrir Lattice Glitch et vérifier qu'il est vivant, pas un filtre. |
 | H14 | L22 | Recette complète dans PhotoCraft puis DesignCraft. |
 
 ## Risques

@@ -65,7 +65,7 @@ last_update: 2026-11-12
 | L9 | 1 | todo | 0 | 0 | | text-halftone |
 | L10 | 1 | todo | 0 | 0 | | glyph browser + non-Latin ramps |
 | L11 | 1 | todo | 0 | 0 | | SVG export |
-| L12 | 1 | todo | 0 | 0 | | GlyphCraft shell |
+| L12 | 1 | todo | 0 | 0 | | Lattice Glyph shell |
 | L13 | 2 | todo | 0 | 0 | | feedback buffer |
 | L14 | 2 | todo | 0 | 0 | | displacement |
 | L15 | 2 | todo | 0 | 0 | | pixel sort |
@@ -73,7 +73,7 @@ last_update: 2026-11-12
 | L17 | 2 | todo | 0 | 0 | | NTSC / VHS |
 | L18 | 2 | todo | 0 | 0 | | CRT / scanlines |
 | L19 | 2 | todo | 0 | 0 | | seed + masks |
-| L20 | 2 | todo | 0 | 0 | | GlitchCraft shell |
+| L20 | 2 | todo | 0 | 0 | | Lattice Glitch shell |
 | L21 | 3 | todo | 0 | 0 | | preset interchange + gallery |
 | L22 | 3 | todo | 0 | 0 | | acceptance in PhotoCraft and DesignCraft |
 
@@ -85,8 +85,8 @@ last_update: 2026-11-12
 |---|---|---|
 | H10 | after L1 | pending — verify Lattice Dither is intact and `lattice-core` installs alone |
 | H11 | after L2 | pending — read and freeze the `CellRenderer` protocol |
-| H12 | after wave 1 | pending — judge GlyphCraft on three real images |
-| H13 | after wave 2 | pending — verify GlitchCraft is alive, not a filter |
+| H12 | after wave 1 | pending — judge Lattice Glyph on three real images |
+| H13 | after wave 2 | pending — verify Lattice Glitch is alive, not a filter |
 | H14 | L22 | pending — acceptance in PhotoCraft then DesignCraft |
 
 La numérotation des checkpoints continue à travers les générations : 1.0 H0-H4, 1.1 H5-H9,

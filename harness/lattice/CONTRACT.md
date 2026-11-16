@@ -21,8 +21,8 @@ Three applications are in scope:
 | App | Package | Transform family |
 |---|---|---|
 | Lattice Dither | `lattice-dither` | palette dithering |
-| GlyphCraft | `lattice-glyph` | glyph, bitmask and text rendering |
-| GlitchCraft | `lattice-glitch` | feedback, displacement, sorting, signal degradation |
+| Lattice Glyph | `lattice-glyph` | glyph, bitmask and text rendering |
+| Lattice Glitch | `lattice-glitch` | feedback, displacement, sorting, signal degradation |
 
 All three share one engine, `lattice-core`. All three target **fixed images only**. Video is out of
 scope for this contract.
