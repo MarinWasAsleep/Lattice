@@ -89,6 +89,43 @@ their own files. Nothing is carried over.
 - impact: aucun sur le contrat ; le 1 reste le comportement `pixel` (il ne consomme que
   `index`), le 2 est résorbé par le retry.
 
+### DEV-205
+- class: E1 (règle gelée vs test antérieur) + E3 (correction hors owns) | task: L2b | contract:
+  0.1.0 | status: accepted
+- raised by: coder (attempt 1) | date: 2026-11-16
+- facts: la règle H11 §5-6 (gelée) donne pour a=0.5/pixel_size=1 → (cell_w, cell_h) = (1, 1),
+  mais `tests/test_cell.py:233` (livré L2, pré-gel) assertait (1, 2) via l'arrondi
+  half-to-even. `test_cell.py` n'est pas dans les owns de L2b (G4).
+- decision: accepted | by: orchestrateur | date: 2026-11-16 — test aligné sur la règle gelée :
+  pixel_size=2 → (1, 2) sous H11 (floor(2·0.5+0.5)=1), intention du test (aspect 0,5 → cellule
+  1×2) conservée, commentaire ajouté. Révision à la relecture L2b pass 2 : PASS.
+- impact: aucun plan ni contrat ; évite une DEV par carte future.
+
+### DEV-206
+- class: E1 (×2) | task: L5 | contract: 0.1.0 | status: accepted
+- raised by: coder | date: 2026-11-16
+- facts:
+  1. Racine app-data Linux ajoutée — le code ne connaissait que `%LOCALAPPDATA%` ; §7 l'exigeait
+     (Windows inchangé, sortie 1.0/1.1 inchangée).
+  2. `ArtCraftClient.discover` lève `ValueError` sur un nom d'hôte hors `HOSTS` au lieu de
+     renvoyer `None` — un nom d'hôte faux est un bug d'appel, pas une absence d'hôte.
+- decision: accepted | by: orchestrateur (après relecture : seul finding majeur = AMD non
+  enregistrée, résolue par AMD-009 ; le code est sain)
+- impact: aucun ; 3 minors de relecture notés pour les cartes pont futures (fallback
+  fichier→base64 couplé à la chaîne d'erreur de l'hôte, `_decode` sans retry candidat,
+  monkeypatch `sys.platform` dans le test).
+
+### DEV-207
+- class: E1 | task: L3 | contract: 0.1.0 | status: accepted
+- raised by: coder | date: 2026-11-16
+- facts: le contrat ne borne pas le nombre de couleurs importées d'un PNG — le code impose
+  2..256 couleurs distinctes (cohérent avec `palettes/io` MIN/MAX), ordre = première apparition
+  (déterministe) ; `Palette.order` conservé `list[int] | None`, validé à la construction.
+- decision: accepted | by: orchestrateur (review L3 PASS, 2 minors distincts consignés : bornes
+  propagées aux vues par `__array_finalize__` ; `order` non entier stocké après coercition →
+  IndexError au lieu de ValueError — à traiter à la prochaine carte qui touche palette.py)
+- impact: aucun.
+
 ## Amendments (registre)
 
 Facts discovered during a task that the contract could not have known, recorded here rather than
@@ -169,3 +206,25 @@ invented in code. The orchestrator folds them into the contract at the next chec
     frames flottantes officialisées (§3 render_frame, rés. du blocker L2) ; §2 rédactionnel
     (animation.py).
 - status: applied (diff à relire par l'humain avant le gel)
+
+### AMD-009 — pont DesignCraft : surface réelle observée (L5), 2026-11-16
+- task: L5 | contract: 0.1.0 | date: 2026-11-16
+- section: §7
+- discovered (observé sur DesignCraft 0.20.1 Flatpak, `designcraft-cli describe file.place`) :
+  1. Surface `file.place` : `{path?|base64?, name?, frame?: id, spread?, x?, y?, width?,
+     height?, pdfPage?, …}` — « places an image into `frame` when given; otherwise any
+     explicit x/y/spread/width creates a new frame ». Aucun paramètre inventé.
+  2. Le canal DesignCraft n'a **pas d'authentification** : `auth` répond `unknown method`.
+     La découverte = connexion + `engine.commands` (pas de token file, contrairement à §7).
+  3. Sous Flatpak, l'hôte ne lit que xdg-documents/xdg-pictures : `file.place` avec un `path`
+     du répertoire d'échange échoue (`No such file or directory`) → repli sur `base64`
+     (paramètre documenté) ; `file.exportBatch` sans `dir` renvoie le PNG en base64 — plus
+     aucun fichier d'échange nécessaire.
+  4. PhotoCraft Flatpak exige `--automation-read-root`/`--automation-write-root` pointant sur
+     le répertoire d'échange ; sans document ouvert, `place_as_layer` lève `BridgeError`
+     (« no document open ») — comportement normal, pas un crash.
+- contract change: à plier dans §7 au prochain checkpoint — « reads the token file, opens one
+  authenticated connection » ne s'applique qu'à PhotoCraft ; DesignCraft = connexion directe
+  sans auth, surface documentée ci-dessus.
+- status: applied (orchestrateur — résolution de la major de la relecture L5)
+

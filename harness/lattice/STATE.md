@@ -102,6 +102,20 @@ last_update: 2026-11-16
   AMD-008 : Q1=B (amender puis geler, diff relu), Q2=A (`layout()` §3), Q3=A (carte L2b),
   Q4=A (règle de géométrie §5-6, `size` retiré de §9), Q5=A (mode continu = étapes 6-11 sautées).
   Le contrat 0.1.0-draft devient **0.1.0** — plus aucun changement sans PATCH/MINOR vérifié.
+- 2026-11-16: **Vague 0 — relectures : L3 PASS (mistral-large-4), L5 résolu côté doc
+  (deepseek-v4-pro → AMD-009, code sain)** — L3 : 6 accept vérifiés par exécution, 2 minors
+  consignés pour la prochaine carte qui touchera palette.py (bornes de Palette propagées aux
+  vues par `__array_finalize__` — résultats périmés sur slice ; `order` non entier stocké après
+  coercition → IndexError au lieu de ValueError). L5 : 52 tests, 3 minors notés (fallback
+  base64 couplé à la chaîne d'erreur, `_decode` sans retry, monkeypatch sys.platform). L2b :
+  retry attempt 2 en cours (2 blockers maths). Commits de la vague une fois L2b posé.
+- 2026-11-16: **Vague 0 close — L3 `dcf187f`, L5 `e187968`, L2b `3fe662a`** — 1336 tests verts
+  (1216 base +41 L2 +17 L3 +52 L5 +49 L2b... ) vérifié à la batterie : ruff, check_contract,
+  G4 par carte, G7 témoins bit-à-bit, G8 ["pixel"]. Relectures : L3 PASS (mistral-large-4),
+  L5 gestionnaire AMD-009 (deepseek-v4-pro), L2b FIX→retry→PASS (Opus, 2 cycles). DEV-205/206/207
+  enregistrés. 5 minors L2b consignés (msg erreur palette size, ordre des erreurs _validate_order,
+  RenderStyle options dict mutable après construction, ordre row-major des sous-points non
+  documenté, fn non typé) — à traiter aux cartes pipeline/props (L4, L7).
 
 ## Task table
 
@@ -109,9 +123,10 @@ last_update: 2026-11-16
 |---|---|---|---|---|---|---|
 | L1 | 0 | done | 1 | 1 | 696964d | extract lattice-core; critical path — gates G1-G7 verts, review PASS, DEV-202 (E1 ×5 acceptés) |
 | L2 | 0 | done | 1 | 2 | 7394b8b | CellRenderer + PixelRenderer; gates G1-G4+G7-G9 verts (1257 tests), review Opus PASS (pass 1 FIX → retry), DEV-203 (owns pipeline.py), DEV-204 (2 × E1) |
-| L3 | 0 | todo | 0 | 0 | | colour metrics + palette |
-| L4 | 0 | todo | 0 | 0 | | preset v3 |
-| L5 | 0 | todo | 0 | 0 | | bridge generalisation (PhotoCraft + DesignCraft) |
+| L2b | 0 | done | 0 | 2 | 3fe662a | pipeline §3/§5 complet (H11) — retry (2 blockers maths), review Opus PASS, DEV-205 (test aligné) |
+| L3 | 0 | done | 0 | 1 | dcf187f | colour metrics + palette — review PASS mistral-large-4, DEV-207 |
+| L4 | 0 | todo | 0 | 0 | | preset v3 (deps L2b ✓) |
+| L5 | 0 | done | 0 | 1 | e187968 | bridge generalisation — review: code sain, AMD-009 (surface DesignCraft), DEV-206 |
 | L-UI | 0 | todo | 0 | 0 | | shared widgets in lattice_core/ui (S5, after L5, before L12/L20) |
 | L6 | 1 | todo | 0 | 0 | | glyph ramp |
 | L7 | 1 | todo | 0 | 0 | | shape-matched glyphs |
@@ -149,7 +164,8 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
 
 ## Next
 
-- Vague 0 en parallèle (owns disjoints, ≤ 4) : **L3 + L5 + L2b** ; L4 après L2b
-  (coordination PipelineSpec, deps L2b). Codeurs sur modèles standard éco (deepseek-v4.1-flash
-  du backend en rotation) ; relectures strictes sur les gros modèles (prochain créneau lourd :
-  mistral-large-4, puis deepseek-v4-pro, puis kimi — Opus ×3 consommé par L2+H11).
+- **L4** (preset v3, deps L2b ✓) et **L-UI** (widgets partagés, après L5 ✓) prêtes : 2 voies
+  dispatchables immédiatement. Vague 1 (L6+) prête dès L4/L-UI lancés (deps L2b ✓).
+- Chemin critique : L2 done → coquilles L12/L20 (vague 1/2). Prochain créneau lourd : cycle
+  complet Opus → mistral-large-4 (19:xx) → v4-pro (21:xx) → kimi (opencode-go non configuré) →
+  retour Opus.
