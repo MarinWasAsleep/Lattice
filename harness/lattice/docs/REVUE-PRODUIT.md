@@ -5,11 +5,13 @@ Deux analyses produit commandées le 2026-11-16, exécutées par Claude Opus
 la suite dans son ensemble (contrat 0.1 + cartes + marché). Verdicts bruts dans
 `docs/analyses/app-verdict.json` et `docs/analyses/suite-verdict.json`.
 
-Méthode : l'analyse « app » s'est appuyée sur le code UI réel (main_window,
-panels, export, presets) — les captures d'écran n'ayant pas été attachées, une
-passe de confirmation visuelle est en cours (verdict attendu :
-`docs/analyses/visio-verdict.json`). L'analyse « suite » s'est appuyée sur le
-contrat 0.1, les cartes L1-L23 et la recherche marché.
+Méthode : trois passes Claude Opus (opus-5-5, effort medium, ~3,4 $ au total).
+L'analyse « app » s'est appuyée sur le code UI réel (main_window, panels,
+export, presets) ; une passe de confirmation visuelle a ensuite porté les 5
+captures d'écran réelles (verdict : `docs/analyses/visio-verdict.json`) —
+elle confirme l'essentiel, aggrave plusieurs constats et corrige quelques
+points. L'analyse « suite » s'est appuyée sur le contrat 0.1, les cartes
+L1-L23 et la recherche marché (verdict : `docs/analyses/suite-verdict.json`).
 
 ## Verdict app (résumé)
 
@@ -17,17 +19,38 @@ Le moteur est solide (1212 tests) ; l'application est « organisée comme le
 contrat, pas comme le parcours de l'artiste ». L'objectif officiel du 1.1
 (« un bon résultat en moins d'une minute ») n'est pas atteint.
 
-- **2 bloquants** (défauts de résultat silencieux) : export avancé
-  (SVG/impression/GIF/vidéo) sur l'aperçu plafonné à 1024 px au lieu d'un
-  rendu pleine résolution ; « GIF animé »/« Vidéo » produisent un fichier
-  d'une seule image dans la GUI (l'animation n'existe que côté CLI).
+- **Désormais 3 bloquants** (les deux premiers sont des défauts de résultat
+  silencieux, confirmés par le code ; le troisième est venu des captures) :
+  1) export avancé (SVG/impression/GIF/vidéo) sur l'aperçu plafonné à 1024 px
+  au lieu d'un rendu pleine résolution — nuance visuelle : la barre n'expose
+  que « Exporter en PNG » (le bon chemin) ; 2) « GIF animé »/« Vidéo »
+  produisent un fichier d'une seule image dans la GUI ; 3) l'indicateur
+  « Préréglage 1/12 : 01_gameboy.json » **ment dans les cinq états** (affiché
+  sans image, sur un rendu Floyd-Steinberg N&B, et figé après changement
+  d'algorithme et de palette) — c'est le piège le plus visible pour H12.
+- **Aggravations visuelles** : la galerie occupe ~500 px de large (pas 240) —
+  le canevas n'a que ~35 % de la fenêtre, vide au démarrage ; la barre
+  d'outils déborde à 1280 px (« Préparer la source » et « Retirer la trame »
+  hors champ : piège pour le scan) ; la galerie est figée (vignettes
+  identiques, jamais sur l'image/palette courante, aucun surlignage de
+  l'algorithme actif) ; le bouton « Ajouter ▾ » des effets est placé sous la
+  liste « Après tramage » alors qu'il vise « Avant » — l'écran contredit le
+  comportement ; les boutons PhotoCraft restent actifs malgré
+  « PhotoCraft : déconnecté » ; zone « Couleurs » vide pour une palette EGA
+  de 16 couleurs.
+- **Corrections apportées par les captures** : le groupe « Extraire de
+  l'image » est bien grisé quand la source est « Intégrée » (moins confus que
+  le code ne le laissait croire) ; les pièges d'export restent établis par le
+  code seul (non visibles sur les captures, le menu Fichier n'étant pas
+  ouvert).
 - **8 majeurs**, tous d'interface : état vide sans consigne, presets ◀/▶ à
   l'aveugle avec noms de fichiers techniques, barre de 19 actions plates,
   panneau Algorithme surchargé (la force noyée), galerie en doublon, bouton
   « Ajouter » d'effet visant la liste *avant* tramage, noms de palettes bruts
   (`cga_0_high`, `kmeans`), incohérence « Préréglage 1/12 » au démarrage.
 - **Aucun constat ne touche le moteur** : 2-3 cartes d'ergonomie suffisent
-  (voir priorités 1-5 du fichier JSON).
+  (priorités 1-9 du fichier visio-verdict.json — la n°1 est désormais
+  l'indicateur de preset ; la passe visuelle exécute 10 tours, 0,71 $).
 
 ## Verdict suite (résumé)
 
