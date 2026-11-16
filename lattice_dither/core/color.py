@@ -6,6 +6,12 @@ import numpy as np
 from numba import njit
 from PIL import Image as PILImage
 
+from lattice_dither.core.gamma_table import (
+    GAMMA_GRID_COUNT,
+    GAMMA_GRID_START,
+    GAMMA_GRID_STEP,
+    GAMMA_LUT,
+)
 from lattice_dither.core.types import RGB8, Image, Indices, Palette
 
 _CHUNK_BYTES = 256 * 1024 * 1024
@@ -248,7 +254,14 @@ def adjust(
     """Apply gamma, contrast around 0.5, brightness and saturation, clipping to [0, 1]."""
     out = np.clip(img, 0.0, 1.0).astype(np.float32)
     if gamma != 1.0:
-        out = np.power(out, np.float32(1.0 / gamma))
+        # Discrete 8-bit curve from the committed table (see gamma_table.py):
+        # index the grid, never call libm — so the render is bit-identical on
+        # every platform. A gamma outside the grid clamps to the nearest curve.
+        gi = int(round((float(gamma) - GAMMA_GRID_START) / GAMMA_GRID_STEP))
+        gi = min(max(gi, 0), GAMMA_GRID_COUNT - 1)
+        lut = np.asarray(GAMMA_LUT[gi], dtype=np.float32) / 255.0
+        levels = np.clip(np.round(out * 255.0), 0, 255).astype(np.intp)
+        out = lut[levels]
     if contrast != 0.0:
         out = (out - 0.5) * np.float32(1.0 + contrast) + 0.5
     if brightness != 0.0:

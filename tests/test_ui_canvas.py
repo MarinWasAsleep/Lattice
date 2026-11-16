@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import os
 import subprocess
-import winreg
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
-from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, Qt, QTimer  # noqa: E402
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, QSettings, Qt, QTimer  # noqa: E402
 from PySide6.QtGui import QColor, QImage, QMouseEvent, QPainter, QPalette, QWheelEvent  # noqa: E402
 from PySide6.QtWidgets import (  # noqa: E402
     QApplication,
@@ -54,13 +53,14 @@ class FakeSettings:
         FakeSettings.store[self._prefix + key] = value
 
 
-def _registry_geometry() -> bytes | None:
-    """Return the raw HKCU geometry value, or None when the key is absent."""
-    try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, REGISTRY_KEY) as key:
-            return winreg.QueryValueEx(key, "geometry")[0]
-    except OSError:
-        return None
+def _persisted_geometry() -> object:
+    """Return the persisted geometry value, or None when nothing is stored.
+
+    Cross-platform: HKCU\\Software\\LatticeDither\\LatticeDither on Windows,
+    ~/.config/LatticeDither/LatticeDither.conf on Linux — QSettings resolves it.
+    """
+
+    return QSettings("LatticeDither", "LatticeDither").value("geometry")
 
 
 @pytest.fixture
@@ -379,19 +379,22 @@ def test_main_runs_the_event_loop(
 
 
 def test_window_never_spawns_a_process_or_writes_the_registry(
-    qapp: QApplication, settings: type[FakeSettings], bridge: None, monkeypatch: pytest.MonkeyPatch
+    qapp: QApplication,
+    settings: type[FakeSettings],
+    bridge: None,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Building and closing a window spawns no process and leaves HKCU untouched."""
+    """Building and closing a window spawns no process and leaves persisted settings untouched."""
 
     def forbidden(*args: object, **kwargs: object) -> None:
         raise AssertionError("a test must never spawn a process")
 
     monkeypatch.setattr(subprocess, "run", forbidden)
     monkeypatch.setattr(subprocess, "Popen", forbidden)
-    before = _registry_geometry()
+    before = _persisted_geometry()
     window = MainWindow()
     window.show()
     QApplication.processEvents()
     window.close()
     QApplication.processEvents()
-    assert _registry_geometry() == before
+    assert _persisted_geometry() == before
