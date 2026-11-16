@@ -13,6 +13,26 @@ elle confirme l'essentiel, aggrave plusieurs constats et corrige quelques
 points. L'analyse « suite » s'est appuyée sur le contrat 0.1, les cartes
 L1-L23 et la recherche marché (verdict : `docs/analyses/suite-verdict.json`).
 
+## Protocole des checkpoints de jugement (H11-H13)
+
+Le jugement humain reste la décision ; l'analyse ne l'est plus. Aux checkpoints
+où l'humain doit juger, l'orchestrateur commande une analyse à **Claude Opus
+(medium)** via le gabarit `prompts/ANALYSTE-PRODUIT.md` :
+
+1. **Objet** : contrat (H11 — gel du §3/du contrat 0.1) ou interface (H12/H13 —
+   captures d'écran réelles, parcours scriptés, code UI).
+2. **Livrable** : un verdict JSON (synthese, findings avec preuves, manques,
+   superflus) **plus un bloc `questions_pour_le_decideur` obligatoire** —
+   2 à 5 questions, chacune avec options, recommandation et conséquence.
+3. **Humain** : ne lit que les questions et tranche. Il n'analyse rien de zéro ;
+   s'il veut creuser, il relance l'analyste, pas sa propre analyse.
+4. **Trace** : verdicts bruts dans `docs/analyses/` (app-verdict,
+   visio-verdict, suite-verdict), synthèse dans REVUE-PRODUIT.md, décisions
+   dans STATE.md.
+
+C'est exactement le pattern déjà appliqué pour ces trois passes : l'analyse a
+été entièrement déléguée (3,4 $), l'humain n'a eu qu'à arbitrer.
+
 ## Verdict app (résumé)
 
 Le moteur est solide (1212 tests) ; l'application est « organisée comme le

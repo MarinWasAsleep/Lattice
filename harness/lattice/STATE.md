@@ -99,9 +99,9 @@ last_update: 2026-11-12
 | Id | When | Status |
 |---|---|---|
 | H10 | after L1 | pending — verify Lattice Dither is intact and `lattice-core` installs alone |
-| H11 | after L2 | pending — read and freeze the `CellRenderer` protocol |
-| H12 | after wave 1 | pending — judge Lattice Glyph on three real images |
-| H13 | after wave 2 | pending — verify Lattice Glitch is alive, not a filter |
+| H11 | after L2 | pending — analyse Opus du contrat (gabarit ANALYSTE-PRODUIT) → toi : trancher le gel |
+| H12 | after wave 1 | pending — analyse Opus de Lattice Glyph sur trois images réelles (captures/parcours) → toi : trancher |
+| H13 | after wave 2 | pending — analyse Opus (Lattice Glitch vivant, pas un filtre ?) → toi : trancher |
 | H14 | L22 | pending — acceptance in PhotoCraft then DesignCraft |
 
 La numérotation des checkpoints continue à travers les générations : 1.0 H0-H4, 1.1 H5-H9,

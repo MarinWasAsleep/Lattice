@@ -36,7 +36,8 @@ checkpoints. Tout se joue sur des fichiers (`CONTRACT.md`, `TASKS.md`, `STATE.md
 | Orchestrateur | Hermes (session TUI) ou un agent équivalent | planifie ≤ 4 cartes (owns disjoints), génère les prompts, court les gates, tient `STATE.md`, applique DEVIATIONS | écrire du code produit |
 | Codeur | sous-agent via la chaîne OMH, catégorie = champ `executor` de la carte | une carte à la fois, fichiers `owns` seulement ; sort `FILE` + `NOTES` + `DEVIATIONS` | le reste du dépôt |
 | Relecteur | catégorie OMH `review` | verdict PASS / FIX / ESCALATE, contrats avant tests | écrire du code |
-| Humain | toi | checkpoints, décisions de déviation, gel du contrat | — |
+| Analyste produit | Claude Opus (medium, via le CLI `claude`) | analyse les écrans et le contrat aux checkpoints H11-H13 ; remet un verdict + des questions à trancher | ne décide jamais |
+| Humain | toi | **tranche** les questions des checkpoints (H10-H14) et les déviations ; ne fait pas l'analyse de zéro | — |
 
 Les générations 1.0/1.1 nommaient les modèles dans les cartes : **DeepSeek** (codeur), **Sonnet**
 (orchestrateur et relecteur). Depuis le 0.1, cartes et gabarits ne nomment plus aucun modèle : le
@@ -70,8 +71,10 @@ machine de build — la doc ne fait pas foi, le registre si.
 1.1 : H5 (geler le contrat 1.1) → H6 (juger la sortie) → H7 (CLI + export) → H8 (une semaine d'usage)
 → H9 (recette PhotoCraft) — **H6 à H9 sont encore ouverts** et appartiennent au harness 1.1.
 0.1 : H10 (après L1 : core intact) → H11 (après L2 : geler le contrat 0.1.0) → H12 (après vague 1 :
-juger Lattice Glyph) → H13 (après vague 2 : Lattice Glitch vivant) → H14 (L22 : recette PhotoCraft puis
-DesignCraft).
+juger Lattice Glyph) → H13 (après vague 2 : Lattice Glitch vivant) → H14 (L22 : recette PhotoCraft
+puis DesignCraft). H11-H13 sont des **jugements assistés** : Claude Opus (gabarit
+`lattice/prompts/ANALYSTE-PRODUIT.md`) analyse le contrat ou l'interface (captures + code UI) et
+remet un verdict + des questions à trancher ; l'humain tranche, il n'analyse pas de zéro.
 
 ## Budgets et déviations
 
