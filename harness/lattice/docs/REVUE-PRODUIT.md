@@ -102,8 +102,10 @@ Glitch**, et cinq défauts sont structurels — ils seront figés par L2
 
 S1, S2, S3, S4 et S5 sont **tranchés et appliqués au contrat** (voir `DEVIATIONS.md` AMD-002..006,
 et CONTRACT.md §5 / §3 / §6 / §2). La carte **L-UI** est créée dans TASKS.md (vague 0, après L5).
-Reste ouvert : le **périmètre marché** (glyphes/glitch comme paris assumés vs intégrer
-séparations/animation — la décision éclairée par la recherche ciblée attendue avant H12).
+Le **périmètre marché** est également clos (AMD-007, 2026-11-16) : recherche ciblée glyphes/glitch
+lancée en fond (à intégrer dans `docs/market-research.md` avant H12), séparations/animation =
+pari assumé sans promesse (§20), **sortie texte** de Glyph ajoutée (§11, carte L11), **boucle
+N images** (GIF/APNG) ajoutée (carte L-LOOP, animation.py → lattice_core).
 
 ## Cartes d'ergonomie dérivées (app) — 3 cartes au fil de l'eau
 

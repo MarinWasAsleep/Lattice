@@ -235,19 +235,24 @@ l'orchestrateur ne code jamais.
   - at least 8 categories and at least 6 non-Latin ramps are present.
   - selecting a set updates the preview within 100 ms.
 
-### L11 · SVG export
+### L11 · SVG export · text export
 - wave: 1 · deps: L2 · executor: OMH capable · review: full · size: M
-- owns: `lattice_core/svg.py`, `tests/test_svg.py`
-- context: §11
+- owns: `lattice_core/svg.py`, `lattice_core/textout.py`, `tests/test_svg.py`, `tests/test_textout.py`
+- context: §11 (incl. text export — P3, decided 2026-11-16)
 - spec: implement §11. `pixel` → `<rect>` per cell, merged into runs. `glyph_ramp`, `glyph_shape`,
   `bitmask` → one `<text>` per glyph with `font-family`, `font-size`, `fill`. `text` → one `<text>`
   per glyph preserving layout. Budget: 2048×2048, 16 colours, under 8 MB, else merge and warn.
+  **Text export**: `render --format txt|ansi|html` for `glyph_ramp`, `glyph_shape`, `bitmask` —
+  `.txt` UTF-8, `.ansi` 24-bit SGR, `.html` `<pre>`; HTML escapes text, ANSI never leaks into
+  the text path.
 - accept:
   - the output parses as XML and has the right root namespace.
   - a 64×64 pixel render produces fewer `<rect>` elements than cells (runs are merged).
   - a glyph render produces exactly `cols * rows` `<text>` elements.
   - the 8 MB budget triggers a merge and a warning on a large render.
   - the file opens in a browser without repair (checked by parsing, not by launching a browser).
+  - `txt` output has `cols * rows` tokens and `rows` lines; `ansi` contains SGR 24-bit sequences
+    only; `html` renders the same grid and escapes `<`/`&` in glyph text.
 
 ### L12 · Lattice Glyph application shell
 - wave: 1 · deps: L6, L8, L9, L11 · executor: OMH deep-work · review: full · size: L
@@ -385,6 +390,21 @@ l'orchestrateur ne code jamais.
   - reroll changes the output; locking a module keeps that module's contribution.
   - the mask painter produces a mask that the renderer honours.
   - the app runs with `lattice-core` without the `[ui]` extra only for the CLI path.
+
+### L-LOOP · N-image loop (GIF/APNG)
+- wave: 2 · deps: L20 · executor: OMH capable · review: light · size: S
+- owns: `lattice_core/animation.py`, `tests/test_animation_loop.py`
+- context: §12 §20 (P4, decided 2026-11-16)
+- spec: move `core/animation.py` from Lattice Dither into `lattice_core/animation.py` and
+  generalise it into a shared N-image loop: render N frames by varying seed, offset, or
+  feedback iterations, emit GIF and APNG. Consumed by the Glitch CLI
+  (`render --frames N --format gif|apng`) and by the L20 shell's export. No timeline, no
+  video (§20). Lattice Dither's CLI keeps its exports as-is.
+- accept:
+  - N frames vary only the declared axis (seed/offset/itérations) and are identical otherwise.
+  - GIF and APNG open with Pillow and have exactly N frames.
+  - `animation.py` sits in lattice_core and imports no application module.
+  - the Dither 1.1 exports (video path untouched) still pass their existing tests.
 
 ---
 

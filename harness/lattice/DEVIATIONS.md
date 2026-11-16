@@ -95,3 +95,16 @@ invented in code. The orchestrator folds them into the contract at the next chec
     `fonts {family, fallback}`, `output {scale, width?, dpi?}`.
   - S5 §2: card L-UI owns `lattice_core/ui/` (canvas+worker+split, Looks grid, full-resolution
     export, bridge dot, empty state) after L5, before L12/L20; fixes the two Dither blockers.
+
+### AMD-007 — market scope, decided 2026-11-16 (human, on Opus recommendations)
+- task: none (pre-H11 freeze) | contract: 0.1.0 | date: 2026-11-16
+- sections: §11, §20, §2
+- discovered: REVUE-PRODUIT — the suite builds the two least-documented products (glyphs,
+  glitch) while excluding the two best-documented needs (separations, animation).
+- contract change (all applied to CONTRACT.md + TASKS.md):
+  - P1: a targeted glyph/glitch market research is launched in the background, added to
+    `docs/market-research.md` before H12.
+  - P2: separations and full animation stay excluded as an **assumed, documented bet** — no
+    promise in any contract version (§20).
+  - P3: §11 text export — `txt`/`ansi`/`html` + `render --format txt|ansi|html`; card L11.
+  - P4: §20 N-image loop — card L-LOOP (GIF/APNG, `core/animation.py` moved to lattice_core).

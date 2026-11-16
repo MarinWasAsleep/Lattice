@@ -45,7 +45,7 @@ lattice-glitch    import lattice_glitch    depends on lattice-core>=0.1,<0.2
 
 **What L1 actually moves** (current tree at HEAD `b4b0aea`, portage Linux approuvé): `core/{color,pipeline,presets,types,registry}.py`,
 the `palettes/` package, `dither/` (from `algorithms/`), `effects/`, `bridge/`. The application keeps
-`ui/`, `export/`, `preprocess/`, `i18n/`, `core/animation.py` (video export is an app feature; video
+`ui/`, `export/`, `preprocess/`, `i18n/`, `core/animation.py` — moved into lattice_core by card L-LOOP (N-image loop, decided 2026-11-16); full video
 is out of scope for the suite) and its own `cli.py` (the 1.1 verbs are app-specific; the shared CLI
 frame is created with the application shells). There is no `core/palette.py` in the current tree:
 palettes are a package. `image.py`, `cell.py` and `renderers/` are created by the cards (L2+).
@@ -341,6 +341,12 @@ Every renderer can emit SVG.
   and record a warning.
 - SVG output must open in Inkscape, Illustrator and a browser without repair.
 
+**Text export (P3, decided 2026-11-16).** `glyph_ramp`, `glyph_shape` and `bitmask` also emit
+text: `.txt` (UTF-8, space-separated cells, `\n` line breaks), `.ansi` (24-bit colour, SGR
+escapes; terminal-safe ordering), `.html` (a coloured `<pre>` block in a standalone page).
+Shared CLI verb: `render --format png|svg|txt|ansi|html`. The ANSI exporter must not leak
+escape codes into the text path; HTML output escapes text content.
+
 ## §12 Feedback buffer
 
 The mechanism that makes a glitch tool an instrument rather than a filter.
@@ -441,8 +447,11 @@ in `harness/README.md`; the next new gate is G10):
 
 Explicitly out of scope for this contract. Adding any of these requires a new contract version.
 
-- Video, animation timelines, frame sequences.
+- Full video and timeline editing. A shared **N-image loop** (GIF/APNG, card L-LOOP) is in
+  scope: variation of seed, offset or feedback iterations across N frames; no timeline, no video.
 - Physical-media output (LEGO, beads, cross-stitch, embroidery).
-- Print separations (CMYK plates, riso, spot inks, trapping, dot gain).
+- Print separations (CMYK plates, riso, spot inks, trapping, dot gain). **Assumed bet,
+  documented, no promise** (P2, decided 2026-11-16): separations and full animation are
+  explicitly out and not foreshadowed in any contract version yet.
 - Network access in the core. Palette import is file-based or pasted hex.
 - Any dependency beyond numpy, numba, Pillow, and PySide6 under the `[ui]` extra.
