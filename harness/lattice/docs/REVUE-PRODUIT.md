@@ -98,23 +98,12 @@ Glitch**, et cinq défauts sont structurels — ils seront figés par L2
   JSON lisibles, CLI headless, registres qui génèrent l'UI, discipline des
   gates (G7 bit-à-bit, G8 sur le registre).
 
-## Décisions à prendre avant H11 (gel du contrat)
+## Décisions prises avant H11 (2026-11-16, humain sur recommandations Opus)
 
-Le contrat 0.1 est un brouillon jusqu'à H11. Chaque ligne ci-dessous est une
-décision explicite : amender le contrat, ou accepter la contrainte.
-
-1. S1 — autoriser un algorithme « aucun » (ou un mode « brut ») dans le
-   pipeline : les effets glitch traitent une image, pas une postérisation.
-2. S2 — redéfinir `coverage` : soit depuis l'image source (avant quantification),
-   soit par échelle de luminance de l'image ; à trancher avec le §3 avant L2.
-3. S3 — tramer au niveau du sous-point pour les renderers bitmask/texte, ou
-   documenter la limitation.
-4. S4 — compléter le preset v3 (étapes avant/après, source d'extraction,
-   masque, tailles de sortie, polices par nom+fallback) avant L4.
-5. S5 — donner une carte « UI partagée » (widgets de preview/navigateur
-   presets/export/pont) dans le core [ui], avant L12/L20.
-6. Périmètre — assumer publiquement que glyphes/glitch sont paris, et différer
-   ou intégrer les besoins P1 (séparations, animation) comme cartes hors contrats.
+S1, S2, S3, S4 et S5 sont **tranchés et appliqués au contrat** (voir `DEVIATIONS.md` AMD-002..006,
+et CONTRACT.md §5 / §3 / §6 / §2). La carte **L-UI** est créée dans TASKS.md (vague 0, après L5).
+Reste ouvert : le **périmètre marché** (glyphes/glitch comme paris assumés vs intégrer
+séparations/animation — la décision éclairée par la recherche ciblée attendue avant H12).
 
 ## Cartes d'ergonomie dérivées (app) — 3 cartes au fil de l'eau
 

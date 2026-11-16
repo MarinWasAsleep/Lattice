@@ -79,3 +79,19 @@ invented in code. The orchestrator folds them into the contract at the next chec
 - contract change: §1 table row becomes `| Lattice Dither | lattice-dither | palette dithering |`;
   the §20 non-goal "Renaming DitherCraft" is removed. The application is renamed Lattice Dither,
   package `lattice_dither`, distribution `lattice-dither`, executable `LatticeDither.exe`.
+
+### AMD-002 .. AMD-006 — structural amendments, decided 2026-11-16 (human, on Opus recommendations)
+- task: none (pre-H11 freeze) | contract: 0.1.0 | date: 2026-11-16
+- sections: §5 (S1), §3 (S2, S3), §6 (S4), §2 (S5)
+- discovered: REVUE-PRODUIT.md — five structural defects that L2/L4 would freeze (see S1-S5).
+- contract change (all applied to CONTRACT.md):
+  - S1 §5: continuous mode — `algorithm: null` / `palette: null` legal, renderer `pixel` 1×1,
+    Glitch is an effect-graph app.
+  - S2 §3: `grid.luma` (source luminance before quantisation) + renderer `consumes()`; full
+    glyph ramps with b/w palettes; new L2 test "luma independent of the palette".
+  - S3 §3: renderer `subgrid = (sx, sy)` (braille 2×4, sextant 2×3); pipeline dithers at
+    sub-point resolution, `grid.subindex`; `dither: bool` removed.
+  - S4 §6: v3 completeness — `effects[].stage pre|post`, `palette.source/extract`, `masks`,
+    `fonts {family, fallback}`, `output {scale, width?, dpi?}`.
+  - S5 §2: card L-UI owns `lattice_core/ui/` (canvas+worker+split, Looks grid, full-resolution
+    export, bridge dot, empty state) after L5, before L12/L20; fixes the two Dither blockers.

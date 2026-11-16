@@ -94,7 +94,8 @@ last_update: 2026-11-16
 | L2 | 0 | todo | 0 | 0 | | CellRenderer + PixelRenderer |
 | L3 | 0 | todo | 0 | 0 | | colour metrics + palette |
 | L4 | 0 | todo | 0 | 0 | | preset v3 |
-| L5 | 0 | todo | 0 | 0 | | bridge generalisation |
+| L5 | 0 | todo | 0 | 0 | | bridge generalisation (PhotoCraft + DesignCraft) |
+| L-UI | 0 | todo | 0 | 0 | | shared widgets in lattice_core/ui (S5, after L5, before L12/L20) |
 | L6 | 1 | todo | 0 | 0 | | glyph ramp |
 | L7 | 1 | todo | 0 | 0 | | shape-matched glyphs |
 | L8 | 1 | todo | 0 | 0 | | bitmasks |

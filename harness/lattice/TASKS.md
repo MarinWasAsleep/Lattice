@@ -127,6 +127,28 @@ l'orchestrateur ne code jamais.
   - a bridge failure raises `BridgeError` and leaves no temporary file behind.
   - exchange files older than one hour are discarded on the next call.
 
+### L-UI · Shared widgets, extracted from Lattice Dither (S5)
+- wave: 0 · deps: L1 · executor: OMH capable · review: full · size: L
+- owns: `lattice_core/ui/**`, `tests/test_ui_shared.py`, moves from `lattice_dither/ui/**`
+- context: §2 (`lattice_core/ui/`), REVUE-PRODUIT (bloquants 1-2 de l'analyse Dither, S5)
+- spec: implement §2 `ui/` as code, decided 2026-11-16. Extract from Lattice Dither the shared
+  widgets into `lattice_core/ui/`: preview canvas + progress worker + before/after split,
+  Looks grid (thumbnails rendered on the current image), one full-resolution export dialog
+  (PNG/SVG/GIF — never the 1024 px preview proxy), bridge status dot, empty state. Fix first
+  the two blocker findings of the Dither product review: (a) exported images must render at
+  full resolution, (b) the preset indicator must be honest (applies the real preset, updates
+  on change, absent when no image is loaded). Both apps (L12/L20) consume these widgets;
+  they must not reimplement a canvas or an export dialog.
+- accept:
+  - `lattice_core/ui` imports no application module; apps import it under the `[ui]` extra.
+  - the export dialog renders the pipeline at full resolution (not the preview proxy) and
+    the resulting file matches the pipeline output size.
+  - the preset indicator shows the actually-applied preset, updates after any pipeline
+    change, and is hidden without an image.
+  - canvas + worker + split, Looks grid, bridge status dot and empty state exist as widgets
+    with tests (offscreen), each consumed by a smoke test.
+  - no test regression: the full suite still passes (1216 baseline).
+
 ---
 
 ## Wave 1 — glyphs

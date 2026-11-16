@@ -71,7 +71,12 @@ lattice_core/
   preset.py       preset v3 read/write
   bridge/         ArtCraftClient, photocraft.py, designcraft.py
   cli.py          shared argument parsing and exit codes   (frame built with the app shells, L12/L20)
-  ui/             shared widgets, imported only under the [ui] extra
+  ui/             shared widgets, imported only under the [ui] extra.
+                  Owned by card L-UI (after L5, before L12/L20, decided 2026-11-16): preview
+                  canvas + worker with before/after split, Looks grid (thumbnails on the
+                  current image), one full-resolution export dialog, bridge status dot, empty
+                  state. L-UI fixes the two blocker findings of the Dither product review
+                  (export resolution, preset indicator) first.
 ```
 
 ## §3 The CellRenderer contract
@@ -87,7 +92,11 @@ class CellGrid:
     cell_h: int
     index: np.ndarray      # (rows, cols) int32, palette index per cell
     coverage: np.ndarray   # (rows, cols) float32 in [0, 1], ink coverage per cell
+    luma: np.ndarray       # (rows, cols) float32, linear luminance of the SOURCE cell
+                           # computed before quantisation (S2, decided 2026-11-16)
     samples: np.ndarray    # (rows, cols, k) float32 in [0, 1], sub-cell luminance
+    subindex: np.ndarray | None = None  # (rows, cols, sx*sy) int32, palette index per
+                                        # sub-point, present when subgrid != (1, 1) (S3)
 
 @dataclass(frozen=True)
 class RenderStyle:
@@ -96,6 +105,8 @@ class RenderStyle:
 class CellRenderer(Protocol):
     name: str
     def cell_aspect(self) -> float: ...
+    def subgrid(self) -> tuple[int, int]: ...  # default (1, 1); braille (2, 4), sextant (2, 3) (S3)
+    def consumes(self) -> frozenset[str]: ...  # subset of {"index", "luma", "samples"} (S2)
     def render(self, grid: CellGrid, palette: np.ndarray, style: RenderStyle) -> Image.Image: ...
 ```
 
@@ -126,6 +137,19 @@ coverage    = 0.0 where lum_max == lum_min
 
 `samples` is produced by supersampling the source cell on a `k`-point stencil. `k` is a renderer
 property: 1 for `pixel`, 6 for `glyph_shape`, 8 for braille, 6 for sextant, 4 for quadrant.
+
+**Luma — independent of the palette (S2, decided 2026-11-16).** `grid.luma` is the linear
+luminance of the source cell (step-7 pixels, computed in linear light) taken BEFORE quantisation.
+Each renderer declares what it consumes via `consumes()`; `glyph_ramp` and `glyph_shape` consume
+`luma` for ink-density ramps, so a black/white palette still uses the full glyph ramp. The L2
+"coverage is monotone" test stays; a new L2 test asserts "luma is continuous and independent of
+the palette".
+
+**Sub-point dithering (S3, decided 2026-11-16).** A renderer may declare `subgrid = (sx, sy)`
+(braille 2×4, sextant 2×3). The pipeline then runs the chosen algorithm at resolution
+`(rows·sy, cols·sx)` and hands the renderer `grid.subindex: (rows, cols, sx·sy) int32`. The
+bitmask and text renderers only pack sub-points into codepoints; the single boolean `dither`
+option is removed. New L2 test: sub-point coverage is monotone at the subgrid resolution.
 
 ## §4 Colour and palette
 
@@ -160,6 +184,13 @@ the renderer call. The normative order becomes:
 Steps 3, 4 and 5 must be no-ops at their defaults. Step 11 replaces the 1.0 `apply_palette` +
 `upscale_nearest` pair; `PixelRenderer` reproduces that pair exactly.
 
+**Continuous mode (S1, decided 2026-11-16).** The pipeline may run without quantisation:
+`algorithm: null` and `palette: null` are legal. In that mode steps 8 and 9 are skipped,
+`grid.luma`/`samples` are derived from the step-7 cells, the renderer must be `pixel` at
+cell 1×1, and `grid.index` carries nearest-source pixels (a pass-through). Lattice Glitch is an
+effect-graph app that consumes the core (seed, masks, presets, bridge, CLI) without depending on
+the CellRenderer quantisation chain.
+
 ## §6 Preset format v3
 
 One format for the whole suite. Human-readable, diffable, portable.
@@ -170,16 +201,28 @@ One format for the whole suite. Human-readable, diffable, portable.
   "app": "glyph",
   "meta": {"name": "", "author": "", "created": ""},
   "renderer": {"name": "glyph_ramp", "style": {}},
-  "palette": {"colors": ["#000000", "#ffffff"], "locked": false, "order": null},
+  "palette": {"colors": ["#000000", "#ffffff"], "locked": false, "order": null,
+              "source": "integrated",
+              "extract": {"from": "image", "n_colors": 16, "rows": null}},
   "pipeline": {
     "algorithm": "floyd_steinberg", "params": {}, "color_metric": "srgb",
     "pixel_size": 1, "max_side": null, "brightness": 0.0, "contrast": 0.0,
     "gamma": 1.0, "saturation": 0.0, "pre_blur": 0.0, "auto_levels": false
   },
-  "effects": [{"name": "scanlines", "params": {}, "enabled": true}],
+  "effects": [{"name": "scanlines", "params": {}, "enabled": true, "stage": "post", "mask": null}],
+  "masks": {"flip": {"kind": "v_flip"}},
+  "fonts": {"ramp": {"family": "DejaVu Sans Mono", "style": "", "fallback": ["mono"]}},
+  "output": {"scale": 1, "width": null, "dpi": null},
   "seed": 0
 }
 ```
+
+**v3 completeness (S4, decided 2026-11-16).** The v3 format keeps every capability the v1/v2
+formats had: `effects[].stage: "pre" | "post"` (default `post`), `palette.source` +
+`palette.extract` (how the palette of a preset was obtained — integrated, extracted from the
+image, or imported), `masks: {id: {...}}` referenced by `effects[].mask`, `fonts: {id: {family,
+style, fallback[]}}` resolved by family name then shipped fallbacks (no absolute paths), and
+`output: {scale, width?, dpi?}` feeding §17. Unknown keys remain preserved on round-trip.
 
 Rules:
 
