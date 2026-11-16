@@ -75,6 +75,10 @@ uv venv --python 3.13 .venv
 uv pip install -r requirements.txt --python .venv/bin/python
 ```
 
+Prérequis GUI (Linux) : `sudo apt install -y libxcb-cursor0` — Qt 6.5+ exige cette
+bibliothèque pour le plugin xcb ; sans elle, l'app refuse de démarrer sur l'écran
+(les tests headless `offscreen` la masquent).
+
 The Windows and Linux installs share the same pinned `requirements.txt`; the render pipeline uses
 committed lookup tables (including the gamma curve), so both platforms produce byte-identical
 output for the same preset and image.
