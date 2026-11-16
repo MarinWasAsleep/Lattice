@@ -55,6 +55,9 @@ le même pari que Studio AAA a fait commercialement avec Dither Boy, Script Slay
 | `STATE.md` | orchestrateur, toi | Registre vivant. |
 | `DEVIATIONS.md` | orchestrateur, relecteur, toi | Protocole et registre. |
 | `prompts/` | orchestrateur, codeur, relecteur | Gabarits adaptés à la suite. |
+| `prompts/generated/` | codeur | Prompts prêts à exécuter, générés par l'orchestrateur (ex. L1). |
+| `docs/graph.html` (+ `graph.png`) | toi, tous les agents | Graphe d'exécution : boucle d'agents + carte par vague/agent, chemin critique. |
+| `DEMARRAGE.md` | toi | Transfert vers Windows et ordre de lancement. |
 
 ## Graphe de dépendances
 

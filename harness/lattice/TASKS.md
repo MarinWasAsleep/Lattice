@@ -11,12 +11,18 @@ dithering application and are cited as `1.0 §n` and `1.1 §n`.
 
 Max concurrency: 4. Two tasks may run together only if their `owns` sets are disjoint.
 
+Routage des exécuteurs (0.1) : `executor` = catégorie de la chaîne OMH
+(`omh_delegate_route`) qui désigne le modèle du codeur — `ultrabrain` (performance ou
+décision critique), `architect` (contrat), `deep`, `deep-work` (coquilles d'applications),
+`capable`, `quick`. Le relecteur est la catégorie `review` sur toutes les cartes ;
+l'orchestrateur ne code jamais.
+
 ---
 
 ## Wave 0 — the shared core
 
 ### L1 · Extract `lattice-core` from Lattice Dither
-- wave: 0 (critical path, do first, alone) · deps: none · executor: DeepSeek · review: strict · size: L
+- wave: 0 (critical path, do first, alone) · deps: none · executor: OMH ultrabrain · review: strict · size: L
 - owns: `pyproject.toml`, `lattice_core/**`, `lattice_dither/**`, `tests/**`, `tools/**`
 - context: §1 §2 §5 §19
 - spec: create the `lattice_core` package and move into it, **without changing behaviour**:
@@ -36,7 +42,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
   - `lattice_core` imports no module from `lattice_dither` (checked by a test that walks the package).
 
 ### L2 · `CellRenderer` contract and `PixelRenderer`
-- wave: 0 · deps: L1 · executor: DeepSeek · review: strict · size: M
+- wave: 0 · deps: L1 · executor: OMH architect · review: strict · size: M
 - owns: `lattice_core/cell.py`, `lattice_core/renderers/__init__.py`,
   `lattice_core/renderers/pixel.py`, `tests/test_cell.py`
 - context: §3 §5
@@ -54,7 +60,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
   - registering a duplicate name raises `ValueError`.
 
 ### L3 · Colour metrics and palette model
-- wave: 0 · deps: L1 · executor: DeepSeek · review: full · size: M
+- wave: 0 · deps: L1 · executor: OMH deep · review: full · size: M
 - owns: `lattice_core/color.py`, `lattice_core/palette.py`, `tests/test_color.py`,
   `tests/test_palette.py`
 - context: §4, 1.1 §12, 1.1 §16
@@ -71,7 +77,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
   - no import of `urllib`, `requests` or `socket` anywhere in `palette.py`.
 
 ### L4 · Preset format v3
-- wave: 0 · deps: L1 · executor: DeepSeek · review: full · size: M
+- wave: 0 · deps: L1 · executor: OMH capable · review: full · size: M
 - owns: `lattice_core/preset.py`, `tests/test_preset.py`, `tests/data/presets/**`
 - context: §6
 - spec: implement §6. `from_json` accepts 1, 2 and 3; 1 and 2 map to `app: "dither"`,
@@ -87,7 +93,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
   - `to_json` output is byte-stable across two calls.
 
 ### L5 · Bridge generalisation
-- wave: 0 · deps: L1 · executor: DeepSeek · review: full · size: M
+- wave: 0 · deps: L1 · executor: OMH capable · review: full · size: M
 - owns: `lattice_core/bridge/**`, `tests/test_bridge.py`, `tests/test_bridge_smoke.py`
 - context: §7
 - spec: implement §7. `ArtCraftClient` with `discover`, `ping`, `render_document`,
@@ -111,7 +117,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
 ## Wave 1 — glyphs
 
 ### L6 · Glyph ramp renderer
-- wave: 1 · deps: L2 · executor: DeepSeek · review: full · size: M
+- wave: 1 · deps: L2 · executor: OMH capable · review: full · size: M
 - owns: `lattice_core/renderers/glyph_ramp.py`, `tests/test_glyph_ramp.py`
 - context: §3 §9
 - spec: implement `glyph_ramp` per §9. Options: `ramp`, `font`, `size`, `fg`, `bg`, `mode`
@@ -128,7 +134,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
   - a missing font file raises `ValueError` naming the path.
 
 ### L7 · Shape-matched glyph renderer
-- wave: 1 · deps: L6 · executor: DeepSeek · review: strict · size: L
+- wave: 1 · deps: L6 · executor: OMH ultrabrain · review: strict · size: L
 - owns: `lattice_core/renderers/glyph_shape.py`, `tests/test_glyph_shape.py`
 - context: §3 §9
 - spec: implement `glyph_shape` per §9. Six sampling circles per cell (top/middle/bottom ×
@@ -146,7 +152,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
   - `p` and `q` are distinguished on a test image that differs only by vertical ink position.
 
 ### L8 · Bitmask renderers
-- wave: 1 · deps: L2 · executor: DeepSeek · review: full · size: M
+- wave: 1 · deps: L2 · executor: OMH capable · review: full · size: M
 - owns: `lattice_core/renderers/bitmask.py`, `tests/test_bitmask.py`
 - context: §3 §9
 - spec: implement `bitmask` per §9. One code path, four geometries: `braille` (2×4, U+2800+mask),
@@ -161,7 +167,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
   - every emitted codepoint is a valid Unicode scalar in the documented range.
 
 ### L9 · Text-halftone renderer
-- wave: 1 · deps: L2 · executor: DeepSeek · review: strict · size: L
+- wave: 1 · deps: L2 · executor: OMH deep · review: strict · size: L
 - owns: `lattice_core/renderers/text.py`, `tests/test_text.py`
 - context: §3 §10
 - spec: implement `text` per §10. Lay out a flowing paragraph with real font metrics: kerning, line
@@ -178,7 +184,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
   - an empty `text` raises `ValueError` naming the option.
 
 ### L10 · Glyph set browser and non-Latin ramps
-- wave: 1 · deps: L6 · executor: DeepSeek · review: light · size: M
+- wave: 1 · deps: L6 · executor: OMH capable · review: light · size: M
 - owns: `lattice_core/ui/glyph_browser.py`, `lattice_core/data/ramps.json`,
   `tests/test_ramps.py`
 - context: §9
@@ -193,7 +199,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
   - selecting a set updates the preview within 100 ms.
 
 ### L11 · SVG export
-- wave: 1 · deps: L2 · executor: DeepSeek · review: full · size: M
+- wave: 1 · deps: L2 · executor: OMH capable · review: full · size: M
 - owns: `lattice_core/svg.py`, `tests/test_svg.py`
 - context: §11
 - spec: implement §11. `pixel` → `<rect>` per cell, merged into runs. `glyph_ramp`, `glyph_shape`,
@@ -207,7 +213,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
   - the file opens in a browser without repair (checked by parsing, not by launching a browser).
 
 ### L12 · GlyphCraft application shell
-- wave: 1 · deps: L6, L8, L9, L11 · executor: DeepSeek · review: full · size: L
+- wave: 1 · deps: L6, L8, L9, L11 · executor: OMH deep-work · review: full · size: L
 - owns: `lattice_glyph/**`, `tests/test_glyph_app.py`
 - context: §1 §2 §7 §8 §9 §10 §11
 - spec: the `lattice-glyph` distribution. PySide6 window with a renderer selector, a live preview, a
@@ -225,7 +231,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
 ## Wave 2 — glitch
 
 ### L13 · Feedback buffer
-- wave: 2 · deps: L2 · executor: DeepSeek · review: strict · size: M
+- wave: 2 · deps: L2 · executor: OMH capable · review: strict · size: M
 - owns: `lattice_core/effects/feedback.py`, `tests/test_feedback.py`
 - context: §12
 - spec: implement §12. `f(n) = decay * T(f(n-1)) + input`, `decay` in `[0, 0.99]`, `T` in
@@ -240,7 +246,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
   - the same seed produces identical output across two calls.
 
 ### L14 · Displacement
-- wave: 2 · deps: L13 · executor: DeepSeek · review: full · size: M
+- wave: 2 · deps: L13 · executor: OMH capable · review: full · size: M
 - owns: `lattice_core/effects/displace.py`, `tests/test_displace.py`
 - context: §13
 - spec: implement §13. Map source: still, sequence, noise field, or the feedback buffer. Modes:
@@ -255,7 +261,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
   - output shape equals input shape for every mode.
 
 ### L15 · Pixel sort
-- wave: 2 · deps: L2 · executor: DeepSeek · review: full · size: M
+- wave: 2 · deps: L2 · executor: OMH capable · review: full · size: M
 - owns: `lattice_core/effects/pixel_sort.py`, `tests/test_pixel_sort.py`
 - context: §14
 - spec: implement §14. Three thresholds (`black`, `brightness`, `white`), direction (`rows`,
@@ -270,7 +276,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
   - output shape equals input shape.
 
 ### L16 · Channel shift
-- wave: 2 · deps: L2 · executor: DeepSeek · review: full · size: S
+- wave: 2 · deps: L2 · executor: OMH quick · review: full · size: S
 - owns: `lattice_core/effects/channel_shift.py`, `tests/test_channel_shift.py`
 - context: §15
 - spec: implement §15. Per-channel translate, scale, radial. R and B pushed opposite by default.
@@ -283,7 +289,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
   - output shape equals input shape.
 
 ### L17 · NTSC / VHS
-- wave: 2 · deps: L2 · executor: DeepSeek · review: strict · size: L
+- wave: 2 · deps: L2 · executor: OMH deep · review: strict · size: L
 - owns: `lattice_core/effects/ntsc.py`, `tests/test_ntsc.py`
 - context: §16
 - spec: implement §16. Chain: RGB → YIQ → chroma low-pass → chroma subsample → noise → demodulate
@@ -299,7 +305,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
   - output shape equals input shape.
 
 ### L18 · CRT / scanlines
-- wave: 2 · deps: L2 · executor: DeepSeek · review: full · size: M
+- wave: 2 · deps: L2 · executor: OMH capable · review: full · size: M
 - owns: `lattice_core/effects/crt.py`, `tests/test_crt.py`
 - context: §17
 - spec: implement §17. Scanline beam profile, phosphor mask (`slot`, `aperture_grille`,
@@ -314,7 +320,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
   - output shape equals input shape.
 
 ### L19 · Seed system and masks
-- wave: 2 · deps: L2 · executor: DeepSeek · review: full · size: M
+- wave: 2 · deps: L2 · executor: OMH capable · review: full · size: M
 - owns: `lattice_core/seed.py`, `lattice_core/mask.py`, `tests/test_seed.py`,
   `tests/test_mask.py`
 - context: §18
@@ -330,7 +336,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
   - the seed is serialised into the preset and restored on load.
 
 ### L20 · GlitchCraft application shell
-- wave: 2 · deps: L13, L14, L15, L16, L17, L18, L19 · executor: DeepSeek · review: full · size: L
+- wave: 2 · deps: L13, L14, L15, L16, L17, L18, L19 · executor: OMH deep-work · review: full · size: L
 - owns: `lattice_glitch/**`, `tests/test_glitch_app.py`
 - context: §1 §2 §7 §8 §12 §13 §14 §15 §16 §17 §18
 - spec: the `lattice-glitch` distribution. PySide6 window with an effect stack, a live preview, a
@@ -348,7 +354,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
 ## Wave 3 — integration
 
 ### L21 · Preset interchange and gallery
-- wave: 3 · deps: L12, L20 · executor: DeepSeek · review: full · size: M
+- wave: 3 · deps: L12, L20 · executor: OMH capable · review: full · size: M
 - owns: `lattice_core/gallery.py`, `lattice_core/ui/gallery.py`, `tests/test_gallery.py`,
   `presets/**`
 - context: §6 §11
@@ -364,7 +370,7 @@ Max concurrency: 4. Two tasks may run together only if their `owns` sets are dis
   - the gallery output is a single PNG under 4 MB.
 
 ### L22 · Acceptance in PhotoCraft and DesignCraft
-- wave: 3 · deps: L21 · executor: DeepSeek · review: strict · size: M
+- wave: 3 · deps: L21 · executor: OMH capable · review: strict · size: M
 - owns: `tools/acceptance.py`, `harness/lattice/STATE.md`
 - context: §7 §19
 - spec: an end-to-end acceptance script. For each of the three applications: pull the visible
