@@ -63,16 +63,17 @@ last_update: 2026-11-16
   `tools/gen_gamma_table.py`) : rendu bit-à-bit identique Windows/Linux (E6 approuvé par l'humain).
   Baseline témoin `07_grey16_stucki` régénérée ; `01_gameboy`/`05_ega_riemersma` inchangés
   (gamma 1.0). Suite : **1212 verts sur Mint**. Nouvelle carte L23 (packaging Win/Linux).
-- 2026-11-16: **rotation des backends (décision utilisateur)** — toutes les tâches de codage
-  (cartes ET relectures) tournent par ordre de dispatch sur **nous → mistral → opencode-go →
-  nous → …**. Modèles : standard = deepseek-v4.1-flash hébergé par chacun
-  (`deepseek-v4-flash-0731` chez nous, `deepseek-v4-1-flash-1017` chez mistral,
-  `deepseek-v4.1-flash` chez opencode-go) ; lourdes = le fort de chaque backend
-  (`deepseek-v4-pro` chez nous — à confirmer par probe, `mistral-large-4` chez mistral,
-  `kimi-k3.1-pro` chez opencode-go). Providers Hermes : custom:mistral (MISTRAL_API_KEY),
-  custom:opencode-go (opencode.ai/inference/go/openai/v1, OPENCODE_API_KEY, 32 modèles Go
-  dont deepseek-v4.1-flash). L1 a tourné sur nous ; **prochain dispatch : mistral (L2)**.
-  L'orchestrateur pose la route OMH (omh_delegate_route, provider + model) avant chaque dispatch.
+- 2026-11-16: **rotation des backends (décision utilisateur, probes 6/6 verts)** — toutes les
+  tâches de codage (cartes ET relectures) tournent par ordre de dispatch sur **nous → mistral →
+  opencode-go → nous → …**. Modèles **prouvés par probes** : standard = deepseek-v4.1-flash
+  hébergé par chacun (`deepseek/deepseek-v4-flash-0731` chez nous — préfixe vendor obligatoire,
+  `deepseek-v4-1-flash-1017` chez mistral, `deepseek-v4.1-flash` chez opencode-go) ; lourdes =
+  le fort de chaque backend (`deepseek/deepseek-v4-pro` chez nous — probe vert, `mistral-large-4`
+  chez mistral — listé par l'API, `kimi-k3.1-pro` chez opencode-go — probe vert). Providers Hermes :
+  custom:mistral (MISTRAL_API_KEY), custom:opencode-go (opencode.ai/inference/go/openai/v1,
+  OPENCODE_API_KEY, 32 modèles Go). L1 a tourné sur nous ; **prochain dispatch : mistral (L2)**.
+  L'orchestrateur pose la route OMH (omh_delegate_route, provider + model exacts ci-dessus) avant
+  chaque dispatch.
 - 2026-11-16: **L1 done — commit `696964d`**, gates G1-G7 verts côté orchestrateur (G2 : 1216 test
   cases passed, dont 4 nouveaux tests de packaging AST ; G3 ruff propre ; G4 `check_contract` OK ;
   G5/G7 témoins bit-à-bit), **review PASS** (39 paires renommées vérifiées au niveau tokens :
