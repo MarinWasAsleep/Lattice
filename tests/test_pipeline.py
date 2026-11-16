@@ -1,19 +1,28 @@
-"""Tests for the render pipeline (T09), using test-only registry entries."""
+"""Tests for the render pipeline (T09 and §3/§5 L2b), using test-only registry entries."""
 
 from __future__ import annotations
 
+import json
 import sys
 import types
+from contextlib import contextmanager
 
 import numpy as np
 import pytest
 
-from lattice_core import color, pipeline, registry
+import lattice_core.cell as cell_module
+import lattice_core.pipeline as pipeline
+from lattice_core import color, registry
+from lattice_core.cell import RenderStyle, register_renderer
 from lattice_core.pipeline import (
+    POST_EFFECT_SEED_OFFSET,
     EffectInstance,
     PaletteSpec,
     PipelineSpec,
+    _coverage_table,
+    prepare_image,
     render,
+    render_with_palette,
     resolve_palette,
 )
 from lattice_core.registry import AlgorithmInfo, EffectInfo
@@ -68,7 +77,7 @@ def _constant(value: float):
     return effect
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def test_registry(monkeypatch):
     """Register test-only algorithms and effects by patching the registry dicts."""
     algorithms = {
@@ -363,3 +372,312 @@ def test_disabled_effect_does_not_shift_the_seed(test_registry, field):
     alone = render(src, _spec(**{field: [noise]}))
     shifted = render(src, _spec(**{field: [disabled, noise]}))
     assert np.array_equal(alone, shifted)
+
+
+# ---------------------------------------------------------------------------
+# L2b (§3/§5 H11): continuous mode, sub-points, geometry, stencil, render_frame
+# ---------------------------------------------------------------------------
+
+BW_FLOAT = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], dtype=np.float32)
+
+
+def _bw_palette() -> np.ndarray:
+    """The BW palette as the float32 array the renderer receives."""
+    return BW_FLOAT.copy()
+
+
+class _Stub:
+    """Configurable stub renderer for the pipeline tests, recording every grid."""
+
+    def __init__(self, name, aspect=1.0, subgrid=(1, 1), points=None,
+                 forbid=False, bad_frame=False):
+        self.name = name
+        self._aspect, self._subgrid = aspect, subgrid
+        self._points, self._forbid = points, forbid
+        self._bad_frame = bad_frame
+        self.calls, self.grid, self.style = 0, None, None
+        if points is not None:
+            self.sample_points = self._sample_points
+        if forbid or bad_frame:
+            self.render_frame = self._render_frame
+
+    def _sample_points(self):
+        return list(self._points)
+
+    def _render_frame(self, grid, palette, style):
+        if self._forbid:
+            raise AssertionError(f"{self.name}.render_frame called")
+        return np.zeros((1, 1, 3), dtype=np.float32)
+
+    def cell_aspect(self):
+        return self._aspect
+
+    def subgrid(self):
+        return self._subgrid
+
+    def consumes(self):
+        return frozenset({"index"})
+
+    def render(self, grid, palette, style):
+        if self._forbid:
+            raise AssertionError(f"{self.name}.render called")
+        self.calls += 1
+        self.grid = grid
+        self.style = style
+        blank = np.zeros((grid.rows * grid.cell_h, grid.cols * grid.cell_w, 3), dtype=np.uint8)
+        return color.to_pil(blank)
+
+
+@contextmanager
+def _registered(renderer):
+    """Register a stub renderer for the block, then unregister it."""
+    register_renderer(renderer)
+    try:
+        yield
+    finally:
+        cell_module._RENDERERS.pop(renderer.name, None)
+
+
+def _luma(img: np.ndarray) -> np.ndarray:
+    """Linear-light luminance of a float32 image, as the pipeline computes it."""
+    linear = color.srgb_to_linear(img)
+    return (0.2126 * linear[:, :, 0] + 0.7152 * linear[:, :, 1]
+            + 0.0722 * linear[:, :, 2]).astype(np.float32)
+
+
+def _render_grid(aspect, src, pixel_size, subgrid=(1, 1), points=None):
+    """Render src through a stub renderer of the given aspect and return its grid."""
+    spy = _Stub(f"geom_{aspect}_{subgrid}_{pixel_size}", aspect=aspect, subgrid=subgrid,
+                points=points)
+    with _registered(spy):
+        render_with_palette(src, _spec(pixel_size=pixel_size), _bw_palette(), renderer=spy.name)
+    return spy.grid
+
+
+def test_continuous_mode_matches_step5_to_post():
+    """Continuous mode sends the step-5 image straight to the post-effects, bit for bit."""
+    src = _image(24, 20)
+    spec = PipelineSpec(algorithm_id=None, palette=None)
+    work = prepare_image(src, spec)
+    assert np.array_equal(render(src, spec), color.to_rgb8(work))
+    noisy = PipelineSpec(
+        algorithm_id=None, palette=None,
+        post_effects=[EffectInstance("test_noise", {"amount": 1.0})],
+    )
+    rng = np.random.default_rng(POST_EFFECT_SEED_OFFSET)
+    field = rng.random(work.shape[:2], dtype=np.float32)[:, :, None]
+    expected = color.to_rgb8(np.clip(work + field, 0.0, 1.0))
+    assert np.array_equal(render(src, noisy), expected)
+
+
+def test_continuous_mode_calls_no_renderer_and_builds_no_grid(monkeypatch):
+    """No CellGrid is built and no renderer is called when algorithm and palette are null."""
+    built = []
+    monkeypatch.setattr(pipeline, "CellGrid", lambda *a, **k: built.append(k))
+    with _registered(_Stub("never", forbid=True)):
+        out = render(_image(16, 16),
+                     PipelineSpec(algorithm_id=None, palette=None, renderer="never"))
+    assert built == []
+    assert out.shape == (16, 16, 3)
+
+
+@pytest.mark.parametrize("kw", [{"algorithm_id": None}, {"palette": None}])
+def test_half_null_spec_is_rejected_by_both_entry_points(kw):
+    """prepare_image and render both reject a half-null spec with the same ValueError."""
+    spec = PipelineSpec(**kw)
+    with pytest.raises(ValueError, match="continuous mode"):
+        render(_image(), spec)
+    with pytest.raises(ValueError, match="continuous mode"):
+        prepare_image(_image(), spec)
+
+
+def test_spec_renderer_and_style_reach_the_pipeline():
+    """PipelineSpec.renderer and renderer_style are propagated to the renderer."""
+    spy = _Stub("spec_renderer")
+    with _registered(spy):
+        out = render(_image(16, 16),
+                     _spec(pixel_size=2, renderer="spec_renderer", renderer_style={"scale": 2}))
+    assert out.shape == (16, 16, 3)
+    assert spy.calls == 1 and (spy.grid.cell_w, spy.grid.cell_h) == (2, 2)
+    assert spy.style.options == {"scale": 2}
+
+
+def test_explicit_renderer_argument_overrides_the_spec():
+    """The renderer keyword argument wins over PipelineSpec.renderer."""
+    spy = _Stub("explicit_renderer")
+    with _registered(spy):
+        render(_image(12, 12), _spec(renderer="pixel"), renderer="explicit_renderer")
+    assert spy.calls == 1
+
+
+@pytest.mark.parametrize(
+    "overrides,exc_type,match",
+    [({"renderer": "nope"}, KeyError, "nope"),
+     ({"renderer_style": {"x": object()}}, ValueError, "render style")],
+)
+def test_invalid_renderer_spec_raises(overrides, exc_type, match):
+    """An unknown renderer name is a KeyError; a non-JSON style is a ValueError."""
+    with pytest.raises(exc_type) as exc:
+        render(_image(), _spec(**overrides))
+    assert match in str(exc.value)
+
+
+def test_subindices_have_the_subgrid_shape_and_dtype():
+    """A (2, 3) subgrid fills subindex with (rows, cols, 6) int32."""
+    grid = _render_grid(1.0, _image(16, 20), 2, subgrid=(2, 3))
+    assert grid.subindex is not None
+    assert grid.subindex.shape == (grid.rows, grid.cols, 6)
+    assert grid.subindex.dtype == np.int32
+
+
+def test_subindices_carry_detail_from_inside_the_cell():
+    """A horizontal edge inside one cell gives different sub-indices on its two rows."""
+    src = np.zeros((8, 8, 3), dtype=np.float32)
+    src[2:] = 1.0
+    grid = _render_grid(1.0, src, 4, subgrid=(1, 2))
+    assert grid.subindex.shape == (2, 2, 2)
+    top, bottom = grid.subindex[0, 0]
+    assert top != bottom, "sub-points of one cell must not all share one index"
+
+
+def test_subpoint_coverage_is_monotone_along_a_source_ramp():
+    """Sub-point coverage rises along x on a ramp, including inside a single cell."""
+    palette = np.array([[v / 255.0] * 3 for v in range(256)], dtype=np.float32)
+    ramp = np.repeat(np.linspace(0.0, 1.0, 20, dtype=np.float32)[None, :, None], 8, axis=0)
+    src = np.ascontiguousarray(np.repeat(ramp, 3, axis=2))
+    spy = _Stub("sub_mono", subgrid=(2, 3))
+    with _registered(spy):
+        render_with_palette(src, _spec(pixel_size=2), palette, renderer="sub_mono")
+    grid = spy.grid
+    flat = grid.subindex.reshape(grid.rows, grid.cols, 3, 2).transpose(0, 2, 1, 3)
+    covers = _coverage_table(palette)[flat.reshape(grid.rows * 3, grid.cols * 2)]
+    assert np.all(np.diff(covers, axis=1) >= 0), "coverage must not fall along the ramp"
+    inside = np.diff(covers.reshape(grid.rows * 3, grid.cols, 2), axis=2)
+    assert np.any(inside > 0), "the two sub-points of a cell must resolve the ramp"
+
+
+def test_no_subindex_when_subgrid_is_one():
+    """A (1, 1) renderer receives subindex None."""
+    spy = _Stub("no_sub")
+    with _registered(spy):
+        render_with_palette(_image(16, 16), _spec(pixel_size=2), _bw_palette(), renderer="no_sub")
+    assert spy.grid.subindex is None
+
+
+def test_sample_points_count_and_positions_are_respected():
+    """An explicit sample_points() stencil sets k and the sampled source positions."""
+    points = [(0.25, 0.25), (0.75, 0.75)]
+    src = np.zeros((8, 8, 3), dtype=np.float32)
+    src[0, 0] = 1.0
+    src[1, 1] = 0.5
+    spy = _Stub("stencil_pos", points=points)
+    with _registered(spy):
+        render_with_palette(src, _spec(pixel_size=2), _bw_palette(), renderer="stencil_pos")
+    lum = _luma(src)
+    assert spy.grid.samples.shape == (4, 4, 2)
+    assert spy.grid.samples[0, 0, 0] == pytest.approx(lum[0, 0], abs=1e-6)
+    assert spy.grid.samples[0, 0, 1] == pytest.approx(lum[1, 1], abs=1e-6)
+
+
+def test_stencil_positions_include_the_cell_origin():
+    """Cell (1, 2) samples inside its own cell, not at the top-left of the image."""
+    src = np.zeros((8, 8, 3), dtype=np.float32)
+    src[2, 4] = 1.0
+    spy = _Stub("stencil_origin", points=[(0.25, 0.25)])
+    with _registered(spy):
+        render_with_palette(src, _spec(pixel_size=2), _bw_palette(), renderer="stencil_origin")
+    lum = _luma(src)
+    samples = spy.grid.samples
+    assert samples.shape == (4, 4, 1)
+    assert samples[1, 2, 0] == pytest.approx(lum[2, 4], abs=1e-6)
+    assert samples[1, 2, 0] > 0.0
+    assert samples[0, 0, 0] == pytest.approx(0.0, abs=1e-6)
+
+
+def test_default_stencil_is_the_cell_mean_luma_for_a_pixel_renderer():
+    """Without sample_points() and subgrid (1, 1), samples hold the source cell mean luma."""
+    src = np.zeros((9, 9, 3), dtype=np.float32)
+    src[1, 1] = 1.0
+    spy = _Stub("stencil_default")
+    with _registered(spy):
+        render_with_palette(src, _spec(pixel_size=3), _bw_palette(), renderer="stencil_default")
+    cells = prepare_image(src, _spec(pixel_size=3))
+    assert spy.grid.samples.shape == (3, 3, 1)
+    assert spy.grid.samples[0, 0, 0] == pytest.approx(_luma(cells)[0, 0], abs=1e-6)
+
+
+def test_default_stencil_for_a_subgrid_renderer_is_the_uniform_sx_by_sy_grid():
+    """Without sample_points(), a (2, 3) renderer gets k = 6 points at the sub-point centres."""
+    src = np.zeros((12, 12, 3), dtype=np.float32)
+    src[:, 0] = 1.0
+    spy = _Stub("stencil_uniform", subgrid=(2, 3))
+    with _registered(spy):
+        render_with_palette(src, _spec(pixel_size=2), _bw_palette(), renderer="stencil_uniform")
+    samples = spy.grid.samples
+    assert samples.shape == (spy.grid.rows, spy.grid.cols, 6)
+    left, right = samples[0, 0, ::2], samples[0, 0, 1::2]
+    assert np.allclose(left, 1.0, atol=1e-6), "the left sub-points sit on the white column"
+    assert np.allclose(right, 0.0, atol=1e-6), "the right sub-points sit on the black columns"
+
+
+@pytest.mark.parametrize(
+    "aspect,pixel_size,expected",
+    [(0.5, 4, (2, 4)), (2.0, 4, (4, 2)), (0.5, 1, (1, 1)), (2.0, 1, (1, 1)), (1.0, 3, (3, 3))],
+)
+def test_geometry_follows_the_h11_rule(aspect, pixel_size, expected):
+    """cell_w/cell_h follow the §5 step-6 rule and the grid preserves the source aspect."""
+    src = np.full((20, 30, 3), 0.5, dtype=np.float32)
+    grid = _render_grid(aspect, src, pixel_size)
+    assert (grid.cell_w, grid.cell_h) == expected
+    ratio = (grid.cols * grid.cell_w) / (grid.rows * grid.cell_h)
+    assert ratio == pytest.approx(30 / 20, rel=0.1)
+
+
+def test_render_frame_wrong_shape_is_a_typed_error():
+    """A render_frame of the wrong shape raises ValueError, not an IndexError."""
+    with _registered(_Stub("bad_frame", bad_frame=True)):
+        with pytest.raises(ValueError, match="render_frame returned shape"):
+            render_with_palette(_image(16, 16), _spec(pixel_size=2), _bw_palette(),
+                                renderer="bad_frame")
+
+
+def test_style_stores_a_copy_of_the_caller_options():
+    """Mutating the caller dict after construction does not change the style."""
+    options = {"scale": 1, "fg": "#ffffff"}
+    style = RenderStyle(options=options)
+    options["scale"] = 99
+    assert style.options == {"scale": 1, "fg": "#ffffff"}
+    assert json.loads(json.dumps(dict(style.options))) == style.options
+
+
+@pytest.mark.parametrize("pixel_size", [1, 2, 3, 5])
+@pytest.mark.parametrize("palette_id", range(5))
+def test_pixel_renderer_matches_the_frozen_1_0_path(pixel_size, palette_id):
+    """pixel reproduces downscale → nearest_index → apply_palette → upscale_nearest exactly."""
+    rng = np.random.default_rng(1000 + palette_id)
+    src = np.ascontiguousarray(rng.random((37, 23, 3), dtype=np.float32))
+    palette = np.ascontiguousarray(rng.random((4 + palette_id, 3), dtype=np.float32))
+    cells = color.downscale(src, pixel_size)
+    idx = color.nearest_index(cells, palette)
+    want = color.upscale_nearest(color.apply_palette(idx, palette), pixel_size, (37, 23))
+    spec = _spec(pixel_size=pixel_size, palette=PaletteSpec(source="custom", colors=GREYS[:4]))
+    assert np.array_equal(render_with_palette(src, spec, palette), color.to_rgb8(want))
+
+
+def test_pixel_renderer_matches_twenty_random_images_and_five_palettes():
+    """20 seeded images x 5 float palettes stay bit-identical to the 1.0 render path."""
+    rng = np.random.default_rng(4242)
+    palettes = [np.ascontiguousarray(rng.random((k, 3), dtype=np.float32))
+                for k in (2, 3, 5, 8, 16)]
+    for index in range(20):
+        height, width = 11 + index, 7 + index * 2
+        src = np.ascontiguousarray(rng.random((height, width, 3), dtype=np.float32))
+        for pixel_size in (1, 3):
+            cells = color.downscale(src, pixel_size)
+            for palette in palettes:
+                idx = color.nearest_index(cells, palette)
+                want = color.upscale_nearest(color.apply_palette(idx, palette), pixel_size,
+                                             (height, width))
+                spec = _spec(pixel_size=pixel_size)
+                got = render_with_palette(src, spec, palette)
+                assert np.array_equal(got, color.to_rgb8(want))

@@ -229,7 +229,10 @@ def test_invariant_cell_aspect_is_width_over_height():
 
 def test_pipeline_derives_grid_geometry_from_cell_aspect():
     src = np.full((20, 30, 3), 0.5, dtype=np.float32)
-    grid = _render_with_stub(0.5, src, pixel_size=1)
+    # règle H11 §5-6 (gelée 0.1.0) : a=0.5 < 1 → cell_h = pixel_size = 2,
+    # cell_w = max(1, floor(2*0.5+0.5)) = 1 → (1, 2) ; à pixel_size=1 la règle
+    # donne (1, 1) — le test pré-gel assertait (1, 2) par l'arrondi half-to-even
+    grid = _render_with_stub(0.5, src, pixel_size=2)
     assert (grid.cell_w, grid.cell_h) == (1, 2)
     out_aspect = (grid.cols * grid.cell_w) / (grid.rows * grid.cell_h)
     assert out_aspect == pytest.approx(30 / 20)

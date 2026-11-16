@@ -36,18 +36,25 @@ class RenderStyle:
     options: Mapping[str, object]
 
     def __post_init__(self) -> None:
-        """Reject options that are not serialisable or do not round-trip through JSON."""
+        """Reject options that do not round-trip through JSON, then store a copy."""
         try:
             encoded = json.dumps(dict(self.options))
         except (TypeError, ValueError) as exc:
             raise ValueError(f"render style options are not JSON-serialisable: {exc}") from exc
-        if json.loads(encoded) != dict(self.options):
+        decoded = json.loads(encoded)
+        if decoded != dict(self.options):
             raise ValueError("render style options do not round-trip through JSON without loss")
+        object.__setattr__(self, "options", decoded)
 
 
 @runtime_checkable
 class CellRenderer(Protocol):
-    """How a quantised CellGrid is drawn; the pipeline decides which palette entry."""
+    """How a quantised CellGrid is drawn; the pipeline decides which palette entry.
+
+    Optional capabilities the pipeline probes with getattr (H11): sample_points()
+    returning a (k, 2) stencil of positions in [0, 1] x [0, 1], render_frame()
+    for exact float frames, and layout() for structured export.
+    """
 
     name: str
 
@@ -60,7 +67,8 @@ class CellRenderer(Protocol):
         ...
 
     def consumes(self) -> frozenset[str]:
-        """Return the subset of {"index", "luma", "samples"} this renderer reads."""
+        """Return the subset of {"index", "luma", "samples", "coverage",
+        "subindex"} that this renderer reads."""
         ...
 
     def render(self, grid: CellGrid, palette: Palette, style: RenderStyle) -> PILImage.Image:
