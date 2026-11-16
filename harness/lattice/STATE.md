@@ -63,15 +63,19 @@ last_update: 2026-11-16
   `tools/gen_gamma_table.py`) : rendu bit-à-bit identique Windows/Linux (E6 approuvé par l'humain).
   Baseline témoin `07_grey16_stucki` régénérée ; `01_gameboy`/`05_ega_riemersma` inchangés
   (gamma 1.0). Suite : **1212 verts sur Mint**. Nouvelle carte L23 (packaging Win/Linux).
-- 2026-11-16: **rotation des backends (décision utilisateur, probes 6/6 verts)** — toutes les
+- 2026-11-16: **rotation des backends (décision utilisateur)** — toutes les
   tâches de codage (cartes ET relectures) tournent par ordre de dispatch sur **nous → mistral →
   opencode-go → nous → …**. Modèles **prouvés par probes** : standard = deepseek-v4.1-flash
   hébergé par chacun (`deepseek/deepseek-v4-flash-0731` chez nous — préfixe vendor obligatoire,
   `deepseek-v4-1-flash-1017` chez mistral, `deepseek-v4.1-flash` chez opencode-go) ; lourdes =
   le fort de chaque backend (`deepseek/deepseek-v4-pro` chez nous — probe vert, `mistral-large-4`
   chez mistral — listé par l'API, `kimi-k3.1-pro` chez opencode-go — probe vert). Providers Hermes :
-  custom:mistral (MISTRAL_API_KEY), custom:opencode-go (opencode.ai/inference/go/openai/v1,
-  OPENCODE_API_KEY, 32 modèles Go). L1 a tourné sur nous ; **prochain dispatch : mistral (L2)**.
+  custom:mistral (MISTRAL_API_KEY), custom:opencode-go (**opencode.ai/zen/go/v1,
+  OPENCODE_GO_API_KEY — abonnement Go ; header `x-opencode-session` requis par le backend,
+  envoyé nativement par Hermes ≥ 0.21.6 — corrigé le soir : la doc du matin disait
+  inference/go/openai/v1 + OPENCODE_API_KEY, config réellement établie au soir avec probes
+  de bout en bout : deepseek-v4.1-flash et kimi-k3.1-pro → « pong » verts via route OMH)**.
+  L1 a tourné sur nous ; **prochain dispatch : mistral (L2)**.
   L'orchestrateur pose la route OMH (omh_delegate_route, provider + model exacts ci-dessus) avant
   chaque dispatch.
 - 2026-11-16: **L1 done — commit `696964d`**, gates G1-G7 verts côté orchestrateur (G2 : 1216 test
@@ -167,5 +171,5 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
 - **L4** (preset v3, deps L2b ✓) et **L-UI** (widgets partagés, après L5 ✓) prêtes : 2 voies
   dispatchables immédiatement. Vague 1 (L6+) prête dès L4/L-UI lancés (deps L2b ✓).
 - Chemin critique : L2 done → coquilles L12/L20 (vague 1/2). Prochain créneau lourd : cycle
-  complet Opus → mistral-large-4 (19:xx) → v4-pro (21:xx) → kimi (opencode-go non configuré) →
-  retour Opus.
+  complet Opus → mistral-large-4 → v4-pro → kimi (opencode-go ✓ configuré le 2026-11-16
+  soir). L4 + L-UI prêtes au dispatch.
