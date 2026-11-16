@@ -11,7 +11,7 @@ checkpoints. Tout se joue sur des fichiers (`CONTRACT.md`, `TASKS.md`, `STATE.md
 |---|---|---|---|---|---|
 | `v1.0/` | **terminé** | L'app de tramage (alors nommée DitherCraft), v1 | 18 (T00-T16, T07 en A/B) | G1-G4 | H0-H4 |
 | `v1.1/` | **feature-complete** | L'app de tramage, v1.1 (qualité, workflow, ergonomie) | 18 (T17-T34) | +G5, G6 | H5-H9 — H6/H7/H8/H9 encore ouverts (humain) |
-| `lattice/` | **en cours (0.1)** | La suite : `lattice-core` + Lattice Dither, Lattice Glyph, Lattice Glitch | 23 (L1-L23, 4 vagues) — tout « todo », NEXT : L1 seul | +G7, G8, G9 | H10-H14 |
+| `lattice/` | **en cours (0.1)** | La suite : `lattice-core` + Lattice Dither, Lattice Glyph, Lattice Glitch | 24 (L1-L23 + L2b, 4 vagues) — L1, L2 done ; H11 (gel) en cours | +G7, G8, G9 | H10-H14 |
 
 `docs/graph.html` (+ `graph.png`) : le graph « par quel agent » — boucle d'agents + cartes par vague.
 `lattice/DEMARRAGE.md` : installer l'environnement et lancer le harness sur cette machine.

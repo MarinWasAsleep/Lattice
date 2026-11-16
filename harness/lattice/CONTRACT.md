@@ -45,9 +45,10 @@ lattice-glitch    import lattice_glitch    depends on lattice-core>=0.1,<0.2
 
 **What L1 actually moves** (current tree at HEAD `b4b0aea`, portage Linux approuvé): `core/{color,pipeline,presets,types,registry}.py`,
 the `palettes/` package, `dither/` (from `algorithms/`), `effects/`, `bridge/`. The application keeps
-`ui/`, `export/`, `preprocess/`, `i18n/`, `core/animation.py` — moved into lattice_core by card L-LOOP (N-image loop, decided 2026-11-16); full video
-is out of scope for the suite) and its own `cli.py` (the 1.1 verbs are app-specific; the shared CLI
-frame is created with the application shells). There is no `core/palette.py` in the current tree:
+`ui/`, `export/`, `preprocess/`, `i18n/` and its own `cli.py` (the 1.1 verbs are app-specific; the shared CLI
+frame is created with the application shells). `core/animation.py` is moved into `lattice_core` by
+card L-LOOP (N-image loop, decided 2026-11-16); full video is out of scope for the suite (H11
+coherence pass). There is no `core/palette.py` in the current tree:
 palettes are a package. `image.py`, `cell.py` and `renderers/` are created by the cards (L2+).
 
 - `lattice-core` base install depends on **numpy, numba, Pillow only**. PySide6 is an optional
@@ -106,7 +107,8 @@ class CellRenderer(Protocol):
     name: str
     def cell_aspect(self) -> float: ...
     def subgrid(self) -> tuple[int, int]: ...  # default (1, 1); braille (2, 4), sextant (2, 3) (S3)
-    def consumes(self) -> frozenset[str]: ...  # subset of {"index", "luma", "samples"} (S2)
+    def consumes(self) -> frozenset[str]: ...  # subset of {"index", "luma", "samples",
+                                               # "coverage", "subindex"} (H11)
     def render(self, grid: CellGrid, palette: np.ndarray, style: RenderStyle) -> Image.Image: ...
 ```
 
@@ -115,7 +117,9 @@ Registry: `register_renderer`, `get_renderer(name)`, `list_renderers()`.
 Normative invariants, each one a test:
 
 1. `render` returns an image of exactly `(cols * cell_w, rows * cell_h)` pixels.
-2. `render` is pure: identical inputs produce identical output, no module-level state.
+2. `render` is pure: identical inputs produce identical output. Module-level state is restricted
+   to deterministic, input-keyed caches (e.g. glyph shape vectors, §9); a cache never changes the
+   output (H11, decided 2026-11-16).
 3. `render` does not mutate `grid` or `palette`.
 4. `cell_aspect()` returns width/height of one cell. The pipeline uses it to choose the grid so the
    output preserves the source aspect ratio.
@@ -137,6 +141,9 @@ coverage    = 0.0 where lum_max == lum_min
 
 `samples` is produced by supersampling the source cell on a `k`-point stencil. `k` is a renderer
 property: 1 for `pixel`, 6 for `glyph_shape`, 8 for braille, 6 for sextant, 4 for quadrant.
+The stencil geometry is renderer-specific and declared by the optional `sample_points()` method
+when it matters (glyph_shape: six circles at top/middle/bottom × left/right); the default is a
+uniform grid of `k` points over the cell, sampled by the pipeline (H11, decided 2026-11-16).
 
 **Luma — independent of the palette (S2, decided 2026-11-16).** `grid.luma` is the linear
 luminance of the source cell (step-7 pixels, computed in linear light) taken BEFORE quantisation.
@@ -150,6 +157,18 @@ the palette".
 `(rows·sy, cols·sx)` and hands the renderer `grid.subindex: (rows, cols, sx·sy) int32`. The
 bitmask and text renderers only pack sub-points into codepoints; the single boolean `dither`
 option is removed. New L2 test: sub-point coverage is monotone at the subgrid resolution.
+
+**Float frames (H11, decided 2026-11-16).** A renderer may implement the optional
+`render_frame(grid, palette, style) -> np.ndarray float32 (H, W, 3)` in [0, 1]. When available,
+step 11 uses it and the pipeline passes that unrounded frame to step 12: post-effects must never
+receive an 8-bit-rounded frame when the palette mapping is exact (L2 blocker, resolved). `pixel`
+implements `render_frame` as `apply_palette` + per-axis repeat; `render()` remains its
+rasterisation and every renderer must keep the two consistent.
+
+**Structured output (H11, decided 2026-11-16).** Glyph renderers may implement the optional
+`layout(grid, style)` returning the placed glyphs (character, x, y, width, height, fill) that
+`render()` rasterises. When available, §11 export consumes solely `layout()`, so PNG, SVG and
+text exports cannot diverge. Without it, a renderer renders pixels only.
 
 ## §4 Colour and palette
 
@@ -173,7 +192,11 @@ the renderer call. The normative order becomes:
 3. `auto_levels` if enabled.
 4. `adjust(brightness, contrast, gamma, saturation)`.
 5. `pre_blur` if > 0 (separable Gaussian, sigma = `pre_blur / 3`).
-6. Compute grid geometry from `renderer.cell_aspect()` and `pixel_size`.
+6. Compute grid geometry from `renderer.cell_aspect()` and `pixel_size`, with the normative
+   rule (H11, decided 2026-11-16): let `a = cell_aspect()`; if `a >= 1`, `cell_w = pixel_size`
+   and `cell_h = max(1, floor(pixel_size / a + 0.5))`; else `cell_h = pixel_size` and
+   `cell_w = max(1, floor(pixel_size * a + 0.5))`. The grid holds as many whole cells as fit in
+   the step-5 image. Glyph font sizes derive from `cell_h` (no `size` option in §9).
 7. Downscale to the grid.
 8. `resolve_palette` on the image from step 7.
 9. Algorithm (params through `resolve_params`) → `index`.
@@ -184,12 +207,11 @@ the renderer call. The normative order becomes:
 Steps 3, 4 and 5 must be no-ops at their defaults. Step 11 replaces the 1.0 `apply_palette` +
 `upscale_nearest` pair; `PixelRenderer` reproduces that pair exactly.
 
-**Continuous mode (S1, decided 2026-11-16).** The pipeline may run without quantisation:
-`algorithm: null` and `palette: null` are legal. In that mode steps 8 and 9 are skipped,
-`grid.luma`/`samples` are derived from the step-7 cells, the renderer must be `pixel` at
-cell 1×1, and `grid.index` carries nearest-source pixels (a pass-through). Lattice Glitch is an
-effect-graph app that consumes the core (seed, masks, presets, bridge, CLI) without depending on
-the CellRenderer quantisation chain.
+**Continuous mode (S1, amended at H11, decided 2026-11-16).** The pipeline may run without
+quantisation: `algorithm: null` and `palette: null` are legal. In that mode **steps 6 to 11 are
+skipped outright**: the step-5 image goes straight to step 12 (post-effects); no `CellGrid` is
+built and no renderer is called. Lattice Glitch is an effect-graph app that consumes the core
+(seed, masks, presets, bridge, CLI) without depending on the CellRenderer quantisation chain.
 
 ## §6 Preset format v3
 
@@ -279,10 +301,12 @@ Every application exposes the same four verbs:
 
 Four renderers, one per mechanism.
 
-**`glyph_ramp`** — one monospace character per cell. `coverage` indexes an ordered ramp, darkest
-first. Options: `ramp` (string), `font` (path), `size` (px), `fg`/`bg` (colour or `transparent`),
+**`glyph_ramp`** — one monospace character per cell. `luma` (S2, decided 2026-11-16) indexes an
+ordered ramp, darkest first, independently of the palette: a black/white palette still uses the
+full ramp. Options: `ramp` (string), `font` (path), `fg`/`bg` (colour or `transparent`),
 `mode` (`mono` | `fg_colour` | `bg_colour` | `palette`), `offset` (float, shifts the
-luminance-to-glyph mapping), `invert` (bool).
+luma-to-glyph mapping), `invert` (bool). There is no `size` option (H11, decided 2026-11-16):
+the glyph font size is derived from `cell_h` (§5 step 6), so each glyph covers its cell exactly.
 
 - The ramp contract is explicit: **darkest character first, lightest last**. A ramp that violates
   it is not detected, it is documented.
@@ -310,8 +334,9 @@ luminance-to-glyph mapping), `invert` (bool).
 | `quadrant` | 2×2 | U+2596..U+259F |
 | `half_block` | 1×2 | U+2580, U+2584, U+2588 |
 
-Threshold `samples` into on/off sub-dots. Options: `threshold` (0..1), `fg`/`bg`, `dither`
-(bool, applies ordered dithering to the sub-dot threshold).
+Threshold `samples` into on/off sub-dots. Options: `threshold` (0..1), `fg`/`bg`. The sub-dot
+decision belongs to the algorithm, run at subgrid resolution (S3): there is no `dither` option
+(removed; H11 coherence pass).
 
 **`pixel`** — one solid square per cell. This is Lattice Dither's current behaviour, expressed through
 the abstraction. It must reproduce the 1.0 output byte for byte.
@@ -321,7 +346,8 @@ the abstraction. It must reproduce the 1.0 output byte for byte.
 `text` renderer. A flowing paragraph in a real font, not a character grid.
 
 - Lay out the paragraph with real font metrics: kerning, line distance, word wrapping.
-- Modulate per-glyph **weight, size and opacity** by the underlying `coverage`.
+- Modulate per-glyph **weight, size and opacity** by the underlying `luma` (S2, decided
+  2026-11-16): ink density must not collapse on a neutral palette.
 - Cells may vary in size. `cell_aspect()` returns the nominal aspect; the renderer may vary a cell
   by ±50% and must still fill the output rectangle exactly.
 - Options: `text` (string), `font`, `size`, `line_distance`, `kerning`, `size_mode`
@@ -334,18 +360,18 @@ the abstraction. It must reproduce the 1.0 output byte for byte.
 Every renderer can emit SVG.
 
 - `pixel` → one `<rect>` per cell, merged into runs where adjacent cells share a colour.
-- `glyph_ramp`, `glyph_shape`, `bitmask` → one `<text>` element per glyph, with `font-family`,
+- `glyph_ramp`, `glyph_shape`, `bitmask`, `text` → export driven by the renderer's `layout()`
+  when it is available (H11): one `<text>` element per glyph, with `font-family`,
   `font-size` and `fill` set. The output is **editable typography**, not traced paths.
-- `text` → one `<text>` per glyph, preserving the layout.
 - Budget: 2048×2048 source, 16 colours, output under 8 MB. Beyond that, merge cells into rectangles
   and record a warning.
 - SVG output must open in Inkscape, Illustrator and a browser without repair.
 
 **Text export (P3, decided 2026-11-16).** `glyph_ramp`, `glyph_shape` and `bitmask` also emit
-text: `.txt` (UTF-8, space-separated cells, `\n` line breaks), `.ansi` (24-bit colour, SGR
-escapes; terminal-safe ordering), `.html` (a coloured `<pre>` block in a standalone page).
-Shared CLI verb: `render --format png|svg|txt|ansi|html`. The ANSI exporter must not leak
-escape codes into the text path; HTML output escapes text content.
+text — from `layout()` when available (H11): `.txt` (UTF-8, space-separated cells, `\n` line
+breaks), `.ansi` (24-bit colour, SGR escapes; terminal-safe ordering), `.html` (a coloured `<pre>`
+block in a standalone page). Shared CLI verb: `render --format png|svg|txt|ansi|html`. The ANSI
+exporter must not leak escape codes into the text path; HTML output escapes text content.
 
 ## §12 Feedback buffer
 

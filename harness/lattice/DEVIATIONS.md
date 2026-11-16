@@ -89,10 +89,11 @@ their own files. Nothing is carried over.
 - impact: aucun sur le contrat ; le 1 reste le comportement `pixel` (il ne consomme que
   `index`), le 2 est résorbé par le retry.
 
-## Amendments
+## Amendments (registre)
 
 Facts discovered during a task that the contract could not have known, recorded here rather than
 invented in code. The orchestrator folds them into the contract at the next checkpoint.
+
 
 ```
 ### AMD-xxx
@@ -140,3 +141,31 @@ invented in code. The orchestrator folds them into the contract at the next chec
     promise in any contract version (§20).
   - P3: §11 text export — `txt`/`ansi`/`html` + `render --format txt|ansi|html`; card L11.
   - P4: §20 N-image loop — card L-LOOP (GIF/APNG, `core/animation.py` moved to lattice_core).
+
+### AMD-008 — gel 0.1.0, décisions H11 (B/A/A/A/A), 2026-11-16
+- task: none (checkpoint H11) | contract: 0.1.0 | date: 2026-11-16
+- section: §2, §3, §5, §9, §10, §11 + TASKS (carte L2b)
+- discovered: analyse H11 (Opus — `prompts/generated/H11-analyse-result.json`) : S2/S3 ajoutés
+  à §3 sans être propagés à §9/§10/L6/L8/L9 (rampe sur `coverage`, `dither` dans bitmask),
+  invariant 2 contredit le cache de §9, §11 sans accès aux glyphes choisis (le protocole ne
+  renvoie que des pixels), mode continu inapplicable tel qu'écrit (index int32 de pixels source
+  avec palette nulle), `pipeline.py` orphelin après L2 (DEV-203 « à ré-examiner à H11 »), règle
+  de géométrie des cellules absente (aspect > 1 s'effondre en 1×1).
+- contract change (décisions humaines du 2026-11-16, Q1=B Q2=A Q3=A Q4=A Q5=A) :
+  - Q1 : le gel 0.1.0 est différé à cette passe d'amendements — l'humain relit le diff, puis
+    `contract_version: 0.1.0` sans nouvelle analyse H11.
+  - Q2 : capacité optionnelle `layout()` ajoutée à §3 (glyphes positionnés) ; `render()` en est
+    la rastérisation ; §11 (SVG/txt/ansi/html) consomme `layout()` quand elle existe.
+  - Q3 : nouvelle carte **L2b** « pipeline §3/§5 complet » (architect, strict, M), deps L2,
+    owns `pipeline.py` + `cell.py` + `tests/test_pipeline.py` ; L4/L6/L8/L9/L11 passent en deps L2b.
+  - Q4 : règle normative §5-6 — `a = cell_aspect()` ; a >= 1 : cell_w = pixel_size, cell_h =
+    max(1, floor(pixel_size/a + 0.5)) ; sinon l'inverse. `size` retiré de §9 (police glyphe
+    dérivée de cell_h).
+  - Q5 : mode continu reformulé — `algorithm: null`/`palette: null` → étapes 6-11 sautées,
+    image de l'étape 5 → étape 12, aucun CellGrid.
+  - Cohérence : §9 glyph_ramp indexé par `luma` (S2, palette N&B = rampe complète) ; §9 bitmask
+    sans `dither` (S3) ; §10 modulation par `luma` ; invariant 2 amendé (caches déterministes
+    autorisés, jamais de changement de sortie) ; `consumes()` élargi à coverage/subindex ;
+    frames flottantes officialisées (§3 render_frame, rés. du blocker L2) ; §2 rédactionnel
+    (animation.py).
+- status: applied (diff à relire par l'humain avant le gel)

@@ -76,6 +76,45 @@ l'orchestrateur ne code jamais.
   - `coverage` is 0.0 on a single-colour palette and monotonic in palette luminance otherwise.
   - registering a duplicate name raises `ValueError`.
 
+### L2b · Pipeline §3/§5 complet — mode continu, sous-points, géométrie (H11)
+- wave: 0 · deps: L2 · executor: OMH architect · review: strict · size: M
+- owns: `lattice_core/pipeline.py`, `lattice_core/cell.py`, `tests/test_pipeline.py`
+- context: §3 §5 (amendements H11 décidés 2026-11-16 : règle de géométrie §5-6, mode continu
+  reformulé, pochoir `sample_points()`, `render_frame`, `layout()`, invariant 2 amendé)
+- spec: compléter le pipeline et les types selon les amendements H11 :
+  1. `PipelineSpec` gagne `renderer: str = "pixel"` et `renderer_style: dict = {}` ;
+     `render` et `render_with_palette` les propagent (fin du `DEFAULT_RENDERER` hardcodé).
+  2. Mode continu (§5) : `algorithm: null` et `palette: null` → étapes 6-11 sautées, l'image
+     de l'étape 5 va directement aux post-effets (étape 12) ; aucun CellGrid construit, aucun
+     renderer appelé. Bit-exact par construction.
+  3. Sous-points (S3) : quand `renderer.subgrid() != (1, 1)`, l'algorithme tourne à la
+     résolution (rows·sy, cols·sx) et `grid.subindex: (rows, cols, sx·sy) int32` est rempli.
+  4. Pochoir `samples` : `renderer.sample_points()` (optionnel, H11) ; défaut = grille uniforme
+     de k points, position appliquée dans la dérivation de `samples`.
+  5. Règle de géométrie §5-6 (H11/Q4) : `a = cell_aspect()` ; si a >= 1 : cell_w = pixel_size
+     et cell_h = max(1, floor(pixel_size / a + 0.5)) ; sinon l'inverse. L'aspect > 1 ne
+     s'effondre plus en 1×1 (remplace l'arrondi half-to-even).
+  6. `_render_frame` : si `render_frame` est implémenté, vérifier la forme
+     (rows·cell_h, cols·cell_w, 3) — erreur typée sinon. `prepare_image` reçoit le renderer
+     (géométrie correcte pour autre chose que pixel).
+  7. `RenderStyle.__post_init__` stocke une copie des options (le mapping mutable du caller
+     ne doit pas pouvoir contourner l'invariant 6).
+  8. Docstrings §5 : « twelve normative pipeline steps ».
+- accept:
+  - en mode continu, `render` == étape 5 → étape 12 (bit-à-bit, avec et sans post-effect) ;
+    aucun appel de renderer (vérifié par un spy) et aucun CellGrid construit.
+  - `pixel` reste bit-identique 1.0 : 20 images aléatoires × 5 palettes flottantes, la suite
+    existante (1257) reste verte, témoins bit-à-bit.
+  - `subgrid (2, 3)` (stub) : `subindex` a la forme (rows, cols, 6) et la couverture des
+    sous-points est monotone à la résolution du sous-point.
+  - `sample_points()` : le nombre de points demandé est respecté ; sans la méthode, grille
+    uniforme de k points.
+  - renderer inconnu dans la spec → `KeyError` nommant le renderer ; style non JSON → `ValueError`.
+  - stubs d'aspect 0.5 et 2.0 : la grille préserve l'aspect de la source, cell_w/cell_h
+    conformes à la règle §5-6.
+  - `render_frame` qui renvoie une mauvaise forme → erreur typée, pas de crash.
+  - muter le dict du caller après construction de `RenderStyle` ne change pas le style.
+
 ### L3 · Colour metrics and palette model
 - wave: 0 · deps: L1 · executor: OMH deep · review: full · size: M
 - owns: `lattice_core/color.py`, `lattice_core/palette.py`, `tests/test_color.py`,
@@ -94,13 +133,14 @@ l'orchestrateur ne code jamais.
   - no import of `urllib`, `requests` or `socket` anywhere in `palette.py`.
 
 ### L4 · Preset format v3
-- wave: 0 · deps: L1 · executor: OMH capable · review: full · size: M
+- wave: 0 · deps: L2b · executor: OMH capable · review: full · size: M
 - owns: `lattice_core/preset.py`, `tests/test_preset.py`, `tests/data/presets/**`
 - context: §6
 - spec: implement §6. `from_json` accepts 1, 2 and 3; 1 and 2 map to `app: "dither"`,
   `renderer: "pixel"`. Unknown top-level keys and unknown `style` keys are preserved on round-trip.
   An `app` mismatch is not an error; a missing renderer falls back to the app default and records a
-  warning. `to_json` writes sorted keys, two-space indent, one trailing newline.
+  warning. `to_json` writes sorted keys, two-space indent, one trailing newline. Coordonne
+  `renderer`/`renderer_style` avec les champs de `PipelineSpec` apportés par L2b (H11).
 - accept:
   - every preset in `presets/` loads and reports the right `version`.
   - a v3 preset round-trips through `to_json`/`from_json` with equality.
@@ -156,15 +196,18 @@ l'orchestrateur ne code jamais.
 ## Wave 1 — glyphs
 
 ### L6 · Glyph ramp renderer
-- wave: 1 · deps: L2 · executor: OMH capable · review: full · size: M
+- wave: 1 · deps: L2b · executor: OMH capable · review: full · size: M
 - owns: `lattice_core/renderers/glyph_ramp.py`, `tests/test_glyph_ramp.py`
 - context: §3 §9
-- spec: implement `glyph_ramp` per §9. Options: `ramp`, `font`, `size`, `fg`, `bg`, `mode`
-  (`mono` | `fg_colour` | `bg_colour` | `palette`), `offset`, `invert`. The ramp contract is
-  darkest-first and is documented, not detected. `offset` shifts the luminance-to-glyph mapping and
-  is animatable. Aspect correction uses `cell_aspect()`; default font ratio 1/2.
+- spec: implement `glyph_ramp` per §9. Options: `ramp`, `font`, `fg`, `bg`, `mode`
+  (`mono` | `fg_colour` | `bg_colour` | `palette`), `offset`, `invert` — **pas de `size`** :
+  la taille de police est dérivée de `cell_h` (H11/Q4, §5-6). La rampe est indexée par `luma`
+  (S2, indépendante de la palette). The ramp contract is darkest-first and is documented, not
+  detected. `offset` shifts the luma-to-glyph mapping and is animatable. Aspect correction uses
+  `cell_aspect()`; default font ratio 1/2.
 - accept:
   - a 10-character ramp on a black-to-white gradient produces 10 distinct glyphs in order.
+  - une palette N&B ne réduit pas la rampe : les 10 caractères restent distincts (S2/H11).
   - `offset` shifts the mapping by exactly one glyph per 1/len(ramp) of coverage.
   - `invert` reverses the ramp.
   - `mode: "palette"` gives each glyph the palette colour of its cell.
@@ -191,26 +234,29 @@ l'orchestrateur ne code jamais.
   - `p` and `q` are distinguished on a test image that differs only by vertical ink position.
 
 ### L8 · Bitmask renderers
-- wave: 1 · deps: L2 · executor: OMH capable · review: full · size: M
+- wave: 1 · deps: L2b · executor: OMH capable · review: full · size: M
 - owns: `lattice_core/renderers/bitmask.py`, `tests/test_bitmask.py`
 - context: §3 §9
 - spec: implement `bitmask` per §9. One code path, four geometries: `braille` (2×4, U+2800+mask),
   `sextant` (2×3, U+1FB00..U+1FB3B), `quadrant` (2×2, U+2596..U+259F), `half_block` (1×2, U+2580/
-  U+2584/U+2588). Threshold `samples` into sub-dots. Options: `threshold`, `fg`, `bg`, `dither`.
+  U+2584/U+2588). Threshold `samples` into sub-dots. Options: `threshold`, `fg`, `bg` — pas de
+  `dither` (S3/H11 : la décision du sous-point appartient à l'algorithme, résolu au subgrid).
 - accept:
   - a fully black cell produces the full codepoint for each geometry; a fully white cell produces
     the empty or background codepoint.
   - the four geometries produce the documented sub-cell counts (8, 6, 4, 2).
   - `threshold` at 0.5 on a half-black cell produces a half-filled codepoint.
-  - `dither: true` changes the sub-dot pattern on a mid-grey cell and is deterministic.
+  - sur une cellule gris moyen, le motif des sous-points suit l'algorithme à la résolution du
+    subgrid et est déterministe (S3 : pas d'option `dither`).
   - every emitted codepoint is a valid Unicode scalar in the documented range.
 
 ### L9 · Text-halftone renderer
-- wave: 1 · deps: L2 · executor: OMH deep · review: strict · size: L
+- wave: 1 · deps: L2b · executor: OMH deep · review: strict · size: L
 - owns: `lattice_core/renderers/text.py`, `tests/test_text.py`
 - context: §3 §10
 - spec: implement `text` per §10. Lay out a flowing paragraph with real font metrics: kerning, line
-  distance, word wrapping. Modulate per-glyph weight, size and opacity by `coverage`. Cells may vary
+  distance, word wrapping. Modulate per-glyph weight, size and opacity by `luma` (S2/H11 —
+  l'encre ne doit pas s'effondrer sur une palette neutre). Cells may vary
   in size by ±50 % and must still fill the output rectangle exactly. Options: `text`, `font`,
   `size`, `line_distance`, `kerning`, `size_mode` (`fixed` | `variable`), `weight_mode`
   (`fixed` | `variable`), `fg`, `bg`.
@@ -238,15 +284,17 @@ l'orchestrateur ne code jamais.
   - selecting a set updates the preview within 100 ms.
 
 ### L11 · SVG export · text export
-- wave: 1 · deps: L2 · executor: OMH capable · review: full · size: M
+- wave: 1 · deps: L2b · executor: OMH capable · review: full · size: M
 - owns: `lattice_core/svg.py`, `lattice_core/textout.py`, `tests/test_svg.py`, `tests/test_textout.py`
 - context: §11 (incl. text export — P3, decided 2026-11-16)
-- spec: implement §11. `pixel` → `<rect>` per cell, merged into runs. `glyph_ramp`, `glyph_shape`,
-  `bitmask` → one `<text>` per glyph with `font-family`, `font-size`, `fill`. `text` → one `<text>`
-  per glyph preserving layout. Budget: 2048×2048, 16 colours, under 8 MB, else merge and warn.
+- spec: implement §11, **depuis `layout()` quand le renderer l'implémente (H11/Q2)**.
+  `pixel` → `<rect>` per cell, merged into runs. `glyph_ramp`, `glyph_shape`,
+  `bitmask` → one `<text>` per glyph avec `font-family`, `font-size`, `fill` — via `layout()`.
+  `text` → one `<text>` per glyph preserving layout. Budget: 2048×2048, 16 colours, under 8 MB,
+  else merge and warn.
   **Text export**: `render --format txt|ansi|html` for `glyph_ramp`, `glyph_shape`, `bitmask` —
-  `.txt` UTF-8, `.ansi` 24-bit SGR, `.html` `<pre>`; HTML escapes text, ANSI never leaks into
-  the text path.
+  from `layout()` (H11) : `.txt` UTF-8, `.ansi` 24-bit SGR, `.html` `<pre>`; HTML escapes text,
+  ANSI never leaks into the text path.
 - accept:
   - the output parses as XML and has the right root namespace.
   - a 64×64 pixel render produces fewer `<rect>` elements than cells (runs are merged).

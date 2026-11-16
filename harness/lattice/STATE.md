@@ -3,7 +3,7 @@
 > La carte L22 transmet son résumé d'acceptation (JSON, via `tools/acceptance.py`) ; l'orchestrateur
 > le reporte dans STATE.md — la carte n'écrit pas STATE.md directement.
 
-contract_version: 0.1.0-draft
+contract_version: 0.1.0
 base_contracts: DitherCraft 1.0.0 (§1–§11) and 1.1.0 (§12–§25), frozen, in force for the dithering app
 max_concurrency: 4
 last_update: 2026-11-16
@@ -98,6 +98,11 @@ last_update: 2026-11-16
   Opus ×3 complet (review pass 1, review pass 2, prochain = analyse H11) → prochain creneau lourd
   = mistral-large-4.
 
+- 2026-11-16: **H11 done (humain)** — l'humain gèle le contrat **0.1.0** avec les amendements
+  AMD-008 : Q1=B (amender puis geler, diff relu), Q2=A (`layout()` §3), Q3=A (carte L2b),
+  Q4=A (règle de géométrie §5-6, `size` retiré de §9), Q5=A (mode continu = étapes 6-11 sautées).
+  Le contrat 0.1.0-draft devient **0.1.0** — plus aucun changement sans PATCH/MINOR vérifié.
+
 ## Task table
 
 | Task | Wave | Status | g | r | Commit | Notes |
@@ -134,7 +139,7 @@ last_update: 2026-11-16
 | Id | When | Status |
 |---|---|---|
 | H10 | after L1 | ✅ done 2026-11-16 — app lancée par l'humain (`.venv/bin/python -m lattice_dither`, intacte) ; `lattice_core` s'installe seul en venv vierge (sans PySide6) |
-| H11 | after L2 | pending — analyse Opus du contrat (gabarit ANALYSTE-PRODUIT) → toi : trancher le gel |
+| H11 | after L2 | ✅ done 2026-11-16 — analyse Opus (H11-analyse-result.json), décisions B/A/A/A/A, amendements AMD-008 appliqués puis **contrat gelé en 0.1.0** |
 | H12 | after wave 1 | pending — analyse Opus de Lattice Glyph sur trois images réelles (captures/parcours) → toi : trancher |
 | H13 | after wave 2 | pending — analyse Opus (Lattice Glitch vivant, pas un filtre ?) → toi : trancher |
 | H14 | L22 | pending — acceptance in PhotoCraft then DesignCraft |
@@ -144,7 +149,7 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
 
 ## Next
 
-- **H11 (toi)** — gel du contrat 0.1.0 : analyse Opus en cours (gabarit ANALYSTE-PRODUIT) puis
-  tu tranches les questions. Après H11 : contrat 0.1.0, version `contract_version: 0.1.0`.
-- Vague 0 après H11 : L3, L4, L5 en parallèle (owns disjoints, ≤ 4 cartes) ; L-UI après L5.
-  Chemin critique : L2 done → coquilles L12/L20.
+- Vague 0 en parallèle (owns disjoints, ≤ 4) : **L3 + L5 + L2b** ; L4 après L2b
+  (coordination PipelineSpec, deps L2b). Codeurs sur modèles standard éco (deepseek-v4.1-flash
+  du backend en rotation) ; relectures strictes sur les gros modèles (prochain créneau lourd :
+  mistral-large-4, puis deepseek-v4-pro, puis kimi — Opus ×3 consommé par L2+H11).
