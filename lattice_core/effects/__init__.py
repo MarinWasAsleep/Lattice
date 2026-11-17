@@ -1,3 +1,13 @@
 """Effect modules; importing this package registers every effect."""
 
-from lattice_core.effects import channel_shift, displace, feedback, glitch, halftone, ntsc, pixel_sort, tone  # noqa: F401
+from lattice_core.effects import (  # noqa: F401
+    channel_shift,
+    crt,
+    displace,
+    feedback,
+    glitch,
+    halftone,
+    ntsc,
+    pixel_sort,
+    tone,
+)

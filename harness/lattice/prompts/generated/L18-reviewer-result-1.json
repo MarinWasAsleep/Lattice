@@ -1,0 +1,25 @@
+{
+  "verdict": "PASS",
+  "findings": [
+    {
+      "severity": "minor",
+      "file": "lattice_core/effects/crt.py",
+      "line": 184,
+      "what": "Type-narrowing `assert grid is not None` (also line 187) in the curvature/vignette branches.",
+      "why": "Asserts are stripped under `python -O` and are not control flow; the guard is statically guaranteed by the condition on line 182. Style only - no accept item or invariant is affected.",
+      "fix": "Drop the asserts or replace with a plain if; optional."
+    },
+    {
+      "severity": "minor",
+      "file": "lattice_core/effects/__init__.py",
+      "line": 3,
+      "what": "The one-line import with `crt` added is 109 chars: ruff reports E501 + I001 on this file.",
+      "why": "The file is outside L18's owns (orchestrator-wired) and the identical violation was already committed earlier - pre-existing repo-wide condition, not an L18 regression; L18's own files are ruff-clean. Fixed by the orchestrator (parenthesized import, ruff clean now).",
+      "fix": "Wrapped the import in parentheses (done)."
+    }
+  ],
+  "regression": "none. Full suite re-run: 1880 passed, 1 skipped; tools/check_contract.py prints 'contract OK'; the diff adds one registered effect (15->16, no test pins the count) and touches no frozen dither-path code. G7 witness presets unaffected.",
+  "renderer_invariants": "§3 invariants apply to CellRenderers, not effects - not applicable. Effect-level analogues verified by execution: exact output shape == input shape for 5 shapes incl. (1,1)/(1,7)/(9,1); purity (two seeded calls byte-identical, independent of supplied rng state); no input mutation even with an external mask; deterministic; neutral params return the input with maxdiff exactly 0.0 (contract allows 1/255).",
+  "tests_that_cannot_fail": [],
+  "notes": "Device-pixel semantics verified live: for slot/aperture_grille/shadow_mask at output_width=0 the measured horizontal period equals mask_scale for pitches 3/6/12 (9 combos); at output_width 96/192/384 the period is 6/12/24 px with visual pitch constant at 6.0 image px for all three mask types; fractional ratios round as round(mask_scale*ow/W). E1s are sound: §17 is silent on how the effect learns output resolution, so output_width (0=auto) is the minimal mechanism, and 'none' is the only way a choice-typed mask can have a neutral default. External mask matches DEV-214 exactly: keyword-only (positional raises TypeError), ValueError identical to displace/pixel_sort, (H,W,1) accepted, arrays in the params channel rejected with ValueError. i18n labels all 8 keys of the frozen en.json catalogue; test_i18n passes. Owned tests 35/35; every test fails on the old code (module absent), period tests also assert the stage is effective."
+}
