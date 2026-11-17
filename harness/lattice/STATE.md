@@ -142,7 +142,7 @@ last_update: 2026-11-16
 | L7 | 1 | done | 0 | 2 | d032847 | shape-matched glyphs — retry (AMD-011, comparateur densité, consomme samples), PASS Sonnet pass 2, DEV-215 |
 | L8 | 1 | done | 0 | 2 | f60129c | bitmask — retry Unicode row-major (v4-pro blocker), PASS v4-pro, 48 tests, invariants §3 tenus |
 | L9 | 1 | in_progress | 0 | 0 | | text-halftone — mistral (standard, strict) |
-| L10 | 1 | todo | 0 | 0 | | glyph browser + non-Latin ramps |
+| L10 | 1 | in_progress | 0 | 0 | | glyph browser + non-Latin ramps — mistral (review light) |
 | L11 | 1 | todo | 0 | 0 | | SVG export |
 | L12 | 1 | todo | 0 | 0 | | Lattice Glyph shell |
 | L13 | 2 | done | 0 | 1 | 11fe38a | feedback buffer — 2e carte hy4-flash-free : PASS strict du 1er essai (mistral-large-4, vérifié par exécution) → TIER MASSE ACTÉ |
@@ -150,7 +150,7 @@ last_update: 2026-11-16
 | L15 | 2 | done | 0 | 2 | f19f5cc | pixel sort — retry (mask aligné L14, tests non-tautologiques), PASS v4-pro pass 2, DEV-214 |
 | L16 | 2 | done | 0 | 1 | c896465 | channel shift — 3e carte hy4 : PASS mistral-large-4, 0 finding, vérifié par exécution |
 | L17 | 2 | in_progress | 1 | 0 | | NTSC / VHS — nous (standard, strict) — review pass 1 FIX (Sonnet : axe filtrer, ringing, head_switching, toggle, labels), retry mistral |
-| L18 | 2 | in_progress | 0 | 0 | | CRT / scanlines — 4e carte hy4 : 35 tests, tous accepts (dont pixels d'appareil) ; review mistral-large-4 (v4-pro abandonné, budget nous) |
+| L18 | 2 | done | 0 | 1 | (commit L18) | CRT / scanlines — PASS mistral-large-4 : pixels d'appareil vérifiés en direct, DEV-214 exact, 35 tests |
 | L19 | 2 | in_progress | 0 | 0 | | seed + masks — code livré sur disque (22 tests, 1915 verte, perturbé par le budget nous) ; review mistral-large-4 |
 | L20 | 2 | todo | 0 | 0 | | Lattice Glitch shell |
 | L21 | 3 | todo | 0 | 0 | | preset interchange + gallery |
