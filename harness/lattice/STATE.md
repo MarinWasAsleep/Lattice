@@ -149,7 +149,7 @@ last_update: 2026-11-16
 | L14 | 2 | in_progress | 0 | 0 | | displacement — image: mistral (standard) |
 | L15 | 2 | in_progress | 0 | 0 | | pixel sort — nous (standard) — review v4-pro en vol |
 | L16 | 2 | done | 0 | 1 | c896465 | channel shift — 3e carte hy4 : PASS mistral-large-4, 0 finding, vérifié par exécution |
-| L17 | 2 | in_progress | 0 | 0 | | NTSC / VHS — nous (standard, strict) |
+| L17 | 2 | in_progress | 1 | 0 | | NTSC / VHS — nous (standard, strict) — review pass 1 FIX (Sonnet : axe filtrer, ringing, head_switching, toggle, labels), retry mistral |
 | L18 | 2 | todo | 0 | 0 | | CRT / scanlines |
 | L19 | 2 | todo | 0 | 0 | | seed + masks |
 | L20 | 2 | todo | 0 | 0 | | Lattice Glitch shell |
