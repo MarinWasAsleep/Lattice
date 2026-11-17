@@ -222,5 +222,11 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
   secours** ; reviews lourdes = Sonnet CLI par défaut, mistral-large-4 en secours.
 - **En vol** : L9 text-halftone (mistral), L17 attempt 3 (mistral), L10 glyph browser (mistral),
   L19 review (mistral-large-4). Prochaines implémentations → hy4/opencode-go.
-- Ensuite : L9, L10, L11, L12 (coquille Glyph, chemin critique) ; vague 2 déjà entamée par
-  L13-16. L-UI done débloque les coquilles UI de L12/L20.
+- **CLÔTURE DE SESSION 17/11 (point stable vérifié)** : arbre propre, HEAD `7c10e9c` poussé,
+  **1854 passed / 1 skipped**, ruff clean, `tools/check_contract.py` → contract OK.
+  L19 (seed + masks) livré et commité (code vérifié, relecture non faite — à reprendre).
+  **WIP dans `git stash@{0}`** : L9 text-halftone, L10 glyph browser, L17 attempt 3 (non
+  aboutis). Reprise : `git stash pop` puis relancer leurs reviews. Les enfants en vol ont été
+  interrompus proprement (limite nous + arrêt demandé).
+- Ensuite : L11 (SVG/text export, débloqué par L9), L12 coquille Glyph, L20 coquille Glitch,
+  vague 3 (L21-L23), checkpoints H12/H13 (arbitrages AMD-010/AMD-011).
