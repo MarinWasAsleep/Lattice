@@ -138,8 +138,8 @@ last_update: 2026-11-16
 | L4 | 0 | done | 0 | 4 | 11778ec | preset v3 — épreuve masse hy4-flash-free CONCLUE (4 cycles, PASS Sonnet), DEV-210, 4 minors notés |
 | L5 | 0 | done | 0 | 1 | e187968 | bridge generalisation — review: code sain, AMD-009 (surface DesignCraft), DEV-206 |
 | L-UI | 0 | done | 0 | 1 | a78009f | widgets partagés — PASS mistral-large-4, bloquants REVUE-PRODUIT vérifiés par exécution, E8/PySide6 propres |
-| L6 | 1 | in_progress | 0 | 0 | | glyph ramp — mistral/deepseek-v4-1-flash-1017, DEV-208 (append __init__) |
-| L7 | 1 | todo | 0 | 0 | | shape-matched glyphs |
+| L6 | 1 | done | 0 | 2 | 45c42a2 | glyph ramp — retry invariant 2 + AMD-010 (rampe perceptuelle), PASS v4-pro, 49 tests, DEV-212/213 |
+| L7 | 1 | in_progress | 0 | 0 | | shape-matched glyphs — mistral (standard éco, carte la plus lourde, review strict) |
 | L8 | 1 | done | 0 | 2 | f60129c | bitmask — retry Unicode row-major (v4-pro blocker), PASS v4-pro, 48 tests, invariants §3 tenus |
 | L9 | 1 | todo | 0 | 0 | | text-halftone |
 | L10 | 1 | todo | 0 | 0 | | glyph browser + non-Latin ramps |
@@ -214,7 +214,8 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
 - **Épreuve masse CONCLUE** : hy4-flash-free acté sur le tier masse (L4 PASS après 4 cycles
   avec code final jugé correct ; L13 PASS strict au 1er essai, vérifié par exécution). Les
   cartes opencode-go tournent désormais sur hy4 en routine (L16 = 3e).
-- **En vol** : L14 (mistral), L15 (nous), L16 (hy4), relecture L6 (v4-pro). À chaque verdict :
-  gates → relecture (tier critique, rotation Sonnet → mistral-large-4 → v4-pro) → commit.
-- Ensuite : L7 (deps L6 ✓), L9, L10, L11, L12 (coquille Glyph, chemin critique) ; vague 2
-  déjà entamée par L13. L-UI done débloque les coquilles UI de L12/L20.
+- **En vol** : L14 (mistral), L15 (nous), L16 (hy4), L7 (mistral, review strict). À chaque
+  verdict : gates → relecture (tier critique, rotation Sonnet → mistral-large-4 → v4-pro) →
+  commit. 8 cartes done (L1-6, L-UI, L8 + L13).
+- Ensuite : L9, L10, L11, L12 (coquille Glyph, chemin critique) ; vague 2 déjà entamée par
+  L13-16. L-UI done débloque les coquilles UI de L12/L20.
