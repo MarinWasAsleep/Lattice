@@ -150,7 +150,7 @@ last_update: 2026-11-16
 | L15 | 2 | done | 0 | 2 | f19f5cc | pixel sort — retry (mask aligné L14, tests non-tautologiques), PASS v4-pro pass 2, DEV-214 |
 | L16 | 2 | done | 0 | 1 | c896465 | channel shift — 3e carte hy4 : PASS mistral-large-4, 0 finding, vérifié par exécution |
 | L17 | 2 | in_progress | 1 | 0 | | NTSC / VHS — nous (standard, strict) — review pass 1 FIX (Sonnet : axe filtrer, ringing, head_switching, toggle, labels), retry mistral |
-| L18 | 2 | in_progress | 0 | 0 | | CRT / scanlines — 4e carte masse : hy4-flash-free |
+| L18 | 2 | in_progress | 0 | 0 | | CRT / scanlines — 4e carte hy4 : 35 tests, 1847 verte, tous accepts (dont pixels d'appareil) ; review v4-pro en vol |
 | L19 | 2 | in_progress | 0 | 0 | | seed + masks — nous (standard, own le schéma mask §18, converte DEV-214) |
 | L20 | 2 | todo | 0 | 0 | | Lattice Glitch shell |
 | L21 | 3 | todo | 0 | 0 | | preset interchange + gallery |
