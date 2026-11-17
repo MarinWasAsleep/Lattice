@@ -1,0 +1,8 @@
+{
+  "verdict": "PASS",
+  "findings": [],
+  "regression": "none",
+  "renderer_invariants": "n/a — effect card, not a CellRenderer",
+  "tests_that_cannot_fail": [],
+  "notes": "Mask transport major fixed: mask is keyword-only (`, *, mask: Image | None = None`, mirrors displace.py), _mask_plane raises ValueError(\"mask must be {shape}, got {data.shape}\") identical to displace._mask_weights, and no params['mask'] channel remains (only key/black/brightness/white/direction read from params). Tautological black/white-constant accepts replaced with non-trivial-order assertions on random images (test_black_zero_on_nonconstant_image_still_sorts, test_not_fully_white_image_sorts_every_row_at_brightness_zero). Determinism tests exercise distinct rng streams (1/999, 2/3). Both files end in trailing newline (0x0a verified)."
+}
