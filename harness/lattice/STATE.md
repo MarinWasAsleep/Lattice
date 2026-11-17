@@ -150,8 +150,8 @@ last_update: 2026-11-16
 | L15 | 2 | done | 0 | 2 | f19f5cc | pixel sort — retry (mask aligné L14, tests non-tautologiques), PASS v4-pro pass 2, DEV-214 |
 | L16 | 2 | done | 0 | 1 | c896465 | channel shift — 3e carte hy4 : PASS mistral-large-4, 0 finding, vérifié par exécution |
 | L17 | 2 | in_progress | 1 | 0 | | NTSC / VHS — nous (standard, strict) — review pass 1 FIX (Sonnet : axe filtrer, ringing, head_switching, toggle, labels), retry mistral |
-| L18 | 2 | in_progress | 0 | 0 | | CRT / scanlines — 4e carte hy4 : 35 tests, 1847 verte, tous accepts (dont pixels d'appareil) ; review v4-pro en vol |
-| L19 | 2 | in_progress | 0 | 0 | | seed + masks — nous (standard, own le schéma mask §18, converte DEV-214) |
+| L18 | 2 | in_progress | 0 | 0 | | CRT / scanlines — 4e carte hy4 : 35 tests, tous accepts (dont pixels d'appareil) ; review mistral-large-4 (v4-pro abandonné, budget nous) |
+| L19 | 2 | in_progress | 0 | 0 | | seed + masks — code livré sur disque (22 tests, 1915 verte, perturbé par le budget nous) ; review mistral-large-4 |
 | L20 | 2 | todo | 0 | 0 | | Lattice Glitch shell |
 | L21 | 3 | todo | 0 | 0 | | preset interchange + gallery |
 | L22 | 3 | todo | 0 | 0 | | acceptance in PhotoCraft and DesignCraft |
@@ -217,7 +217,10 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
 - **Rotation relectures (décision 17/11)** : Sonnet thinking high (×3) → mistral-large-4 ;
   **deepseek-v4-pro SORTI** (trop cher, pas plus capable que v4.1-flash) ; kimi sorti.
   ≠ plus rien sur nous si le compte est au bord du plafond — capable → mistral/opencode-go.
-- **En vol** : L7-retry (mistral), L17-retry (mistral), L19 (nous — coupé, à redéployer mistral),
-  relecture L18 (mistral-large-4). ~10 cartes done (L1-6, L-UI, L8, L13-16).
+- **NOUS HORS BOUCLE jusqu'au 18/11 14:33** (limite quotidienne atteinte le 17/11) : tous les
+  dispatchs passent par mistral et opencode-go uniquement. Reviews lourdes = Sonnet CLI par
+  défaut (déc. 17/11), mistral-large-4 en secours.
+- **En vol** : L7-retry (mistral), L18 review (mistral-large-4), L19 review (mistral-large-4).
+  L17 : pass 2 FIX (Sonnet) → attempt 3 sur mistral.
 - Ensuite : L9, L10, L11, L12 (coquille Glyph, chemin critique) ; vague 2 déjà entamée par
   L13-16. L-UI done débloque les coquilles UI de L12/L20.
