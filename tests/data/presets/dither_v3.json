@@ -1,0 +1,31 @@
+{
+  "version": 3,
+  "app": "dither",
+  "meta": {"name": "Game Boy", "author": "Lattice", "created": "2026-11-16"},
+  "renderer": {"name": "pixel", "style": {}},
+  "palette": {
+    "colors": ["#0f380f", "#306230", "#8bac0f", "#9bbc0f"],
+    "locked": false,
+    "order": null,
+    "source": "integrated",
+    "extract": {"from": "image", "n_colors": 16, "rows": null}
+  },
+  "pipeline": {
+    "algorithm": "floyd_steinberg",
+    "params": {},
+    "color_metric": "srgb",
+    "pixel_size": 2,
+    "max_side": null,
+    "brightness": 0.0,
+    "contrast": 0.0,
+    "gamma": 1.0,
+    "saturation": 0.0,
+    "pre_blur": 0.0,
+    "auto_levels": false
+  },
+  "effects": [],
+  "masks": {},
+  "fonts": {},
+  "output": {"scale": 1, "width": null, "dpi": null},
+  "seed": 0
+}
