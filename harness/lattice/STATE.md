@@ -146,12 +146,12 @@ last_update: 2026-11-16
 | L11 | 1 | todo | 0 | 0 | | SVG export |
 | L12 | 1 | todo | 0 | 0 | | Lattice Glyph shell |
 | L13 | 2 | done | 0 | 1 | 11fe38a | feedback buffer — 2e carte hy4-flash-free : PASS strict du 1er essai (mistral-large-4, vérifié par exécution) → TIER MASSE ACTÉ |
-| L14 | 2 | in_progress | 0 | 0 | | displacement — mistral (standard) — review mistral-large-4 en vol |
+| L14 | 2 | done | 0 | 1 | 0b0881d | displacement — PASS mistral-large-4 (5 accepts re-vérifiés par exécution, mutation-killed) ; monoplan pilote 2 axes (lecture §13) |
 | L15 | 2 | done | 0 | 2 | f19f5cc | pixel sort — retry (mask aligné L14, tests non-tautologiques), PASS v4-pro pass 2, DEV-214 |
 | L16 | 2 | done | 0 | 1 | c896465 | channel shift — 3e carte hy4 : PASS mistral-large-4, 0 finding, vérifié par exécution |
 | L17 | 2 | in_progress | 1 | 0 | | NTSC / VHS — nous (standard, strict) — review pass 1 FIX (Sonnet : axe filtrer, ringing, head_switching, toggle, labels), retry mistral |
 | L18 | 2 | in_progress | 0 | 0 | | CRT / scanlines — 4e carte masse : hy4-flash-free |
-| L19 | 2 | todo | 0 | 0 | | seed + masks |
+| L19 | 2 | in_progress | 0 | 0 | | seed + masks — nous (standard, own le schéma mask §18, converte DEV-214) |
 | L20 | 2 | todo | 0 | 0 | | Lattice Glitch shell |
 | L21 | 3 | todo | 0 | 0 | | preset interchange + gallery |
 | L22 | 3 | todo | 0 | 0 | | acceptance in PhotoCraft and DesignCraft |
