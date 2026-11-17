@@ -214,8 +214,10 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
 - **Épreuve masse CONCLUE** : hy4-flash-free acté sur le tier masse (L4 PASS après 4 cycles
   avec code final jugé correct ; L13 PASS strict au 1er essai, vérifié par exécution). Les
   cartes opencode-go tournent désormais sur hy4 en routine (L16 = 3e).
-- **En vol** : L14 (mistral), L15 (nous), L16 (hy4), L7 (mistral, review strict). À chaque
-  verdict : gates → relecture (tier critique, rotation Sonnet → mistral-large-4 → v4-pro) →
-  commit. 8 cartes done (L1-6, L-UI, L8 + L13).
+- **Rotation relectures (décision 17/11)** : Sonnet thinking high (×3) → mistral-large-4 ;
+  **deepseek-v4-pro SORTI** (trop cher, pas plus capable que v4.1-flash) ; kimi sorti.
+  ≠ plus rien sur nous si le compte est au bord du plafond — capable → mistral/opencode-go.
+- **En vol** : L7-retry (mistral), L17-retry (mistral), L19 (nous — coupé, à redéployer mistral),
+  relecture L18 (mistral-large-4). ~10 cartes done (L1-6, L-UI, L8, L13-16).
 - Ensuite : L9, L10, L11, L12 (coquille Glyph, chemin critique) ; vague 2 déjà entamée par
   L13-16. L-UI done débloque les coquilles UI de L12/L20.
