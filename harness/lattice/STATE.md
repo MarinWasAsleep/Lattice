@@ -135,7 +135,7 @@ last_update: 2026-11-16
 | L2 | 0 | done | 1 | 2 | 7394b8b | CellRenderer + PixelRenderer; gates G1-G4+G7-G9 verts (1257 tests), review Opus PASS (pass 1 FIX → retry), DEV-203 (owns pipeline.py), DEV-204 (2 × E1) |
 | L2b | 0 | done | 0 | 2 | 3fe662a | pipeline §3/§5 complet (H11) — retry (2 blockers maths), review Opus PASS, DEV-205 (test aligné) |
 | L3 | 0 | done | 0 | 1 | dcf187f | colour metrics + palette — review PASS mistral-large-4, DEV-207 |
-| L4 | 0 | in_progress | 0 | 0 | | preset v3 — épreuve masse : opencode-go/hy4-flash-free |
+| L4 | 0 | done | 0 | 4 | 11778ec | preset v3 — épreuve masse hy4-flash-free CONCLUE (4 cycles, PASS Sonnet), DEV-210, 4 minors notés |
 | L5 | 0 | done | 0 | 1 | e187968 | bridge generalisation — review: code sain, AMD-009 (surface DesignCraft), DEV-206 |
 | L-UI | 0 | in_progress | 0 | 0 | | widgets partagés — nous/deepseek-v4-flash-0731 |
 | L6 | 1 | in_progress | 0 | 0 | | glyph ramp — mistral/deepseek-v4-1-flash-1017, DEV-208 (append __init__) |
@@ -145,7 +145,7 @@ last_update: 2026-11-16
 | L10 | 1 | todo | 0 | 0 | | glyph browser + non-Latin ramps |
 | L11 | 1 | todo | 0 | 0 | | SVG export |
 | L12 | 1 | todo | 0 | 0 | | Lattice Glyph shell |
-| L13 | 2 | todo | 0 | 0 | | feedback buffer |
+| L13 | 2 | in_progress | 0 | 0 | | feedback buffer — 2e carte masse : opencode-go/hy4-flash-free (épreuve confirmatoire) |
 | L14 | 2 | todo | 0 | 0 | | displacement |
 | L15 | 2 | todo | 0 | 0 | | pixel sort |
 | L16 | 2 | todo | 0 | 0 | | channel shift |
@@ -179,6 +179,22 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
   différée). La clé mistral n'est pas dans le `.env` du profil (Hermes l'a dans son env —
   non localisée, fonctionnement confirmé par les dispatches).
 
+- 2026-11-17: **L4 review pass 1 : FIX (Sonnet thinking high — 1er usage)** — la major :
+  l'accept « missing renderer falls back to the app default and records a warning » n'est pas
+  implémenté (le repli ne se résout pas au défaut d'app) ; 4 minors (table APP_RENDERERS
+  dupliquée vs registre, ordre extra vs clés v3, validation lâche int(True/3.7/"3"),
+  paramétrisation fragile du test). Erreur d'orchestration détectée par le reviewer : §6
+  manquait des extraits de son prompt (corrigé pour le retry). **L4 retry attempt 2 dispatché,
+  toujours sur hy4-flash-free** (épreuve masse en cours, même modèle — verdict juste).
+  **DEV-209** : test de packaging L1 aligné sur S5 (ui retiré d'APPLICATION_MODULES,
+  no-PySide6 restreint à la base) — suite 1372 verte.
+- 2026-11-17: **L4 en cycle 3 (DEV-210)** — review pass 2 : FIX (Sonnet) — 3 majors : table
+  APP_RENDERERS toujours dupliquée (exigence pass 1 répétée : « drop the table »),
+  sémantique du repli legacy, et surtout **mode continu perdu au chargement** (algorithm/
+  palette null → défauts ; §5 S1 ne survit pas au load — contexte de carte §6 seul, §5 jamais
+  fourni au codeur). Budget revue 2/2 épuisé → déviation E2/E1, 3e cycle borné (PASS exigé,
+  sinon ESCALATE humain — le mode continu est bloquant pour la chaîne Glitch). Suite : owned
+  65 verts, base isolée 1372 verte. L-UI/L6/L8 toujours en vol.
 - 2026-11-17: **Vague 1 lancée + L4/L-UI (4 voies)** — L4 = épreuve de la couche masse sur
   hy4-flash-free (opencode-go), L-UI (nous), L6 (mistral), L8 (nous) — tous standard éco sauf
   L4 (gratuit). **DEV-208** : owns de L6/L8 élargis à renderers/__init__.py (append atomique

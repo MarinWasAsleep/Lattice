@@ -143,6 +143,74 @@ their own files. Nothing is carried over.
 - impact: owns élargis de 2 cartes ; règle d'écriture documentée pour G4 ; ré-examiné à la
   relecture L6/L8.
 
+### DEV-209
+- class: E1 (test périmé par amendement) + E3 (correction hors owns) | task: L4/L-UI | contract:
+  0.1.0 | status: accepted
+- raised by: orchestrateur | date: 2026-11-17
+- facts: `tests/test_core_packaging.py` (livré L1) interdisait `ui` dans lattice_core et
+  PySide6 partout. AMD-008 (H11, S5) a créé `lattice_core/ui/` (widgets partagés, extra [ui])
+  possédé par L-UI — les 2 assertions sont devenues fausses : la carte L4 (36 tests) provoquait
+  2 échecs de suite causés par les modules ui/ de L-UI en cours de création.
+- decision: accepted | by: orchestrateur | date: 2026-11-17 — test aligné sur le contrat :
+  `ui` retiré d'APPLICATION_MODULES (le paquet ui de core n'est pas un module d'app) ; le
+  contrôle no-PySide6 ne scanne plus le sous-arbre `lattice_core/ui/` (légal sous [ui]).
+- impact: aucun plan ; G4 : le fichier n'est dans les owns d'aucune carte (mécanique de gates).
+
+### DEV-210
+- class: E2 (budget de revue épuisé) + E1 (contexte de carte partiel) | task: L4 | contract:
+  0.1.0 | status: open (décision orchestrateur : 3e cycle borné, PASS exigé sinon ESCALATE
+  → humain)
+- raised by: orchestrateur | date: 2026-11-17
+- facts: L4 a consommé les 2 cycles de revue (pass 1 FIX, pass 2 FIX). Les 3 majors du pass 2 :
+  1) la table APP_RENDERERS duplique le registre (le pass 1 l'avait déjà signale — le retry a
+  gardé la table comme défaut) ; 2) _from_legacy : le défaut d'app s'applique avec warning
+  même quand aucun renderer n'est présent dans un preset v1/v2 ? (sémantique du repli) ;
+  3) **mode continu perdu au chargement** : _section(None, defaults) transforme algorithm/
+  palette nulls des presets v3 en défauts — le mode continu §5 S1 ne survit pas au load.
+  Le contexte de la carte était §6 seul ; §5 (mode continu) n'a jamais été dans les extraits
+  du codeur (erreur de carte ou de contexte — le reviewer l'a attrape cote contrat).
+- decision: orchestrateur | date: 2026-11-17 — 3e cycle borné (attempt 3) sur hy4-flash-free
+  avec §5+§6 dans le prompt, consigne explicite (registre, pas de table), findings pass 1+2
+  verbatim. Si le PASS n'est pas obtenu a ce cycle : ESCALATE vers l'humain (mode continu
+  bloquant pour la chaine Glitch). r reste à 2 dans la table (compteur officiel).
+- suite (2026-11-17) : attempt 3 propre (71 tests, mode continu nulls préservé, table
+  supprimée) ; relecture pass 3 (Sonnet) : **FIX test-only** — aucun défaut de code, l'unique
+  major est un item d'accept (repli dither-context) non testé (conflit résolu par `available=`,
+  un test suffit) + 2 minors cosmétiques. **ESCALATE humain : arbitrage rendu — 4e cycle
+  TEST-ONLY autorisé** (17/11) → attempt 4 : test d'accept ajouté, AUCUN changement de
+  comportement requis (le code était correct), 72 tests owned, isolation 1448. **Relecture
+  pass 4 : PASS (Sonnet)** — L4 done, 4 minors notés (tension sémantique registre-vs-letra
+  de l'accept documentée, couplage d'environnement des tests, APP_DEFAULT_RENDERER hardcodé
+  les noms d'app, clés v3 collant en legacy). **DEV-210 résolue.**
+- impact: 1 cycle supplémentaire pour L4 ; rien d'autre.
+
+### DEV-211
+- class: E1 (test périmé par l'arrivée des renderers) + E3 (correction hors owns) | task: L6/L8
+  | contract: 0.1.0 | status: accepted
+- raised by: codeurs L6/L8 + orchestrateur | date: 2026-11-17
+- facts: `tests/test_cell.py::test_list_renderers_returns_pixel` (livré L2) asserte
+  `list_renderers() == ["pixel"]` — l'accept L2 disait « at this point ». Les renderers de la
+  vague 1 (glyph_ramp L6, braille/sextant/quadrant/half_block L8) l'ont rendu faux ; le fichier
+  n'est dans les owns d'aucune carte.
+- decision: accepted | by: orchestrateur | date: 2026-11-17 — assertion structurelle : pixel
+  présent, unicité des noms, sous-ensemble attendu des renderers de vague 1 présent (les
+  invariants par renderer restent la propriété de G8).
+- impact: aucun plan ; test_cell.py déjà aligné par l'orchestrateur (DEV-205).
+
+### AMD-010 — rampes de glyphes : indexation perceptuelle de la luma (L6), 2026-11-17
+- task: L6 | contract: 0.1.0 | date: 2026-11-17
+- section: §9 (glyph_ramp)
+- discovered: L6 a ré-encodé la luma (linéaire, S2) en sRGB avant l'indexation de la rampe —
+  sinon un dégradé N&B réel s'écrase dans le tiers sombre (gris 50 % sRGB = 0,214 linéaire) et
+  l'accept « 10 glyphes distincts » échoue sur un dégradé perçu. La relecture (Sonnet) a
+  demandé un arbitrage : §9 amendé dit « luma indexes an ordered ramp » sans préciser la
+  fonction de transfert.
+- contract change: §9 PATCH (clarification, 2026-11-17) : « the ramp is indexed by the
+  sRGB-perceptual encoding of `grid.luma` (monotonic re-encoding of the linear value; darkest
+  first is preserved) ». Décision humaine demandée, délégation à l'arbitrage visuel de H12
+  (jugement des rampes sur images réelles) — réversible en une ligne.
+- status: applied (PATCH §9) — arbitrage visuel final à H12
+
 ## Amendments (registre)
 
 Facts discovered during a task that the contract could not have known, recorded here rather than
