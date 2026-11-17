@@ -171,6 +171,13 @@ last_update: 2026-11-16
 La numérotation des checkpoints continue à travers les générations : 1.0 H0-H4, 1.1 H5-H9,
 0.1 H10-H14 (registre : `harness/README.md`).
 
+- 2026-11-17: **GLM chez Mistral découvert** — `zai-glm-5-3-flash` (0,15/0,50 $, 1M ctx,
+  orientation agents) et `zai-glm-5-3` (1,40/4,40 $) servis par Mistral (tiers Z.ai, même
+  clé/compte), probe GLM-flash vert (latence ~2 min à froid à surveiller). Pas de « GLM 3.5 »
+  au catalogue. Décision humaine : **pas en rotation avant la vague 1** (épreuve L4 proposée,
+  différée). La clé mistral n'est pas dans le `.env` du profil (Hermes l'a dans son env —
+  non localisée, fonctionnement confirmé par les dispatches).
+
 ## Next
 
 - **L4** (preset v3, deps L2b ✓) et **L-UI** (widgets partagés, après L5 ✓) prêtes : 2 voies
