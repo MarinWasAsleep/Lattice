@@ -1,8 +1,8 @@
 # Gabarit ANALYSTE-PRODUIT — pour les checkpoints de jugement (H11, H12, H13)
 
-Généré par l'orchestrateur, exécuté par **Claude Opus (effort medium)** via le CLI
-(`claude -p "<prompt>" --model opus --effort medium`). L'analyste examine, l'humain
-tranche. L'analyste ne décide jamais : il remet un verdict + des questions.
+Généré par l'orchestrateur, exécuté par **Claude Sonnet (thinking high)** via le CLI
+(`MAX_THINKING_TOKENS=32000 claude -p "<prompt>" --model sonnet --thinking enabled`).
+L'analyste examine, l'humain tranche. L'analyste ne décide jamais : il remet un verdict + des questions.
 
 ---
 

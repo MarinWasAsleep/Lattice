@@ -74,7 +74,8 @@ last_update: 2026-11-16
   **`hy4-flash-free` — 0 $, illimité, promo limited-time** → couche MASSE (codage
   mécanique/volumineux), épreuve à la prochaine carte routée opencode-go, décision humaine du
   2026-11-17, tiering 3 étages : masse = hy4-flash-free / standard = deepseek-v4.1-flash
-  (nous/mistral) / critique = Opus ×3, mistral-large-4, v4-pro). Providers Hermes :
+  (nous/mistral) / critique = **Sonnet thinking high ×3 (CLI claude, décision 17/11 : remplace
+  Opus)**, mistral-large-4, v4-pro). Providers Hermes :
   custom:mistral (MISTRAL_API_KEY), custom:opencode-go (**opencode.ai/zen/go/v1,
   OPENCODE_GO_API_KEY — abonnement Go ; header `x-opencode-session` requis par le backend,
   envoyé nativement par Hermes ≥ 0.21.6 — corrigé le soir : la doc du matin disait
@@ -164,8 +165,8 @@ last_update: 2026-11-16
 |---|---|---|
 | H10 | after L1 | ✅ done 2026-11-16 — app lancée par l'humain (`.venv/bin/python -m lattice_dither`, intacte) ; `lattice_core` s'installe seul en venv vierge (sans PySide6) |
 | H11 | after L2 | ✅ done 2026-11-16 — analyse Opus (H11-analyse-result.json), décisions B/A/A/A/A, amendements AMD-008 appliqués puis **contrat gelé en 0.1.0** |
-| H12 | after wave 1 | pending — analyse Opus de Lattice Glyph sur trois images réelles (captures/parcours) → toi : trancher |
-| H13 | after wave 2 | pending — analyse Opus (Lattice Glitch vivant, pas un filtre ?) → toi : trancher |
+| H12 | after wave 1 | pending — analyse Sonnet (thinking high) de Lattice Glyph sur trois images réelles (captures/parcours) → toi : trancher |
+| H13 | after wave 2 | pending — analyse Sonnet (thinking high) (Lattice Glitch vivant, pas un filtre ?) → toi : trancher |
 | H14 | L22 | pending — acceptance in PhotoCraft then DesignCraft |
 
 La numérotation des checkpoints continue à travers les générations : 1.0 H0-H4, 1.1 H5-H9,
@@ -184,4 +185,5 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
   dispatchables immédiatement. Vague 1 (L6+) prête dès L4/L-UI lancés (deps L2b ✓).
 - Chemin critique : L2 done → coquilles L12/L20 (vague 1/2). Tiering 2026-11-17 : masse =
   hy4-flash-free (opencode-go, épreuve prochaine carte) ; standard = deepseek-v4.1-flash ;
-  critique = Opus ×3 → mistral-large-4 → v4-pro (kimi sorti). L4 + L-UI prêtes au dispatch.
+  critique = Sonnet thinking high ×3 → mistral-large-4 → v4-pro (kimi sorti). L4 + L-UI
+  prêtes au dispatch.
