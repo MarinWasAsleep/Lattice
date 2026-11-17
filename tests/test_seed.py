@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
-from lattice_core.registry import get_effect
-from lattice_core.preset import Preset, from_json, from_pipeline_spec, to_json, to_pipeline_spec
+import lattice_core.effects  # noqa: F401 — enregistre les effets (registre peuplé à l'import)
 from lattice_core.pipeline import EffectInstance, PipelineSpec, render
+from lattice_core.preset import Preset, from_json, from_pipeline_spec, to_json, to_pipeline_spec
 from lattice_core.seed import SeedController, module_seed, render_effects
 
 _JPEG = {"quality": 40, "corruptions": 5}
@@ -42,8 +41,9 @@ def test_controller_is_deterministic_for_a_fixed_seed(rng: np.random.Generator) 
     """Running render_effects with the same controller twice gives identical stages."""
     img = np.clip(rng.random((32, 32, 3), dtype=np.float32), 0.0, 1.0).astype(np.float32)
     controller = SeedController(seed=99)
-    first = render_effects(img, ["jpeg_glitch", "ntsc"], controller, params={"jpeg_glitch": _JPEG})
-    second = render_effects(img, ["jpeg_glitch", "ntsc"], controller,
+    first = render_effects(img, ["jpeg_glitch", "gaussian_blur"], controller,
+                           params={"jpeg_glitch": _JPEG})
+    second = render_effects(img, ["jpeg_glitch", "gaussian_blur"], controller,
                             params={"jpeg_glitch": _JPEG})
     for a, b in zip(first, second, strict=True):
         assert np.array_equal(a, b)

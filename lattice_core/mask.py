@@ -32,7 +32,7 @@ class MaskRef:
     data: str | None = None
 
     @classmethod
-    def from_mask(cls, mask: Image, ref_id: str, *, path: str | None = None) -> "MaskRef":
+    def from_mask(cls, mask: Image, ref_id: str, *, path: str | None = None) -> MaskRef:
         """Build a reference for mask, embedding when possible and requiring a path otherwise."""
         plane = _plane(mask)
         payload = to_png(plane)
@@ -46,7 +46,7 @@ class MaskRef:
         return cls(ref_id, plane.shape[1], plane.shape[0], path=str(path))
 
     @classmethod
-    def from_path(cls, path: str | Path, ref_id: str) -> "MaskRef":
+    def from_path(cls, path: str | Path, ref_id: str) -> MaskRef:
         """Load the dimensions of an exported PNG mask without decoding its values."""
         plane = import_png(path)
         return cls(ref_id, plane.shape[1], plane.shape[0], path=str(path))
@@ -65,7 +65,7 @@ class MaskRef:
         return item
 
     @classmethod
-    def from_dict(cls, item: dict) -> "MaskRef":
+    def from_dict(cls, item: dict) -> MaskRef:
         """Rebuild a reference from its JSON dict, rejecting an entry with both keys."""
         ref = cls(str(item["id"]), _int(item, "width"), _int(item, "height"),
                   path=_str_or_none(item.get("path")),
