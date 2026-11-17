@@ -217,10 +217,10 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
 - **Rotation relectures (décision 17/11)** : Sonnet thinking high (×3) → mistral-large-4 ;
   **deepseek-v4-pro SORTI** (trop cher, pas plus capable que v4.1-flash) ; kimi sorti.
   ≠ plus rien sur nous si le compte est au bord du plafond — capable → mistral/opencode-go.
-- **NOUS HORS BOUCLE jusqu'au 18/11 14:33** (limite quotidienne atteinte le 17/11) : tous les
-  dispatchs passent par mistral et opencode-go uniquement. Reviews lourdes = Sonnet CLI par
-  défaut (déc. 17/11), mistral-large-4 en secours.
-- **En vol** : L7-retry (mistral), L18 review (mistral-large-4), L19 review (mistral-large-4).
-  L17 : pass 2 FIX (Sonnet) → attempt 3 sur mistral.
+- **NOUS HORS BOUCLE jusqu'au 18/11 14:33** (limite quotidienne atteinte le 17/11).
+  **Implémentations : opencode-go (hy4 masse / deepseek-v4.1-flash standard) + mistral en
+  secours** ; reviews lourdes = Sonnet CLI par défaut, mistral-large-4 en secours.
+- **En vol** : L9 text-halftone (mistral), L17 attempt 3 (mistral), L10 glyph browser (mistral),
+  L19 review (mistral-large-4). Prochaines implémentations → hy4/opencode-go.
 - Ensuite : L9, L10, L11, L12 (coquille Glyph, chemin critique) ; vague 2 déjà entamée par
   L13-16. L-UI done débloque les coquilles UI de L12/L20.
