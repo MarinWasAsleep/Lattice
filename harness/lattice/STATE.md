@@ -137,7 +137,7 @@ last_update: 2026-11-16
 | L3 | 0 | done | 0 | 1 | dcf187f | colour metrics + palette — review PASS mistral-large-4, DEV-207 |
 | L4 | 0 | done | 0 | 4 | 11778ec | preset v3 — épreuve masse hy4-flash-free CONCLUE (4 cycles, PASS Sonnet), DEV-210, 4 minors notés |
 | L5 | 0 | done | 0 | 1 | e187968 | bridge generalisation — review: code sain, AMD-009 (surface DesignCraft), DEV-206 |
-| L-UI | 0 | in_progress | 0 | 0 | | widgets partagés — nous/deepseek-v4-flash-0731 |
+| L-UI | 0 | done | 0 | 1 | a78009f | widgets partagés — PASS mistral-large-4, bloquants REVUE-PRODUIT vérifiés par exécution, E8/PySide6 propres |
 | L6 | 1 | in_progress | 0 | 0 | | glyph ramp — mistral/deepseek-v4-1-flash-1017, DEV-208 (append __init__) |
 | L7 | 1 | todo | 0 | 0 | | shape-matched glyphs |
 | L8 | 1 | in_progress | 0 | 0 | | bitmask — nous/deepseek-v4-flash-0731, DEV-208 (append __init__) |
@@ -146,7 +146,7 @@ last_update: 2026-11-16
 | L11 | 1 | todo | 0 | 0 | | SVG export |
 | L12 | 1 | todo | 0 | 0 | | Lattice Glyph shell |
 | L13 | 2 | in_progress | 0 | 0 | | feedback buffer — 2e carte masse : opencode-go/hy4-flash-free (épreuve confirmatoire) |
-| L14 | 2 | todo | 0 | 0 | | displacement |
+| L14 | 2 | in_progress | 0 | 0 | | displacement — image: mistral (standard) |
 | L15 | 2 | todo | 0 | 0 | | pixel sort |
 | L16 | 2 | todo | 0 | 0 | | channel shift |
 | L17 | 2 | todo | 0 | 0 | | NTSC / VHS |
