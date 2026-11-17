@@ -232,6 +232,18 @@ their own files. Nothing is carried over.
   arrays (resolve_params les rejette).
 - impact: L14+ L15 alignés ; les cartes §18 à venir (L19, …) et L20 suivent cette convention.
 
+### DEV-215
+- class: E1 (compromis de domaine) | task: L7 | contract: 0.1.0 | status: accepted
+- raised by: codeur L7 (attempt 2) + relecture Sonnet | date: 2026-11-17
+- facts: l'encre de cellule est comparée en domaine coverage ; `_circle_weights` intègre une
+  couverture géométrique exacte alors que les samples restent des luminances ponctuelles —
+  les deux sont des surfaces en [0,1], donc commensurables (compromis demandé par le finding).
+  p/q : au plus petit stencil (cell_h 4/8) les vecteurs diffèrent mais le plus-proche voisin
+  est le même — limite du stencil §9 à 6 disques, pas du code (dès cell_h ≥ 10, p/q séparés).
+- decision: accepted | by: orchestrateur + relecture (PASS) — le test asserte la différence de
+  vecteur partout et de glyphe dès cell_h ≥ 10 ; limitation documentée dans la docstring.
+- impact: aucune action ; sert de référence si L10 (glyph browser) ou H12 signalent p/q.
+
 ### AMD-011 — glyph_shape : la normalisation ne s'applique qu'aux vecteurs de l'alphabet (L7), 2026-11-17
 - task: L7 | contract: 0.1.0 | date: 2026-11-17
 - section: §9 (glyph_shape)
