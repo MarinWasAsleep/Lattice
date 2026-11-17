@@ -139,7 +139,7 @@ last_update: 2026-11-16
 | L5 | 0 | done | 0 | 1 | e187968 | bridge generalisation — review: code sain, AMD-009 (surface DesignCraft), DEV-206 |
 | L-UI | 0 | done | 0 | 1 | a78009f | widgets partagés — PASS mistral-large-4, bloquants REVUE-PRODUIT vérifiés par exécution, E8/PySide6 propres |
 | L6 | 1 | done | 0 | 2 | 45c42a2 | glyph ramp — retry invariant 2 + AMD-010 (rampe perceptuelle), PASS v4-pro, 49 tests, DEV-212/213 |
-| L7 | 1 | in_progress | 0 | 0 | | shape-matched glyphs — mistral (standard éco, carte la plus lourde, review strict) |
+| L7 | 1 | in_progress | 1 | 0 | | shape-matched glyphs — retry (review pass 1 FIX Sonnet : normalisation → AMD-011, test collapse, rampe comparateur, consumes), mistral |
 | L8 | 1 | done | 0 | 2 | f60129c | bitmask — retry Unicode row-major (v4-pro blocker), PASS v4-pro, 48 tests, invariants §3 tenus |
 | L9 | 1 | todo | 0 | 0 | | text-halftone |
 | L10 | 1 | todo | 0 | 0 | | glyph browser + non-Latin ramps |

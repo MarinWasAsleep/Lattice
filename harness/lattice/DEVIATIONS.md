@@ -232,6 +232,21 @@ their own files. Nothing is carried over.
   arrays (resolve_params les rejette).
 - impact: L14+ L15 alignés ; les cartes §18 à venir (L19, …) et L20 suivent cette convention.
 
+### AMD-011 — glyph_shape : la normalisation ne s'applique qu'aux vecteurs de l'alphabet (L7), 2026-11-17
+- task: L7 | contract: 0.1.0 | date: 2026-11-17
+- section: §9 (glyph_shape)
+- discovered: la lecture littérale de « Normalise each component by the maximum across the
+  alphabet » (diviser AUSSI le vecteur de cellule) est INSATISFAISABLE : mesuré, elle écrase
+  tout (1–4 glyphes distincts, top-3 = 1,00), violant l'autre clause de l'accept « ≥ 8
+  distincts ». La relecture (Sonnet, pass 1) confirme : c'est un amendement de contrat
+  (E2/E4), pas un fix.
+- contract change: §9 PATCH (clarification, 2026-11-17) : « The per-component normalisation is
+  applied to the alphabet shape vectors only (using the per-component maximum across the
+  alphabet); the per-cell vector stays in raw disk-coverage fractions so the range of the cell
+  retains its meaning. » Ratification humaine déléguée à l'arbitrage visuel de H12 comme
+  AMD-010 (réversible).
+- status: applied (PATCH §9) — arbitrage visuel final à H12
+
 ### AMD-010 — rampes de glyphes : indexation perceptuelle de la luma (L6), 2026-11-17
 - task: L6 | contract: 0.1.0 | date: 2026-11-17
 - section: §9 (glyph_ramp)
