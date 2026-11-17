@@ -147,9 +147,9 @@ last_update: 2026-11-16
 | L12 | 1 | todo | 0 | 0 | | Lattice Glyph shell |
 | L13 | 2 | done | 0 | 1 | 11fe38a | feedback buffer — 2e carte hy4-flash-free : PASS strict du 1er essai (mistral-large-4, vérifié par exécution) → TIER MASSE ACTÉ |
 | L14 | 2 | in_progress | 0 | 0 | | displacement — image: mistral (standard) |
-| L15 | 2 | in_progress | 0 | 0 | | pixel sort — nous (standard) |
-| L16 | 2 | done | 0 | 1 | (commit) | channel shift — 3e carte hy4 : PASS mistral-large-4, 0 finding, vérifié par exécution |
-| L17 | 2 | todo | 0 | 0 | | NTSC / VHS |
+| L15 | 2 | in_progress | 0 | 0 | | pixel sort — nous (standard) — review v4-pro en vol |
+| L16 | 2 | done | 0 | 1 | c896465 | channel shift — 3e carte hy4 : PASS mistral-large-4, 0 finding, vérifié par exécution |
+| L17 | 2 | in_progress | 0 | 0 | | NTSC / VHS — nous (standard, strict) |
 | L18 | 2 | todo | 0 | 0 | | CRT / scanlines |
 | L19 | 2 | todo | 0 | 0 | | seed + masks |
 | L20 | 2 | todo | 0 | 0 | | Lattice Glitch shell |
