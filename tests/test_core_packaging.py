@@ -17,7 +17,10 @@ import lattice_core  # noqa: F401  (the package must import cleanly)
 
 CORE = Path(lattice_core.__file__).resolve().parent
 
-APPLICATION_MODULES = {"ui", "export", "preprocess", "i18n", "cli", "animation"}
+# Application packages/app-only modules that must never live inside lattice_core.
+# "ui" was removed from this set at H11 (AMD-008/S5, décision humaine 2026-11-17) :
+# lattice_core/ui est le paquet de widgets PARTAGÉS, légal sous l'extra [ui].
+APPLICATION_MODULES = {"export", "preprocess", "i18n", "cli", "animation"}
 
 
 def _core_modules() -> list[Path]:
@@ -48,8 +51,12 @@ def test_core_imports_nothing_from_lattice_dither() -> None:
 
 
 def test_core_imports_no_pyside6() -> None:
-    """The base install must never pull Qt; PySide6 stays behind the ui extra."""
+    """The base install must never pull Qt; PySide6 stays behind the ui extra.
+    lattice_core/ui (widgets partagés, AMD-008/S5) vit SOUS l'extra [ui] :
+    ses modules peuvent importer PySide6 — seuls les modules de base sont contrôlés."""
     for path in _core_modules():
+        if path.relative_to(CORE).parts[0] == "ui":
+            continue
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

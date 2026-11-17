@@ -1,0 +1,44 @@
+{
+  "verdict": "FIX",
+  "findings": [
+    {
+      "severity": "blocker",
+      "file": "lattice_core/renderers/bitmask.py",
+      "line": 44,
+      "what": "_SEXTANT_CODEPOINTS is built with column-major (braille-style) dot numbering, but Unicode BLOCK SEXTANT is row-major.",
+      "why": "Unicode NamesList annotates BLOCK SEXTANT-12 as 'upper one third block' and SEXTANT-34 as 'middle one third block', so dot 1=top-left, 2=top-right, 3=middle-left, 4=middle-right, 5=bottom-left, 6=bottom-right (row-major). The table instead assumes 1/2/3 down the left column and 4/5/6 down the right, so 54 of the 60 present patterns map to the wrong glyph. render()/PNG is unaffected (it rasterises dots via _spans), but codepoints()/layout() emits transposed/misordered sextant glyphs. The E1 premise (4 of 64 patterns have no glyph in U+1FB00..U+1FB3B) is TRUE, but the implementation of the deviation is unsound.",
+      "fix": "Rebuild _SEXTANT_CODEPOINTS with the identity mapping k->dot k+1 (row-major, y-major x-minor). The genuinely un-expressible patterns are then the left column {1,3,5} (mask 21) and right column {2,4,6} (mask 42) plus full/empty; map those four to U+0020/U+2588 and a documented 3-dot approximation (not a 2-dot glyph that silently drops a dot)."
+    },
+    {
+      "severity": "major",
+      "file": "tests/test_bitmask.py",
+      "line": 202,
+      "what": "test_sextant_table_matches_unicode_15_1_names hardcodes the same wrong sub_dot={0:1,1:4,2:2,3:5,4:3,5:6} and a special dict {(1,3,5):0x1FB04,(2,4,6):0x1FB09}, then reconstructs the expected table from it.",
+      "why": "The test restates the implementation: it rebuilds the table from the coder's own (wrong) dot numbering and therefore cannot fail when the numbering is wrong. It also skips entirely on Unicode < 15.1. This is the one test that should have caught the blocker but blesses it instead.",
+      "fix": "Derive the dot-to-position mapping from Unicode names (SEXTANT-12 = upper one third, SEXTANT-34 = middle one third) instead of a hand-written dict, and assert the table against it; keep the skip only when unicodedata < 13.0 (the block exists since 13.0)."
+    },
+    {
+      "severity": "minor",
+      "file": "lattice_core/renderers/bitmask.py",
+      "line": 10,
+      "what": "Module docstring says the four un-expressible sextant patterns are 'the two alternating diagonals' U+1FB04/U+1FB09.",
+      "why": "U+1FB04 (SEXTANT-13) and U+1FB09 (SEXTANT-24) are in-block 2-dot sextants — the block CAN express them. The actually un-expressible patterns are the full block, the empty block, and the two full columns {1,3,5}/{2,4,6}. A docstring that lies about the deviation's own mapping.",
+      "fix": "Rewrite the sextant bullet to state the true missing set (full, empty, left column, right column) and the chosen approximation for each."
+    },
+    {
+      "severity": "minor",
+      "file": "lattice_core/renderers/bitmask.py",
+      "line": 135,
+      "what": "threshold thresholds palette relative luminance (rel[subindex] < threshold), not `samples` as §9 states.",
+      "why": "Documented E1 and coherent under S3 (decision lives in subindex), and the BW accept items are honored. But on a degenerate palette (lum_max==lum_min) rel=0 everywhere, so every cell renders all-ink (full blocks) at the default threshold — the opposite of the pipeline's own _coverage_table degenerate convention (coverage=0 = no ink).",
+      "fix": "Either document the palette-relative threshold and its degenerate behaviour explicitly, or map a zero-range palette to all-paper to match _coverage_table."
+    }
+  ],
+  "regression": "none",
+  "renderer_invariants": "all six hold (size, purity, no mutation, cell_aspect, unique names, JSON round-trip). The sextant bug is in glyph spatial mapping, not the §3 invariants; braille/quadrant/half_block tables are correct.",
+  "tests_that_cannot_fail": [
+    "test_sextant_table_matches_unicode_15_1_names (rebuilds the table from the same wrong sub_dot; passes despite 54/60 wrong codepoints)",
+    "test_half_black_cell_is_half_filled (sextant/quadrant/half_block branch asserts codepoint == the table under test, restating it; only the braille dot-count branch is a real check)"
+  ],
+  "notes": "E1 premise verified against Unicode 16.0 NamesList: 4 of 64 sextant patterns (empty, full, left column {1,3,5}, right column {2,4,6}) have no glyph in U+1FB00..U+1FB3B. The deviation is sound in principle; the table that implements it is not. Braille dot bits, quadrant and half_block tables are all correct; only sextant is broken. PNG render path is unaffected. FIX, not ESCALATE — the correct mapping needs no contract change, only a corrected table and a test that derives the numbering from Unicode rather than restating it."
+}

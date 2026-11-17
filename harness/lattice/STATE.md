@@ -202,9 +202,17 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
   prompts/generated/{L4,L-UI,L6,L8}-coder-attempt-1.md. Relectures à venir sur le tier
   critique (Sonnet thinking high → mistral-large-4 → v4-pro).
 
+- 2026-11-17: **Vague 1 — relectures : L8 FIX (v4-pro, blocker Unicode trouvé)** — la table
+  sextant était en column-major (54/60 glyphes d'export transposés ; PNG correct) ; l'E1
+  (4 motifs inexprimables) vrai mais mal implémenté, test auto-bénissant. Retry L8 sur nous
+  (row-major, test dérivé des noms Unicode, skip < 13.0, palette dégénérée → tout-papier).
+  L6 retry (mistral) et L13 (hy4) en vol ; relecture L-UI (mistral-large-4) en vol. AMD-010
+  (rampe perceptuelle) posé — arbitrage visuel à H12. L4 done (épreuve masse concluante).
+
 ## Next
 
-- **4 voies en vol** : L4 (hy4-flash-free), L-UI (nous), L6 (mistral), L8 (nous). À chaque
-  retour : gates → relecture strict (tier critique : Sonnet thinking high ×3 → mistral-large-4
-  → v4-pro) → commit. Après : L7 (deps L6), L9 (deps L2b), L10, L11, L12 (coquille Glyph,
-  chemin critique) ; L4 done débloque L13+ (vague 2).
+- **En vol** : L13 (hy4, épreuve confirmatoire), L6 attempt 2 (mistral), L8 attempt 2 (nous),
+  relecture L-UI (mistral-large-4). À chaque verdict : gates → relecture (tier critique,
+  rotation Sonnet → mistral-large-4 → v4-pro) → commit.
+- Ensuite : L7 (deps L6 ✓), L9, L10, L11, L12 (coquille Glyph, chemin critique) ; vague 2
+  déjà entamée par L13. L-UI done débloque les coquilles UI de L12/L20.
