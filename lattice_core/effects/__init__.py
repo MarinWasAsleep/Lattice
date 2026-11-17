@@ -7,7 +7,6 @@ from lattice_core.effects import (  # noqa: F401
     feedback,
     glitch,
     halftone,
-    ntsc,
     pixel_sort,
     tone,
 )
