@@ -145,10 +145,10 @@ last_update: 2026-11-16
 | L10 | 1 | todo | 0 | 0 | | glyph browser + non-Latin ramps |
 | L11 | 1 | todo | 0 | 0 | | SVG export |
 | L12 | 1 | todo | 0 | 0 | | Lattice Glyph shell |
-| L13 | 2 | in_progress | 0 | 0 | | feedback buffer — 2e carte masse : opencode-go/hy4-flash-free (épreuve confirmatoire) |
+| L13 | 2 | done | 0 | 1 | 11fe38a | feedback buffer — 2e carte hy4-flash-free : PASS strict du 1er essai (mistral-large-4, vérifié par exécution) → TIER MASSE ACTÉ |
 | L14 | 2 | in_progress | 0 | 0 | | displacement — image: mistral (standard) |
 | L15 | 2 | in_progress | 0 | 0 | | pixel sort — nous (standard) |
-| L16 | 2 | todo | 0 | 0 | | channel shift |
+| L16 | 2 | in_progress | 0 | 0 | | channel shift — 3e carte masse : hy4-flash-free (tier acté) |
 | L17 | 2 | todo | 0 | 0 | | NTSC / VHS |
 | L18 | 2 | todo | 0 | 0 | | CRT / scanlines |
 | L19 | 2 | todo | 0 | 0 | | seed + masks |
@@ -211,8 +211,10 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
 
 ## Next
 
-- **En vol** : L13 (hy4, épreuve confirmatoire), L6 attempt 2 (mistral), L8 attempt 2 (nous),
-  relecture L-UI (mistral-large-4). À chaque verdict : gates → relecture (tier critique,
-  rotation Sonnet → mistral-large-4 → v4-pro) → commit.
+- **Épreuve masse CONCLUE** : hy4-flash-free acté sur le tier masse (L4 PASS après 4 cycles
+  avec code final jugé correct ; L13 PASS strict au 1er essai, vérifié par exécution). Les
+  cartes opencode-go tournent désormais sur hy4 en routine (L16 = 3e).
+- **En vol** : L14 (mistral), L15 (nous), L16 (hy4), relecture L6 (v4-pro). À chaque verdict :
+  gates → relecture (tier critique, rotation Sonnet → mistral-large-4 → v4-pro) → commit.
 - Ensuite : L7 (deps L6 ✓), L9, L10, L11, L12 (coquille Glyph, chemin critique) ; vague 2
   déjà entamée par L13. L-UI done débloque les coquilles UI de L12/L20.
