@@ -140,14 +140,14 @@ last_update: 2026-11-16
 | L-UI | 0 | done | 0 | 1 | a78009f | widgets partagés — PASS mistral-large-4, bloquants REVUE-PRODUIT vérifiés par exécution, E8/PySide6 propres |
 | L6 | 1 | in_progress | 0 | 0 | | glyph ramp — mistral/deepseek-v4-1-flash-1017, DEV-208 (append __init__) |
 | L7 | 1 | todo | 0 | 0 | | shape-matched glyphs |
-| L8 | 1 | in_progress | 0 | 0 | | bitmask — nous/deepseek-v4-flash-0731, DEV-208 (append __init__) |
+| L8 | 1 | done | 0 | 2 | f60129c | bitmask — retry Unicode row-major (v4-pro blocker), PASS v4-pro, 48 tests, invariants §3 tenus |
 | L9 | 1 | todo | 0 | 0 | | text-halftone |
 | L10 | 1 | todo | 0 | 0 | | glyph browser + non-Latin ramps |
 | L11 | 1 | todo | 0 | 0 | | SVG export |
 | L12 | 1 | todo | 0 | 0 | | Lattice Glyph shell |
 | L13 | 2 | in_progress | 0 | 0 | | feedback buffer — 2e carte masse : opencode-go/hy4-flash-free (épreuve confirmatoire) |
 | L14 | 2 | in_progress | 0 | 0 | | displacement — image: mistral (standard) |
-| L15 | 2 | todo | 0 | 0 | | pixel sort |
+| L15 | 2 | in_progress | 0 | 0 | | pixel sort — nous (standard) |
 | L16 | 2 | todo | 0 | 0 | | channel shift |
 | L17 | 2 | todo | 0 | 0 | | NTSC / VHS |
 | L18 | 2 | todo | 0 | 0 | | CRT / scanlines |
