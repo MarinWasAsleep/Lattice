@@ -135,12 +135,12 @@ last_update: 2026-11-16
 | L2 | 0 | done | 1 | 2 | 7394b8b | CellRenderer + PixelRenderer; gates G1-G4+G7-G9 verts (1257 tests), review Opus PASS (pass 1 FIX → retry), DEV-203 (owns pipeline.py), DEV-204 (2 × E1) |
 | L2b | 0 | done | 0 | 2 | 3fe662a | pipeline §3/§5 complet (H11) — retry (2 blockers maths), review Opus PASS, DEV-205 (test aligné) |
 | L3 | 0 | done | 0 | 1 | dcf187f | colour metrics + palette — review PASS mistral-large-4, DEV-207 |
-| L4 | 0 | todo | 0 | 0 | | preset v3 (deps L2b ✓) |
+| L4 | 0 | in_progress | 0 | 0 | | preset v3 — épreuve masse : opencode-go/hy4-flash-free |
 | L5 | 0 | done | 0 | 1 | e187968 | bridge generalisation — review: code sain, AMD-009 (surface DesignCraft), DEV-206 |
-| L-UI | 0 | todo | 0 | 0 | | shared widgets in lattice_core/ui (S5, after L5, before L12/L20) |
-| L6 | 1 | todo | 0 | 0 | | glyph ramp |
+| L-UI | 0 | in_progress | 0 | 0 | | widgets partagés — nous/deepseek-v4-flash-0731 |
+| L6 | 1 | in_progress | 0 | 0 | | glyph ramp — mistral/deepseek-v4-1-flash-1017, DEV-208 (append __init__) |
 | L7 | 1 | todo | 0 | 0 | | shape-matched glyphs |
-| L8 | 1 | todo | 0 | 0 | | bitmasks |
+| L8 | 1 | in_progress | 0 | 0 | | bitmask — nous/deepseek-v4-flash-0731, DEV-208 (append __init__) |
 | L9 | 1 | todo | 0 | 0 | | text-halftone |
 | L10 | 1 | todo | 0 | 0 | | glyph browser + non-Latin ramps |
 | L11 | 1 | todo | 0 | 0 | | SVG export |
@@ -179,11 +179,16 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
   différée). La clé mistral n'est pas dans le `.env` du profil (Hermes l'a dans son env —
   non localisée, fonctionnement confirmé par les dispatches).
 
+- 2026-11-17: **Vague 1 lancée + L4/L-UI (4 voies)** — L4 = épreuve de la couche masse sur
+  hy4-flash-free (opencode-go), L-UI (nous), L6 (mistral), L8 (nous) — tous standard éco sauf
+  L4 (gratuit). **DEV-208** : owns de L6/L8 élargis à renderers/__init__.py (append atomique
+  via terminal, jamais write_file — règle documentée pour G4). Prompts :
+  prompts/generated/{L4,L-UI,L6,L8}-coder-attempt-1.md. Relectures à venir sur le tier
+  critique (Sonnet thinking high → mistral-large-4 → v4-pro).
+
 ## Next
 
-- **L4** (preset v3, deps L2b ✓) et **L-UI** (widgets partagés, après L5 ✓) prêtes : 2 voies
-  dispatchables immédiatement. Vague 1 (L6+) prête dès L4/L-UI lancés (deps L2b ✓).
-- Chemin critique : L2 done → coquilles L12/L20 (vague 1/2). Tiering 2026-11-17 : masse =
-  hy4-flash-free (opencode-go, épreuve prochaine carte) ; standard = deepseek-v4.1-flash ;
-  critique = Sonnet thinking high ×3 → mistral-large-4 → v4-pro (kimi sorti). L4 + L-UI
-  prêtes au dispatch.
+- **4 voies en vol** : L4 (hy4-flash-free), L-UI (nous), L6 (mistral), L8 (nous). À chaque
+  retour : gates → relecture strict (tier critique : Sonnet thinking high ×3 → mistral-large-4
+  → v4-pro) → commit. Après : L7 (deps L6), L9 (deps L2b), L10, L11, L12 (coquille Glyph,
+  chemin critique) ; L4 done débloque L13+ (vague 2).

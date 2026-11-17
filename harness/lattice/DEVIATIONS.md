@@ -126,6 +126,23 @@ their own files. Nothing is carried over.
   IndexError au lieu de ValueError — à traiter à la prochaine carte qui touche palette.py)
 - impact: aucun.
 
+### DEV-208
+- class: E1 (enregistrement des renderers de la vague 1) + E3 (owns élargis) | task: L6, L8 |
+  contract: 0.1.0 | status: accepted
+- raised by: orchestrateur | date: 2026-11-17
+- facts: `lattice_core/renderers/__init__.py` est possédé par L2 (done) et n'enregistre que
+  `pixel`. L6 (glyph_ramp) et L8 (bitmask) doivent enregistrer leurs renderers pour G8
+  (`list_renderers()` couvre tout) et le `renderer=` de PipelineSpec (L2b) — mais aucun owns
+  ne couvre `__init__.py` après L2 (même gouffre que DEV-203). Deux cartes modifiant le même
+  fichier en parallèle = conflit last-writer-wins avec write_file.
+- decision: accepted | by: orchestrateur | date: 2026-11-17 — owns de L6 et L8 élargis à
+  `renderers/__init__.py`, avec règle d'append atomique : chaque carte ajoute UNIQUEMENT sa
+  ligne d'import via terminal (`cat >>`), jamais write_file sur ce fichier, jamais les lignes
+  de l'autre. Chaque module renderer s'auto-enregistre à l'import (register_renderer en bout
+  de module), comme le motif pixel.
+- impact: owns élargis de 2 cartes ; règle d'écriture documentée pour G4 ; ré-examiné à la
+  relecture L6/L8.
+
 ## Amendments (registre)
 
 Facts discovered during a task that the contract could not have known, recorded here rather than

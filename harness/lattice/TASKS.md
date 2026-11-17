@@ -197,7 +197,9 @@ l'orchestrateur ne code jamais.
 
 ### L6 · Glyph ramp renderer
 - wave: 1 · deps: L2b · executor: OMH capable · review: full · size: M
-- owns: `lattice_core/renderers/glyph_ramp.py`, `tests/test_glyph_ramp.py`
+- owns: `lattice_core/renderers/glyph_ramp.py`, `tests/test_glyph_ramp.py` +
+  `lattice_core/renderers/__init__.py` (enregistrement : ajout DEV-208 — append atomique d'une
+  ligne d'import via terminal, JAMAIS write_file sur ce fichier, ne toucher qu'à VOTRE ligne)
 - context: §3 §9
 - spec: implement `glyph_ramp` per §9. Options: `ramp`, `font`, `fg`, `bg`, `mode`
   (`mono` | `fg_colour` | `bg_colour` | `palette`), `offset`, `invert` — **pas de `size`** :
@@ -235,7 +237,9 @@ l'orchestrateur ne code jamais.
 
 ### L8 · Bitmask renderers
 - wave: 1 · deps: L2b · executor: OMH capable · review: full · size: M
-- owns: `lattice_core/renderers/bitmask.py`, `tests/test_bitmask.py`
+- owns: `lattice_core/renderers/bitmask.py`, `tests/test_bitmask.py` +
+  `lattice_core/renderers/__init__.py` (enregistrement : ajout DEV-208 — append atomique d'une
+  ligne d'import via terminal, JAMAIS write_file sur ce fichier, ne toucher qu'à VOTRE ligne)
 - context: §3 §9
 - spec: implement `bitmask` per §9. One code path, four geometries: `braille` (2×4, U+2800+mask),
   `sextant` (2×3, U+1FB00..U+1FB3B), `quadrant` (2×2, U+2596..U+259F), `half_block` (1×2, U+2580/
