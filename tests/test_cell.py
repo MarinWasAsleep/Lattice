@@ -281,7 +281,13 @@ def test_style_rejects_options_that_lose_their_type():
 
 
 def test_list_renderers_returns_pixel():
-    assert list_renderers() == ["pixel"]
+    # "at this point" (L2) est passé : les renderers des vagues 1+ s'ajoutent au registre
+    # (glyph_ramp L6, bitmask L8…). L'assertion devient structurelle (DEV-211) : pixel reste
+    # enregistré et chaque renderer est unique ; les invariants par renderer sont couverts par G8.
+    names = list_renderers()
+    assert "pixel" in names
+    assert len(names) == len(set(names))
+    assert {"glyph_ramp", "braille", "sextant", "quadrant", "half_block"} <= set(names)
 
 
 def test_get_renderer_unknown_raises_key_error_naming_it():

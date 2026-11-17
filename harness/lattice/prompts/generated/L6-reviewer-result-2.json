@@ -1,0 +1,28 @@
+{
+  "verdict": "PASS",
+  "findings": [
+    {
+      "severity": "minor",
+      "file": "lattice_core/renderers/glyph_ramp.py",
+      "line": 232,
+      "what": "Terme de hauteur _font_size (cell_h/height_ratio) jamais exercé par un test — le mutant font_size_from_cell_w_only survit ; at 0.5 aspect + police par défaut, by_width lie toujours",
+      "why": "minor réel mais sans accept violé (font size dérivée via min(), terme hauteur = défense en profondeur)",
+      "fix": "_font_size(4,4,None)==3 tue le mutant (CORRIGÉ par l'orchestrateur, DEV-213)"
+    },
+    {
+      "severity": "minor",
+      "file": "tests/test_glyph_ramp.py",
+      "line": 402,
+      "what": "test_style_options_round_trip_through_the_renderer tourne un dict simple via json — RenderStyle.__post_init__ le garantit déjà",
+      "why": "test faible (noté hors périmètre par le codeur) ; invariant 6 déjà appliqué au dataclass",
+      "fix": "optionnel"
+    }
+  ],
+  "regression": "none",
+  "renderer_invariants": "all six hold",
+  "tests_that_cannot_fail": [
+    "test_there_is_no_size_option",
+    "test_style_options_round_trip_through_the_renderer"
+  ],
+  "notes": "Séries complètes confirmées indépendamment : 1603 passed, 1 skipped ; owned 49/49. Blockers pass 1 (caches module vs invariant 2) résolus : lru_cache(256) clé (chemin,mtime_ns,taille), masques write=False, froid==chaud observationnellement pur. layout() fill+paper et ValueError précoce du chemin de police (y/c grille vide) corrects. Littéraux épinglés réellement indépendants (re-dérivés de §9+AMD-010+transfert sRGB ; une implémentation linéaire brute échoue). test_cell.py assertion registre assouplie en structurel (co-changement nécessaire) — correct."
+}

@@ -197,6 +197,28 @@ their own files. Nothing is carried over.
   invariants par renderer restent la propriété de G8).
 - impact: aucun plan ; test_cell.py déjà aligné par l'orchestrateur (DEV-205).
 
+### DEV-212
+- class: E1 (wording) | task: L13 | contract: 0.1.0 | status: accepted
+- raised by: codeur L13 (hy4) | date: 2026-11-17
+- facts: labels ParamSpec de l'effet feedback (decay→Strength, transform→Scale, blend→Ratio)
+  réutilisent les clés du catalogue i18n GELÉ — test_i18n asserte que chaque label est une clé
+  de lattice_dither/i18n/en.json (hors owns), qui ne contient ni Decay ni Transform ni Blend.
+- decision: accepted | by: relecteur (mistral-large-4) + orchestrateur — seuls ids/kinds/
+  ranges sont normatifs ; réutiliser les clés du catalogue est la seule option conforme.
+- impact: si une carte future owns en.json, ajouter des clés dédiées (Decay etc.).
+
+### DEV-213
+- class: E3 (test ajouté hors findings de relecture) | task: L6 | contract: 0.1.0
+  | status: accepted
+- raised by: relecteur pass 2 (v4-pro) | date: 2026-11-17
+- facts: le terme de hauteur `_font_size` (cell_h/height_ratio) n'est exercé par AUCUN test —
+  le mutant de mutation `font_size_from_cell_w_only` survit (à l'aspect 0.5 fixe du pipeline,
+  by_width lie toujours). Minor réel, aucun accept violé, terme = défense en profondeur.
+- decision: accepted | by: orchestrateur — ajout d'un cas épinglé `_font_size(4, 4, None) == 3`
+  (by_h ~3.33 lie vs by_w ~4.60 ; un calcul largeur-seule donnerait 5) dans
+  test_glyph_font_size_derives_from_the_cell : tue le mutant, fige le terme hauteur.
+- impact: 49→50 assertions-owned (même test), code glyph_ramp.py inchangé.
+
 ### AMD-010 — rampes de glyphes : indexation perceptuelle de la luma (L6), 2026-11-17
 - task: L6 | contract: 0.1.0 | date: 2026-11-17
 - section: §9 (glyph_ramp)
