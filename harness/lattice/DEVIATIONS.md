@@ -219,6 +219,19 @@ their own files. Nothing is carried over.
   test_glyph_font_size_derives_from_the_cell : tue le mutant, fige le terme hauteur.
 - impact: 49→50 assertions-owned (même test), code glyph_ramp.py inchangé.
 
+### DEV-214
+- class: E3 (convention inter-ers) | task: L14, L15 | contract: 0.1.0 | status: accepted
+- raised by: relecteur L15 pass 1 (v4-pro) | date: 2026-11-17
+- facts: deux effets (displace L14, pixel_sort L15) transportaient le masque différemment —
+  displace keyword-only + ValueError, pixel_sort params['mask'] + drop silencieux ; L20
+  (compositor) aurait dû spécial-caser l'un d'eux, ou un effet perdait son masque en silence.
+- decision: accepted | by: orchestrateur + relecteurs — **convention : le masque passe en
+  keyword-only (`*, mask=...`) et lève ValueError sur shape mismatch (message identique
+  `mask must be {shape}, got {data.shape}`) chez TOUS les effets qui utilisent un masque**
+  (displace, pixel_sort, et toute carte future §18). Le canal params est interdit pour les
+  arrays (resolve_params les rejette).
+- impact: L14+ L15 alignés ; les cartes §18 à venir (L19, …) et L20 suivent cette convention.
+
 ### AMD-010 — rampes de glyphes : indexation perceptuelle de la luma (L6), 2026-11-17
 - task: L6 | contract: 0.1.0 | date: 2026-11-17
 - section: §9 (glyph_ramp)
