@@ -1,0 +1,44 @@
+{
+  "verdict": "PASS",
+  "findings": [
+    {
+      "severity": "minor",
+      "file": "lattice_core/seed.py",
+      "line": 83,
+      "what": "render_effects is the only locked path, but pipeline.render does not call it. Per-module locks are unreachable from the app.",
+      "why": "Pass-1 finding 1 was resolved by an orchestrator decision (G7 bit-exact, pipeline outside owns), not by wiring. The accept item 'a locked module keeps its output' is only met on a side path. render_effects also has no mask parameter, so it cannot apply an effect's mask.",
+      "fix": "Open a follow-up card to wire SeedController into pipeline._apply_effects and to pass effects[].mask through resolve_masks. This is not needed for L19."
+    },
+    {
+      "severity": "minor",
+      "file": "lattice_core/mask.py",
+      "line": 185,
+      "what": "resolve_masks silently skips an entry that has neither path nor data and is not a descriptor. A missing or unreadable path raises a bare FileNotFoundError that does not name the mask id.",
+      "why": "A typo such as {'pth': ...} drops the mask without a trace, so an effect that references it would run unmasked or fail later.",
+      "fix": "Raise ValueError(f'mask {mask_id!r} has neither path nor data'). Wrap the read to name the id."
+    },
+    {
+      "severity": "minor",
+      "file": "lattice_core/mask.py",
+      "line": 118,
+      "what": "_decode_grey composites RGBA/LA onto white. P-mode PNGs with a tRNS transparency chunk go through convert('L'), which ignores that transparency.",
+      "why": "Behaviour differs between RGBA and palette-with-transparency inputs. White is a convention that is documented in the docstring but not in the contract.",
+      "fix": "Route 'P' with 'transparency' in pil.info through convert('RGBA'). Record the over-white convention as a DEV."
+    },
+    {
+      "severity": "minor",
+      "file": "tests/test_seed.py",
+      "line": 19,
+      "what": "test_pipeline_determinism_is_the_preexisting_seed_path exercises only pipeline.render, not L19 code. It would pass with seed.py and mask.py deleted.",
+      "why": "It is now labelled honestly as a regression witness, so it is not a defect. It still does not count toward the accept coverage.",
+      "fix": "None required. The accept item is covered by test_render_effects_is_deterministic_for_a_fixed_seed."
+    }
+  ],
+  "regression": "none for 8-bit grey masks, finite effects and the pipeline. I read the diff and the effect sources but did not run the suite. I relied on the gate results (1941 passed). Two behaviour changes are intentional. (1) from_png now decodes 16-bit grey (formerly saturated to white) and RGBA (formerly dropped alpha) correctly. (2) mask.apply with weight 0 now returns source exactly, even when the effect holds NaN/inf. Output is unchanged for finite effects and non-zero weights. from_png on 8-bit L now divides in float64 (v/255.0) and casts to float32. Before, it divided in float32. I did not check whether this gives a different float32 result for any of the 256 byte values. If it does, it is at most 1 ulp, well inside the 1/255 tolerance. Not run: np.arange(256) float32 vs float64 comparison.",
+  "renderer_invariants": "Not applicable. The diff touches no CellRenderer. Gate G8 is outside this diff.",
+  "tests_that_cannot_fail": [
+    "test_zero_mask_composition_keeps_the_source: it checks the algebra of apply(), not the accept item. It is labelled as supporting, so it is acceptable.",
+    "test_pipeline_determinism_is_the_preexisting_seed_path: it passes with L19 removed. It is labelled as a regression witness."
+  ],
+  "notes": "Extra check requested (DEV-214): displace, pixel_sort and crt are not in the diff. Each has its own _mask_plane/_mask_weights, validates size and raises ValueError, and does not import mask.apply. So no coupling to the apply() change.\nThe mask accept item is now discovered by introspection, and a non-vacuity test guards it. That test would still pass if only one effect accepted a mask.\nThe 64 KB threshold is defined on the raw PNG, not on the base64 text (about 4/3 larger). This is documented and the error message says so. Embedded text in a preset can reach about 85 KB. If the contract means the base64 size, that is a contract question, not a blocker.\nLocks are session-only (DEV-216) and the test documents it. Abstraction leak E8 and host coupling E9: none found."
+}

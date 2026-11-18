@@ -151,7 +151,7 @@ last_update: 2026-11-18
 | L16 | 2 | done | 0 | 1 | c896465 | channel shift — 3e carte hy4 : PASS mistral-large-4, 0 finding, vérifié par exécution |
 | L17 | 2 | done | 2 | 2 | 87b3a5d | NTSC / VHS — PASS Sonnet pass 3 (50 tests owned) ; 4 minors : labels i18n (carte catalogue future), LABEL_NOTES mort, constant_k = brick-wall, tracking_noise jusqu'à 25 % de largeur |
 | L18 | 2 | done | 0 | 1 | (commit L18) | CRT / scanlines — PASS mistral-large-4 : pixels d'appareil vérifiés en direct, DEV-214 exact, 35 tests |
-| L19 | 2 | in_progress | 0 | 1 | f868db0 | seed + masks — review pass 1 FIX (Sonnet, 5 majors d'intégration : SeedController hors pipeline, verrous non sérialisés, MaskRef hors preset, 2 tests vides) ; retry attempt 2 mistral |
+| L19 | 2 | done | 0 | 2 | 75a083d | seed + masks — pass 1 FIX (5 majors d'intégration) → retry (32 tests) → **PASS** Sonnet pass 2 ; DEV-216 verrous session-only ; 4 minors (render_effects non appelé par pipeline.render, resolve_masks muet sur une entrée vide, PNG P+tRNS, test seed hérité de 4 lignes) |
 | L20 | 2 | todo | 0 | 0 | | Lattice Glitch shell |
 | L21 | 3 | todo | 0 | 0 | | preset interchange + gallery |
 | L22 | 3 | todo | 0 | 0 | | acceptance in PhotoCraft and DesignCraft |
@@ -222,6 +222,18 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
   secours** ; reviews lourdes = Sonnet CLI par défaut, mistral-large-4 en secours.
 - **En vol** : L9 text-halftone (mistral), L17 attempt 3 (mistral), L10 glyph browser (mistral),
   L19 review (mistral-large-4). Prochaines implémentations → hy4/opencode-go.
+- 2026-11-18: **L19 done — commit `75a083d`, PASS Sonnet pass 2** (2 cycles de revue, budget plein).
+  Le retry de mistral a rendu 4 fichiers complets (32 tests owned, suite **1941 verte**, ruff et
+  contrat propres) : `render_effects` est le chemin verrouillé documenté — `pipeline._apply_effects`
+  reste `default_rng(seed + offset + i)`, bit-exact sous G7, non touché (DEV-216) ; `resolve_masks()`
+  relie la section `masks` d'un preset aux `MaskRef` (base64 et path) sans modifier `preset.py` ;
+  `mask.apply` sélectionne au poids nul au lieu de propager `0*nan` ; les PNG 16 bits (`I;16`) sont
+  divisés par 65535 et le RGBA composité sur blanc (avant : saturation à blanc / alpha perdu).
+  4 minors consignés : `pipeline.render` n'appelle pas `render_effects` (les verrous ne sont donc pas
+  atteignables depuis une app — à câbler quand L20 possédera le pipeline applicatif) ; `resolve_masks`
+  ignore silencieusement une entrée sans `path` ni `data` ; PNG `P` avec tRNS non compositeur ;
+  un test de déterminisme ne teste que le chemin de graine préexistant. Vérification float64 vs
+  float32 de `from_png` faite par l'orchestrateur : **0 ulp d'écart sur les 256 octets**.
 - 2026-11-18: **reprise — L17 done, commit `87b3a5d`**. `git stash apply` du WIP 17/11 : `effects/__init__.py`
   réintègre `ntsc`, `.probe_crt.py` (sonde jetable) supprimé, ruff ramené à 0. **Relecture pass 3
   (Sonnet thinking high, cycle 3 sous E2/D EV-210) : PASS** — les findings pass 1/2 sont vérifiés
