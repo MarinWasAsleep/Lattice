@@ -5,9 +5,9 @@ lightest last. ``grid.luma`` (S2) picks the character through its sRGB-perceptua
 (AMD-010), so a black/white palette still uses the full ramp. There is no ``size`` option
 (H11): the font size derives from ``cell_h``. Module state is one bounded, input-keyed glyph
 mask cache that never changes the output (§3 invariant 2, H11). Since H12 (2026-11-18),
-``palette`` honours the declared ``bg`` (explicit ``"auto"`` = the darkest palette entry)
-and ``bg_colour`` uses an ink two palette ranks off the cell colour, with its glyph chosen
-on the |luma - background| gap over the ramp bounded to its medium densities.
+``palette`` honours the declared ``bg`` (explicit ``"auto"`` = the darkest palette entry);
+``palette`` and ``bg_colour`` use an ink two palette ranks off the cell colour; ``bg_colour``
+picks its glyph on the |luma - background| gap / linear luma span, medium densities only.
 """
 
 from __future__ import annotations
@@ -290,8 +290,8 @@ def _cell_colours(
     """Return (ink, paper) colours of every cell; without a palette every mode is fg on bg.
 
     ``mono`` fg on bg; ``fg_colour`` cell colour ink on bg; ``bg_colour`` the reverse,
-    ink two palette ranks off the cell colour (H12); ``palette`` cell colour ink on the
-    declared ``bg`` (H12).
+    ``palette`` relative ink on the declared ``bg``; in both the ink is two palette ranks
+    off the cell colour (H12).
     """
     ink = np.broadcast_to(np.asarray(_parse_colour(options.fg), np.float32),
                           (grid.rows, grid.cols, 4)).copy()
@@ -300,9 +300,10 @@ def _cell_colours(
     cells = _palette_colours(grid, palette)
     if options.mode == "fg_colour":
         return cells, _paper(options, grid, palette)
+    relative = _relative_ink(np.asarray(palette, np.float32), grid.index)
     if options.mode == "bg_colour":
-        return _relative_ink(np.asarray(palette, np.float32), grid.index), cells
-    return cells, _paper(options, grid, palette)
+        return relative, cells
+    return relative, _paper(options, grid, palette)
 
 
 def _paper(options: GlyphRampOptions, grid: CellGrid, palette: np.ndarray | None) -> np.ndarray:
@@ -324,13 +325,14 @@ def _relative_ink(palette: np.ndarray, index: np.ndarray) -> np.ndarray:
     """
     rows = np.asarray(palette, dtype=np.float32)
     luma = _palette_luma(rows)
+    order = np.argsort(luma, kind="stable")
     rank = np.empty(luma.shape[0], dtype=np.intp)
-    rank[np.argsort(luma, kind="stable")] = np.arange(luma.shape[0])
+    rank[order] = np.arange(luma.shape[0])
     own = np.asarray(index, dtype=np.intp)
     jump = np.where(luma[own] < np.float32(0.5), 2, -2)
     chosen = np.clip(rank[own] + jump, 0, rows.shape[0] - 1)
     alpha = np.ones(own.shape + (1,), dtype=np.float32)
-    return np.concatenate([rows[chosen, :3], alpha], axis=-1)
+    return np.concatenate([rows[order[chosen], :3], alpha], axis=-1)
 
 
 def _blend(paper: np.ndarray, ink: np.ndarray, mask: np.ndarray) -> np.ndarray:
@@ -357,15 +359,18 @@ def _glyph_ramp(
     """Return the ramp and the per-cell value that indexes it, for the mode.
 
     ``mono``, ``fg_colour`` and ``palette`` keep absolute luma on the whole ramp
-    (AMD-010); ``bg_colour`` follows the |luma - background| gap (H12) over the ramp
-    bounded to its medium densities (for the default ramp, space and '@' removed).
+    (AMD-010); ``bg_colour`` follows the |luma - background| gap (H12) / linear luma
+    span (max-min), over the ramp bounded to medium densities (space and '@' removed).
     """
     if options.mode != "bg_colour" or palette is None:
         return options.ramp, grid.luma
-    luma = _palette_luma(np.asarray(palette, np.float32))
+    pal = np.asarray(palette, np.float32)
+    luma = _palette_luma(pal)
     fond = luma[np.asarray(grid.index, dtype=np.intp)]
     ramp = options.ramp[1:-1] if len(options.ramp) >= 3 else options.ramp
-    return ramp, np.abs(grid.luma - fond)
+    span = float(luma.max() - luma.min()) if luma.size else 1.0
+    span = 1.0 if span <= _EPSILON else span  # degenerate palette: keep the raw gap
+    return ramp, np.abs(grid.luma - fond) / np.float32(span)  # linear span, never a tuned exponent
 
 
 def _frame(grid: CellGrid, palette: Palette, options: GlyphRampOptions) -> np.ndarray:
@@ -384,9 +389,7 @@ def _frame(grid: CellGrid, palette: Palette, options: GlyphRampOptions) -> np.nd
         rows, cols = np.divmod(cells, grid.cols)
         mask = _glyph_mask(ramp[value], options.font, grid.cell_w, grid.cell_h)
         view[rows, :, cols, :, :] = _blend(paper[rows, cols], ink[rows, cols], mask)
-    if alpha:
-        return frame
-    return np.ascontiguousarray(frame[:, :, :3])
+    return frame if alpha else np.ascontiguousarray(frame[:, :, :3])
 
 
 def register_glyph_ramp_renderer() -> CellRenderer:
