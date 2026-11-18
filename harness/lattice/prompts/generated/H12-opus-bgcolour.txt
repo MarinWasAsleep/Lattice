@@ -1,0 +1,36 @@
+# Planche bg_colour : diagnostic et verdict
+
+Je n'ai pas pu agrandir les vignettes (la lecture des recadrages a été refusée). Je juge donc à l'échelle de la planche : les tendances sont nettes, mais le détail des glyphes reste à vérifier sur un recadrage à 100 %.
+
+## 1. Est-ce que la couleur fixe de l'encre change vraiment quelque chose ?
+
+Oui pour les hautes lumières, non pour le fond du problème.
+
+- **Encre noire :** les hautes lumières sont bien bouchées. Le ciel du portrait et le grand aplat clair de la scène sont recouverts d'une hachure horizontale serrée, comme un store vénitien, qui ramène le blanc vers le gris moyen.
+- **Encre blanche :** elle a l'air de gagner (scène et ciel propres), mais seulement parce que le glyphe disparaît. Un glyphe blanc dense sur un fond crème ne se voit plus. On obtient une pixellisation pico8 sans lettres : ça n'a plus rien de « Glyph ».
+- **Encre grise :** entre les deux, avec toujours des stries dans les clairs.
+- **Ombres :** elles restent muettes avec les trois encres. Le chapeau et les zones vertes sont identiques d'une colonne à l'autre, ce qui veut dire qu'il n'y a pas de glyphe visible à ces endroits.
+
+Le problème vient donc surtout de la rampe : elle traduit la luminance en densité de glyphe (sombre → espace, clair → @). Cette logique vaut pour `text`, où le fond est noir. En bg_colour, le fond porte déjà le ton, et la rampe double l'information au lieu d'ajouter de la texture. Avec une encre fixe, il ne reste que deux issues : le glyphe se bat contre le ton (noir sur les clairs) ou il s'efface (blanc sur les clairs, toutes les encres dans les ombres).
+
+Les mesures quasi identiques le confirment : le glyphe ne porte presque pas de ton. La taille de cellule n'est pas en cause, 12 px suffisent pour lire une lettre.
+
+## 2. Si la couleur fixe ne suffit pas, quelle est la vraie correction ?
+
+Le ±2 crans est réalisable et peu coûteux dans le renderer :
+- on trie la palette par luma une fois ;
+- pour chaque cellule, on prend le rang de la couleur de fond ;
+- l'encre est la couleur 2 rangs au-dessus si le fond est sombre, 2 rangs en dessous s'il est clair.
+
+Ça règle les hautes lumières : la lettre reste lisible sans boucher le blanc. Mais seul, ça ne règle pas les ombres : un espace reste invisible quelle que soit son encre. Il faut donc aussi toucher à la rampe. En bg_colour, le choix du glyphe ne doit plus suivre la luminance absolue mais l'écart entre le ton réel de la cellule et la couleur de palette retenue, ou le détail local. Et la rampe doit être bornée : pas d'espace, pas de @, uniquement des glyphes de densité moyenne. Pas besoin de toucher à la taille de cellule.
+
+## 3. Verdict de vitrine
+
+bg_colour n'est pas présentable en l'état, quelle que soit l'encre : la noire donne des stries, la blanche une simple pixellisation, la grise un compromis sans identité.
+
+**La vitrine de Lattice Glyph reste `text` bouclé.** bg_colour corrigé pourra devenir la deuxième image, la version couleur, mais seulement après une nouvelle planche identique à celle-ci (3 images) refaite avec les deux corrections.
+
+## 4. Deux corrections à implémenter, par ordre d'impact
+
+1. **Encre relative ±2 crans par cellule** (palette triée par luma, on monte si le fond est sombre, on descend s'il est clair). Effet attendu : les stries disparaissent du ciel du portrait et de l'aplat de la scène, et les lettres restent visibles mais dans le ton, au lieu de griser les blancs.
+2. **Rampe bornée et découplée en mode bg_colour** (glyphe choisi selon l'écart de ton ou le détail, espace et @ exclus). Effet attendu : les ombres gagnent des lettres sombres, en violet ou bleu nuit, sur le chapeau et les zones vertes, et la capture d'écran cesse d'être un aplat noir troué.
