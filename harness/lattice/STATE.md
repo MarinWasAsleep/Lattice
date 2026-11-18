@@ -166,7 +166,7 @@ last_update: 2026-11-18
 |---|---|---|
 | H10 | after L1 | ✅ done 2026-11-16 — app lancée par l'humain (`.venv/bin/python -m lattice_dither`, intacte) ; `lattice_core` s'installe seul en venv vierge (sans PySide6) |
 | H11 | after L2 | ✅ done 2026-11-16 — analyse Opus (H11-analyse-result.json), décisions B/A/A/A/A, amendements AMD-008 appliqués puis **contrat gelé en 0.1.0** |
-| H12 | after wave 1 | pending — analyse Sonnet (thinking high) de Lattice Glyph sur trois images réelles (captures/parcours) → toi : trancher |
+| H12 | after wave 1 | **analyse livrée 2026-11-18** (Sonnet thinking high) — verdict SOUS CONDITIONS : 1 bloquant (mode `palette` ignore `bg`), 3 majeurs (plafond d'encre 15 %, `text` jamais montré, `glyph_shape` pauvre sur A/B), 5 questions à trancher → **toi** |
 | H13 | after wave 2 | pending — analyse Sonnet (thinking high) (Lattice Glitch vivant, pas un filtre ?) → toi : trancher |
 | H14 | L22 | pending — acceptance in PhotoCraft then DesignCraft |
 
