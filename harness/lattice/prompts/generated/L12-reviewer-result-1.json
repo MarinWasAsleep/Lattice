@@ -1,0 +1,76 @@
+{
+  "verdict": "FIX",
+  "findings": [
+    {
+      "severity": "major",
+      "file": "lattice_glyph/window.py",
+      "line": 175,
+      "what": "spec_from_panels builds a fresh PipelineSpec and copies only algorithm, pixel_size, params, metric, seed and effects. Everything else the loaded preset carried is dropped on the first panel edit: pre-processing fields (brightness, contrast, gamma, saturation, pre_blur, auto_levels, max_side) and output scale/width. The docstring claims it keeps the settings not shown.",
+      "why": "Load a preset with brightness != 0, edit a ramp option, then save or export: the render and the saved preset have silently lost those settings. A continuous preset (algorithm null, palette null) also becomes floyd_steinberg plus the panel palette. Shipped presets all have default pipeline fields, so no test sees it. I did not verify the PipelineSpec field names against the core.",
+      "fix": "Start from a copy of self.spec (dataclasses.replace or deepcopy) and overwrite only renderer, renderer_style and palette. Keep algorithm_id, and keep a null palette when the spec is continuous. Add a test that loads a preset with non-default pre-processing fields, edits an option, and compares the exported PNG with the CLI render of the saved preset."
+    },
+    {
+      "severity": "major",
+      "file": "lattice_glyph/renderer_panel.py",
+      "line": 150,
+      "what": "Every keystroke in a text option (fg, bg, ramp, alphabet, font) emits changed and triggers a preview. A half-typed colour such as '#f', or an empty ramp, makes the render fail. RenderWorker.failed is wired to MainWindow.report, which opens a modal QMessageBox.critical.",
+      "why": "Typing a foreground colour pops an error dialog on the first keystrokes. The palette panel has valid_colours(), but nothing validates the renderer options. Inferred from the design: I did not confirm that the renderers reject these values.",
+      "fix": "Validate before emitting (colour regex or 'transparent', non-empty ramp). Keep the previous spec on invalid input and show an inline hint. Make a render failure a status-bar message, or debounce, instead of a modal dialog. Add a test that types '#f' into fg and asserts no QMessageBox."
+    },
+    {
+      "severity": "major",
+      "file": "lattice_glyph/document.py",
+      "line": 196,
+      "what": "format_of falls back to png for any unknown suffix, so `render --out x.jpg` (or .webp, .tif) writes PNG bytes into a file named .jpg. export_text does the same: a typed 'a.xyz' becomes a PNG written through the text-export action.",
+      "why": "The file extension lies about the content and nothing warns. The user asked for a JPEG and got a PNG with a .jpg name.",
+      "fix": "Reject a suffix outside FORMATS with a usage error (exit 1) unless --format is given. Alternatively, append .png and warn. Cover it with a test."
+    },
+    {
+      "severity": "major",
+      "file": "tests/test_glyph_app.py",
+      "line": 0,
+      "what": "The G9 tests compare CLI and GUI output, but both call document.render_rgb8, and every preset used has default pipeline fields and no effects. The risky path, panels to spec to render, is never compared against a preset file that has non-default values. The 9 tests would not fail on a lossy panel-to-spec path. Nor do they cover continuous mode (algorithm null), the --json-only-stdout guarantee on failure, or the bridge push success path.",
+      "why": "They are partly decorative on the points the card cares about. The CLI-without-Qt, registry-selector and bridge-without-host tests are real and would fail on an empty app.",
+      "fix": "Add a round-trip test: a preset with brightness, pre_blur and a post effect, loaded in the GUI, edited, then compared with the CLI. Add a continuous-preset test that asserts the app's chosen behaviour. Add a failure-path --json test that checks stdout."
+    },
+    {
+      "severity": "minor",
+      "file": "lattice_glyph/cli.py",
+      "line": 0,
+      "what": "Continuous mode (algorithm null): the CLI renders it as png but svg/txt/ansi/html raise GridError, which becomes exit 2 (acceptable). The GUI renders it until the first panel edit, then converts it to quantised silently (see the spec_from_panels finding). validate accepts both-null and rejects a mixed pair, so the app has no stated position on what it supports. Also: --json prints nothing on stdout for argparse errors and for the generic Exception fallback, and bridge pull/push never disconnect the client (no finally).",
+      "why": "§8 says --json prints a machine-readable result, and an absent result is not one. A leaked client leaves a live connection.",
+      "fix": "Decide explicitly: either refuse algorithm null with a clear usage message, or support it end to end. Emit {ok:false,errors} on every exit path when --json is set. Wrap the bridge verbs' client use in try/finally disconnect()."
+    },
+    {
+      "severity": "minor",
+      "file": "lattice_glyph/bridge_actions.py",
+      "line": 86,
+      "what": "Dead and duplicated code: pull_image (bridge_actions) and fetch_image (bridge_controller) are two unused synchronous pulls. _discover, cli.discover_host and fetch_image's inline discover are three copies of the same try/except. Also unused: presets.read_text, spec_from_text, default_preset, actions.Action, and the one-line wrappers ExportController.render_full and MainWindow.render_full. bridge_actions and bridge_controller could be one module.",
+      "why": "Hygiene: dead code, and three places to fix when the discovery semantics change.",
+      "fix": "Keep one discover helper (in a Qt-free module) and delete the unused functions."
+    },
+    {
+      "severity": "minor",
+      "file": "lattice_glyph/pyproject.toml",
+      "line": 19,
+      "what": "The only script is `lattice-glyph-cli`, so no `lattice-glyph` GUI entry point exists. The pyproject sits inside the package directory with package-dir '.'. cli.PROG is 'lattice-glyph' while the installed command has another name.",
+      "why": "The app launches only through `python -m lattice_glyph`. A packaged install has no launcher, and the usage text names a command that does not exist.",
+      "fix": "Add [project.gui-scripts] lattice-glyph = lattice_glyph.__main__:main (or app:main), and align PROG. Packaging is L23's business, but the entry point belongs to L12."
+    },
+    {
+      "severity": "minor",
+      "file": "lattice_glyph/window.py",
+      "line": 330,
+      "what": "send_to_host renders the full-resolution image on the GUI thread, and the host-absent case (bridge.failed to report) opens a modal error dialog. window.py is 394 lines and cli.py 369. document.grid_bundle re-runs private core steps (_prepare, _cell_geometry, _pad_to_cells, ...), which can drift from the pipeline; one test pins it for 8 renderers on one spec without effects.",
+      "why": "A large render freezes the UI. A missing host is a normal state (E9) and deserves a status-bar line, not a dialog. Calling private core functions couples the app to the core's internals.",
+      "fix": "Render in the worker thread. Show host-absent as a status message. Ask the core for a public grid-building function."
+    }
+  ],
+  "regression": "none — a new package; lattice_core and lattice_dither are untouched in this diff.",
+  "renderer_invariants": "all six hold — no renderer was added or changed. The shell does not mutate inputs: render goes through the core pipeline, and the image passed to the worker is made contiguous without being modified.",
+  "tests_that_cannot_fail": [
+    "test_cli_render_matches_the_gui_bytes: both sides call render_rgb8, so the byte equality holds by construction. It would not catch a panel-to-spec loss because every preset used has default pipeline fields.",
+    "test_the_panels_list_load_save_and_feed_the_spec: only the default pipeline fields are exercised, so it passes with spec_from_panels dropping the other settings."
+  ],
+  "notes": "Your 3 checks hold on the diff (shared render path, Qt-free CLI, reuse of core/ui). The selector is built from list_renderers(), so a future renderer is visible; its options show 'no option' until OPTIONS names it, which is honest. discover() returning None is handled as a normal state in the CLI and the worker, so there is no E9 issue. Continuous mode: validate accepts both-null; the CLI renders it as png only; the GUI converts it silently on the first edit (see findings). Not run: this review is from the diff only."
+}
