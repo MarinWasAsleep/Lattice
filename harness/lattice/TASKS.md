@@ -462,6 +462,43 @@ l'orchestrateur ne code jamais.
 
 ---
 
+### L-UI2 · Recâblage de Lattice Dither sur `lattice_core/ui` (doublons supprimés)
+- wave: 2 · deps: L-UI, L11 · executor: OMH deep-work · review: strict · size: L
+- owns: `lattice_dither/ui/**`, `tests/test_ui_*.py`, `lattice_core/ui/**`
+- context: §2 (`ui/`), 1.1 §19-§22 (fenêtre, export, raccourcis), REVUE-PRODUIT (bloquants 1-2)
+- motivation (décision humaine du 2026-11-18) : `lattice_dither/ui/` fait 4026 lignes et n'importe
+  AUCUN widget de `lattice_core/ui`. Le canvas a été dupliqué à l'identique lors de L-UI, mais le
+  worker et le dialogue d'export ont divergé : le core n'a ni `request_send`/`request_get`/
+  `check_version` (pont PhotoCraft interactif), ni `PaletteExtraction` (extraction de palette sur
+  thread), ni les pages d'export impression/GIF/vidéo. Tant que Dither garde sa copie, la suite
+  n'a pas UNE ui partagée mais deux, et chaque correctif doit être fait deux fois — c'est
+  exactement le défaut structurel S5 relevé par la revue produit.
+- spec: recâbler Dither sur les widgets du core sans changer un pixel de rendu ni un raccourci.
+  1. Ce qui manque au core d'abord : généraliser `RenderWorker` pour couvrir les verbes pont
+     (`request_send`, `request_get`, `check_version`) et extraire `PaletteExtraction` dans
+     `lattice_core/ui/worker.py` — le bridge du core (`lattice_core/ui/bridge.py`) porte déjà le
+     `ConnectionProbe`, ne pas le redupliquer.
+  2. Le dialogue d'export du core doit couvrir les quatre formats de Dither (PNG, SVG, impression,
+     GIF/vidéo séquence) ; les pages spécifiques restent dans l'app SEULEMENT si elles dépendent
+     d'un format que le core n'a pas à connaître.
+  3. Ensuite seulement : `lattice_dither/ui/` réimporte les widgets du core ; les fichiers devenus
+     vides sont SUPPRIMÉS (pas de coquilles de ré-export qui laisseraient deux chemins d'import).
+  4. Aucune régression de comportement : G6 (parité CLI/GUI de Dither) et G7 (témoins bit-à-bit)
+     doivent rester verts, et la batterie 1.1 de Dither (raccourcis §22.2, undo, récents, drag & drop)
+     doit passer sans qu'un seul test soit modifié — sauf import.
+- accept:
+  - `lattice_dither/ui/` n'importe plus aucun widget propre : `PreviewCanvas`, `RenderWorker`,
+    `PaletteExtraction`, `ExportDialog`, `LookGallery` et `PresetIndicator` viennent du core.
+  - pas un seul fichier de `lattice_dither/ui/` ne duplique un widget existant dans
+    `lattice_core/ui/` (vérifié par un test qui compare les `__all__` et les noms de classes).
+  - les 11 fichiers `tests/test_ui_*.py` passent ; `tests/test_ui_shared.py` reste vert ; le compte
+    total de tests ne baisse pas.
+  - G6 et G7 verts : un même preset rend des octets identiques en CLI et GUI, et les trois témoins
+    sont bit-à-bit.
+  - le worker du core expose `request_send`, `request_get`, `check_version` et `PaletteExtraction`,
+    couverts par des tests, et `lattice_core` n'importe toujours aucune application (E8).
+  - `lattice_core/ui` s'installe et s'importe sans Dither : `pip install -e .[ui]` seul suffit.
+
 ## Wave 3 — integration
 
 ### L21 · Preset interchange and gallery

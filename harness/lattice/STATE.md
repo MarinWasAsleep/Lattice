@@ -152,6 +152,7 @@ last_update: 2026-11-18
 | L17 | 2 | done | 2 | 2 | 87b3a5d | NTSC / VHS — PASS Sonnet pass 3 (50 tests owned) ; 4 minors : labels i18n (carte catalogue future), LABEL_NOTES mort, constant_k = brick-wall, tracking_noise jusqu'à 25 % de largeur |
 | L18 | 2 | done | 0 | 1 | (commit L18) | CRT / scanlines — PASS mistral-large-4 : pixels d'appareil vérifiés en direct, DEV-214 exact, 35 tests |
 | L19 | 2 | done | 0 | 2 | 75a083d | seed + masks — pass 1 FIX (5 majors d'intégration) → retry (32 tests) → **PASS** Sonnet pass 2 ; DEV-216 verrous session-only ; 4 minors (render_effects non appelé par pipeline.render, resolve_masks muet sur une entrée vide, PNG P+tRNS, test seed hérité de 4 lignes) |
+| L-UI2 | 2 | todo | 0 | 0 | | recâblage de Lattice Dither sur `lattice_core/ui` (décision humaine 18/11) — déps L-UI+L11 done, débloquée ; prérequis : généraliser le worker (verbes pont, PaletteExtraction) et le dialogue d'export du core |
 | L20 | 2 | todo | 0 | 0 | | Lattice Glitch shell |
 | L21 | 3 | todo | 0 | 0 | | preset interchange + gallery |
 | L22 | 3 | todo | 0 | 0 | | acceptance in PhotoCraft and DesignCraft |
