@@ -20,7 +20,11 @@ CORE = Path(lattice_core.__file__).resolve().parent
 # Application packages/app-only modules that must never live inside lattice_core.
 # "ui" was removed from this set at H11 (AMD-008/S5, décision humaine 2026-11-17) :
 # lattice_core/ui est le paquet de widgets PARTAGÉS, légal sous l'extra [ui].
-APPLICATION_MODULES = {"export", "preprocess", "i18n", "cli", "animation"}
+# "animation" a été retiré par la carte L-LOOP (2026-11-19, DEV-226) : le module
+# N-image loop vit désormais LÉGITIMEMENT dans lattice_core (aucun import applicatif) ;
+# la copie app (lattice_dither/core/animation.py) reste pour les exports 1.1 gelés,
+# une carte de déduplication la résorbera.
+APPLICATION_MODULES = {"export", "preprocess", "i18n", "cli"}
 
 
 def _core_modules() -> list[Path]:
