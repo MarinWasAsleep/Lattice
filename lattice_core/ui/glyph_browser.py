@@ -1,17 +1,17 @@
 """Browsable catalogue of glyph ramps, previewed in the current font (§9, card L10).
 
 ``lattice_core/data/ramps.json`` documents one master ladder per category and every ramp is an
-ordered subsequence of it, so "darkest first" is documented data, never detected per font. The
-data path derives from ``__file__``. Part of ``lattice_core.ui``: it needs the ``[ui]`` extra.
+ordered subsequence of it, so "darkest first" is documented data, never detected per font.
+Part of ``lattice_core.ui``: it needs the ``[ui]`` extra.
 """
 
 from __future__ import annotations
 
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from functools import cache
+from functools import cache, cached_property
 from pathlib import Path
 from typing import NoReturn
 
@@ -67,7 +67,7 @@ class GlyphCategory:
 
 @dataclass(frozen=True)
 class Catalogue:
-    """The whole ramps catalogue, in display order."""
+    """The whole ramps catalogue, in display order, with its ids indexed once."""
 
     categories: tuple[GlyphCategory, ...]
 
@@ -75,16 +75,26 @@ class Catalogue:
         """Return every ramp of the catalogue, category by category."""
         return tuple(ramp for category in self.categories for ramp in category.ramps)
 
+    @cached_property
+    def ramp_index(self) -> dict[str, GlyphRamp]:
+        """Return every ramp indexed by id, built on first lookup and then reused."""
+        return {ramp.id: ramp for ramp in self.ramps()}
+
+    @cached_property
+    def category_index(self) -> dict[str, GlyphCategory]:
+        """Return every category indexed by id, built on first lookup and then reused."""
+        return {category.id: category for category in self.categories}
+
     def get(self, ramp_id: str) -> GlyphRamp:
         """Return the ramp registered under ramp_id, or raise KeyError naming it."""
-        found = {ramp.id: ramp for ramp in self.ramps()}.get(ramp_id)
+        found = self.ramp_index.get(ramp_id)
         if found is None:
             raise KeyError(f"unknown glyph ramp: {ramp_id!r}")
         return found
 
     def category(self, category_id: str) -> GlyphCategory:
         """Return the category registered under category_id, or raise KeyError naming it."""
-        found = {category.id: category for category in self.categories}.get(category_id)
+        found = self.category_index.get(category_id)
         if found is None:
             raise KeyError(f"unknown glyph category: {category_id!r}")
         return found
@@ -162,19 +172,14 @@ def _category_entry(data: object, where: str) -> GlyphCategory:
     raw = node.get("ramps")
     if not isinstance(raw, list) or not raw:
         _fail(f"{where}.ramps", "expected a non-empty list")
-    ramps = tuple(
-        _ramp_entry(item, identifier, f"{where}.ramps[{at}]") for at, item in enumerate(raw)
-    )
+    ramps = tuple(_ramp_entry(x, identifier, f"{where}.ramps[{at}]") for at, x in enumerate(raw))
     for at, ramp in enumerate(ramps):
         _ordered(ramp.ramp, ladder, f"{where}.ramps[{at}]")
     return GlyphCategory(identifier, name, ladder, ramps)
 
 
 def validate_catalogue(data: object) -> Catalogue:
-    """Validate one ramps document and return it as typed objects, or raise ValueError.
-
-    Every ramp must be an ordered subsequence of its ladder: the data-level "darkest first".
-    """
+    """Validate a ramps document into typed objects; ramps must be ordered subsequences."""
     root = _mapping(data, "$")
     if root.get("schema") != SCHEMA:
         _fail("$.schema", f"expected {SCHEMA!r}")
@@ -189,10 +194,7 @@ def validate_catalogue(data: object) -> Catalogue:
     _unique([ramp.id for ramp in ramps], "$.categories[].ramps[].id")
     non_latin = sum(1 for ramp in ramps if ramp.script in NON_LATIN_SCRIPTS)
     if non_latin < MIN_NON_LATIN_RAMPS:
-        _fail(
-            "$.categories[].ramps[].script",
-            f"expected at least {MIN_NON_LATIN_RAMPS} non-Latin ramps",
-        )
+        _fail("$.categories[].ramps[].script", f"needs {MIN_NON_LATIN_RAMPS} non-Latin ramps")
     return Catalogue(categories)
 
 
@@ -200,7 +202,7 @@ def validate_catalogue(data: object) -> Catalogue:
 def load_catalogue(path: Path | str | None = None) -> Catalogue:
     """Return the shipped catalogue, or the one at path, validated once per path."""
     target = DATA_FILE if path is None else Path(path).expanduser().resolve()
-    with Path(target).open(encoding="utf-8") as handle:
+    with target.open(encoding="utf-8") as handle:
         return validate_catalogue(json.load(handle))
 
 
@@ -212,10 +214,7 @@ def render_ramp_preview(
     fg: str = DEFAULT_FG,
     bg: str = DEFAULT_BG,
 ) -> RGB8:
-    """Return the ramp drawn left to right in font by the real ``glyph_ramp`` renderer.
-
-    Always uint8 RGB: a ``transparent`` fg or bg is composited over white.
-    """
+    """Return the ramp drawn left to right by the real renderer, always as uint8 RGB."""
     count, (cell_w, cell_h) = len(ramp), (int(cell[0]), int(cell[1]))
     positions = (np.arange(count, dtype=np.float32) + 0.5) / np.float32(count)
     luma = color.srgb_to_linear(positions)[None, :]
@@ -306,21 +305,17 @@ class GlyphBrowser(QWidget):
         return None if self._preview is None else self._preview.copy()
 
     def select_ramp(self, ramp_id: str) -> None:
-        """Show ramp_id, selecting its category and set; the repaint is explicit on purpose.
+        """Show ramp_id by moving both lists silently, then repainting and announcing once.
 
-        Lists already pointing at ramp_id emit no signal, so they are not relied on.
+        A cross-category jump must never preview, nor announce, row 0 of the new category.
         """
         ramp = self._catalogue.get(ramp_id)  # KeyError naming an unknown id
-        for row, category in enumerate(self._catalogue.categories):
-            ids = [item.id for item in category.ramps]
-            if ramp_id not in ids:
-                continue
-            if self.category_list.currentRow() != row:
-                self.category_list.setCurrentRow(row)
-            self.set_list.setCurrentRow(ids.index(ramp_id))
-            if self._current is not ramp:
-                self._show(ramp)
-            return
+        category = self._catalogue.category(ramp.category_id)
+        self._move(self.category_list, self._catalogue.categories.index(category))
+        self._fill_sets(category.ramps)
+        self._move(self.set_list, [other.id for other in category.ramps].index(ramp_id))
+        self._show(ramp)
+        self.ramp_chosen.emit(ramp.id)
 
     def set_font(self, font: str | None) -> None:
         """Preview every ramp in font, or in the bundled font when font is None."""
@@ -358,14 +353,24 @@ class GlyphBrowser(QWidget):
         if self._catalogue.categories:
             self.category_list.setCurrentRow(0)
 
+    def _fill_sets(self, ramps: Iterable[GlyphRamp]) -> None:
+        """Refill the set list with ramps, moving no signal the caller has not asked for."""
+        silent = self.set_list.blockSignals(True)
+        self.set_list.clear()
+        for ramp in ramps:
+            _add(self.set_list, ramp.name, ramp.id)
+        self.set_list.blockSignals(silent)
+
+    def _move(self, widget: QListWidget, row: int) -> None:
+        """Point widget at row without emitting currentRowChanged."""
+        silent = widget.blockSignals(True)
+        widget.setCurrentRow(row)
+        widget.blockSignals(silent)
+
     def _on_category_changed(self, row: int) -> None:
         """Refill the set list with the ramps of the selected category."""
-        self.set_list.blockSignals(True)
-        self.set_list.clear()
-        if 0 <= row < len(self._catalogue.categories):
-            for ramp in self._catalogue.categories[row].ramps:
-                _add(self.set_list, ramp.name, ramp.id)
-        self.set_list.blockSignals(False)
+        categories = self._catalogue.categories
+        self._fill_sets(categories[row].ramps if 0 <= row < len(categories) else ())
         if self.set_list.count():
             self.set_list.setCurrentRow(0)
 
