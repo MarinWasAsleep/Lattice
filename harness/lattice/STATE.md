@@ -144,7 +144,7 @@ last_update: 2026-11-18
 | L9 | 1 | done | 0 | 4 | a75cfd1 | text-halftone — 5 tentatives : clamp intestable, `_fit` sans trait, mot insécable débordant → `_ink_box` sur encre réelle + césure ; **PASS Sonnet pass 5** ; 64 tests ; 3 minors (canevas trop petit non épinglé, docstring seed/paper perdue, `_flow` 45 l noms à 1 lettre) |
 | L10 | 1 | done | 0 | 3 | 7f2312f | glyph browser + ramps.json — pass 1 FIX (5 défauts de code), pass 2 FIX test-only (2 majors), pass 3 **PASS** ; 30 tests ; E1 sur le buffer QImage (UB, non testable déterministiquement) |
 | L11 | 1 | done | 0 | 1 | 4d03c55 | SVG + export texte (txt/ansi/html) depuis `layout()` — PASS Sonnet pass 1 ; 51 tests ; 3 E1 acceptées (blanc → `·`, dégradation en blocs, `text` refuse l'export texte) ; 5 minors (privés importés entre modules, rects de bord hors grille quand le pas ne divise pas, `·` aussi en ansi/html, `_token` ne gère pas l'espace interne, 2 tests de budget mous) |
-| L12 | 1 | todo | 0 | 0 | | Lattice Glyph shell |
+| L12 | 1 | done | 0 | 2 | a86ae86 | coquille Lattice Glyph — pass 1 FIX (4 majors : preset amputé de 6 champs, `format_of` menteur, frappe invalide, pont dupliqué) → pass 2 **PASS** ; 2064 tests ; 7 minors (pont : `failed` modal, patch de test inopérant, suffixe → exit 2 au lieu de 1) |
 | L13 | 2 | done | 0 | 1 | 11fe38a | feedback buffer — 2e carte hy4-flash-free : PASS strict du 1er essai (mistral-large-4, vérifié par exécution) → TIER MASSE ACTÉ |
 | L14 | 2 | done | 0 | 1 | 0b0881d | displacement — PASS mistral-large-4 (5 accepts re-vérifiés par exécution, mutation-killed) ; monoplan pilote 2 axes (lecture §13) |
 | L15 | 2 | done | 0 | 2 | f19f5cc | pixel sort — retry (mask aligné L14, tests non-tautologiques), PASS v4-pro pass 2, DEV-214 |
@@ -223,6 +223,25 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
   secours** ; reviews lourdes = Sonnet CLI par défaut, mistral-large-4 en secours.
 - **En vol** : L9 text-halftone (mistral), L17 attempt 3 (mistral), L10 glyph browser (mistral),
   L19 review (mistral-large-4). Prochaines implémentations → hy4/opencode-go.
+- 2026-11-18: **L12 done — commit `a86ae86`, PASS Sonnet pass 2. LA VAGUE 1 EST CLOSE** (L6, L7, L8,
+  L9, L10, L11, L12 tous done). La coquille `lattice-glyph` : 18 fichiers, 390 l pour `window.py`,
+  consomme `lattice_core/ui` sans réimplémenter un canvas ni un dialogue d'export (défaut S5 évité),
+  G9 tenu par **un seul chemin de rendu** (`render_rgb8`), CLI sans Qt (vérifié sous bloqueur
+  d'import), et les 8 renderers du registre sélectionnables. Le pass 1 avait trouvé 4 majors dont un
+  **grave et prouvé par exécution** : `spec_from_panels` construisait un `PipelineSpec` neuf et
+  perdait 6 réglages du preset (brightness, contrast, gamma, saturation, pre_blur, auto_levels) dès
+  la première édition de panneau — corrigé par `deepcopy` + surcharge ciblée, revérifié à zéro perte.
+  `format_of` refusait silencieusement `.jpg` en écrivant un PNG déguisé : il lève maintenant
+  `DocumentError` en nommant le suffixe. 7 minors consignés, dont **trois à traiter avant H14** :
+  `failed` reste branché sur une modale (un hôte qui disparaît entre découverte et appel ouvre un
+  dialogue, E9 incomplètement fermé), le `monkeypatch` de `hosts.discover` est inopérant côté GUI,
+  et un suffixe inconnu renvoie le code 2 au lieu du 1 que §8 prescrit.
+- 2026-11-18: **Prochaine étape : H12** (checkpoint humain — juger Lattice Glyph sur trois images
+  réelles). Analyse produit déléguée à Sonnet thinking high (`ANALYSTE-PRODUIT.md`) : captures,
+  parcours, comparaison des rampes ; verdict + questions à trancher. AMD-010 (encodage perceptuel de
+  la luma) et AMD-011 (normalisation `glyph_shape`) attendent la ratification humaine à ce
+  checkpoint. **Décision de dispatch actée le 18/11** : les cartes restantes partent en
+  `delegate_task` (visibles dans le dock TUI, transcript par `/agents`), plus en `hermes -z`.
 - 2026-11-18: **L9 done — commit `a75cfd1`, PASS Sonnet pass 5** (5 tentatives, la carte la plus
   coûteuse du lot, et la plus instructive). Trois défauts réels trouvés en cascade : (a) l'accept
   « aucun glyphe hors du canevas » était **intestable** parce que `_place()` clampait les boîtes ;
