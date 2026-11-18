@@ -309,6 +309,22 @@ their own files. Nothing is carried over.
   dans la table (compteur officiel).
 - decision: orchestrateur | date: 2026-11-18
 - impact: un cycle supplémentaire pour L9 ; rien d'autre.
+- suite (2026-11-18) : **cycle 3 rendu, verdict ESCALATE** — et il avait raison. Le relecteur
+  n'ayant pas pu exécuter, il a conclu sur lecture que `_fit()` ignore le trait ; l'orchestrateur a
+  alors mesuré, et **sa mesure antérieure (0,0 px) était complaisante** : ses textes de test
+  commençaient par des caractères fins ou des espaces, donc aucun glyphe dense ne touchait x=0.
+  Reproduction avec des cas hostiles, masque réellement rastérisé (trait inclus) :
+  **défaut A** — texte « lattice text halftone » ×40 en `variable` sur cellules 8×16 : 13 glyphes
+  dehors, jusqu'à 2 px (le trait dépasse la bbox de police que `_fit` mesure) ;
+  **défaut B, plus grave** — « @ » × 400 (aucune espace) sur 320×160 : 400 glyphes dehors, le
+  dernier à x=399 pour un canevas de 320 px, parce que `_fit()` réduit la police jusqu'à size 1 puis
+  **abandonne** et que `_flow()` ne coupe jamais un mot. Violation directe de l'accept 3 (un mot
+  long, un chemin ou une URL suffisent en usage réel).
+  Le relecteur a classé B en major sans le voir (il n'a pas de cas sans espace) : l'orchestrateur
+  l'élève en **blocker** et dégèle `text.py` pour l'attempt 5, borné à ces deux corrections
+  (`_fit` mesure trait inclus ; `_flow` casse un mot trop long) plus une assertion de test à zéro
+  débordement au lieu de la tolérance `max(1, size//8)`.
+
 
 ## Amendments (registre)
 
