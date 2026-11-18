@@ -30,3 +30,4 @@ register_pixel_renderer()
 from lattice_core.renderers.bitmask import register_bitmask_renderers  # noqa: E402, F401  (bitmask family self-registers on import; DEV-208 L8)
 from lattice_core.renderers.glyph_ramp import GlyphRampRenderer as GlyphRampRenderer  # noqa: E402
 from lattice_core.renderers.glyph_shape import GlyphShapeRenderer  # noqa: E402  (L7 glyph_shape self-registers on import)
+from lattice_core.renderers.text import TextRenderer as TextRenderer  # noqa: E402  (L9 text self-registers on import)
