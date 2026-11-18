@@ -1,0 +1,35 @@
+{
+  "verdict": "PASS",
+  "findings": [
+    {
+      "severity": "minor",
+      "file": "tests/test_ramps.py",
+      "line": 0,
+      "what": "test_pixmap_keeps_its_pixels_after_gc compares the pixmap to preview_rgb8(), which is already a .copy(). The QImage churn also allocates unrelated buffers, so it does not reach the memory a dangling QImage would read.",
+      "why": "The test is documented as a content guard and passes on the old code. It is not a regression test for the .copy() fix, and the churn loop suggests more power than it has.",
+      "fix": "Add a deterministic aliasing check: overwrite the browser's internal preview array in place (e.g. `browser._preview[:] = 0`), then assert the pixmap still holds the original pixels. Otherwise drop the churn loop and say it is only a content guard."
+    },
+    {
+      "severity": "minor",
+      "file": "tests/test_ramps.py",
+      "line": 0,
+      "what": "Removing `image.max() > image.min()` from the sweep test leaves non-Latin ramps unchecked for flat or blank previews. The mapping proof only covers classic_10.",
+      "why": "A CJK ramp rendered with a font that lacks the glyphs would not be flagged by any remaining test. This is an acceptable gap against accept 2 (\"without raising\").",
+      "fix": "Optionally restore a non-flatness assertion for every ramp, or at least for the non-Latin ones, with the bundled font."
+    },
+    {
+      "severity": "minor",
+      "file": "tests/test_ramps.py",
+      "line": 0,
+      "what": "The mapping test hard-codes the 0x11 ink value and `drawn[-1].min() == 255`, tying it to DEFAULT_FG and DEFAULT_BG.",
+      "why": "A colour default change breaks the test for a reason unrelated to the mapping.",
+      "fix": "Derive these values from the module defaults."
+    }
+  ],
+  "regression": "none. select_ramp now moves both lists with signals blocked, repaints once and emits ramp_chosen once. This is a deliberate fix of the pass-2 double emission. The user-driven list path is unchanged. cached_property on a frozen dataclass is safe because it writes to __dict__.",
+  "renderer_invariants": "all six hold (the diff does not touch any renderer; only glyph_ramp's caches are cleared by the test)",
+  "tests_that_cannot_fail": [
+    "test_pixmap_keeps_its_pixels_after_gc: passes on the old code too. The coder discloses this, and the .copy() fix is undefined behaviour that no deterministic test can force. See the minor finding for a sharper alternative."
+  ],
+  "notes": "Cold-timing question: the test now measures a genuinely cold glyph rasterisation. `clear_glyph_caches` empties `_cached_mask` and `_metrics` before each category. `cache_clear` resets the stats, so `misses >= len(ramp)` can only be true if the target ramp's masks were rasterised inside the timed window. A warm cache cannot satisfy it. Residual warmth outside the cleared caches (font-file load, Qt) is irrelevant to the budget, and the worst measured time is 4.4 ms against 100 ms. E1 on finding 5: accepted as arbitrated, because the coder disclosed it and the cause is undefined behaviour. The mapping test (column i == render of glyph i alone, plus 10 distinct columns) and the single-emission test do fail on the old or mutated code. All pass 2 majors are resolved."
+}

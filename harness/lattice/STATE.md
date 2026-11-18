@@ -142,7 +142,7 @@ last_update: 2026-11-18
 | L7 | 1 | done | 0 | 2 | d032847 | shape-matched glyphs — retry (AMD-011, comparateur densité, consomme samples), PASS Sonnet pass 2, DEV-215 |
 | L8 | 1 | done | 0 | 2 | f60129c | bitmask — retry Unicode row-major (v4-pro blocker), PASS v4-pro, 48 tests, invariants §3 tenus |
 | L9 | 1 | in_progress | 0 | 0 | | text-halftone — code WIP repris (534 l, aucun test) ; attempt 2 opencode-go (découpe ≤400 l + tests) |
-| L10 | 1 | in_progress | 0 | 0 | | glyph browser + non-Latin ramps — code WIP repris (413 l + ramps.json, aucun test) ; attempt 2 à dispatcher |
+| L10 | 1 | done | 0 | 3 | 7f2312f | glyph browser + ramps.json — pass 1 FIX (5 défauts de code), pass 2 FIX test-only (2 majors), pass 3 **PASS** ; 30 tests ; E1 sur le buffer QImage (UB, non testable déterministiquement) |
 | L11 | 1 | todo | 0 | 0 | | SVG export |
 | L12 | 1 | todo | 0 | 0 | | Lattice Glyph shell |
 | L13 | 2 | done | 0 | 1 | 11fe38a | feedback buffer — 2e carte hy4-flash-free : PASS strict du 1er essai (mistral-large-4, vérifié par exécution) → TIER MASSE ACTÉ |
@@ -222,6 +222,21 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
   secours** ; reviews lourdes = Sonnet CLI par défaut, mistral-large-4 en secours.
 - **En vol** : L9 text-halftone (mistral), L17 attempt 3 (mistral), L10 glyph browser (mistral),
   L19 review (mistral-large-4). Prochaines implémentations → hy4/opencode-go.
+- 2026-11-18: **L10 done — commit `7f2312f`, PASS Sonnet pass 3** (3 cycles de revue consommés).
+  Le WIP repris cachait cinq vrais défauts, corrigés : `render_ramp_preview` renvoyait HxWx4 quand
+  `fg`/`bg` valait `transparent` (réinterprété en RGB888 → couleurs et stride faux) ; `select_ramp`
+  ne repeignait pas quand la ligne était déjà courante ; `_ordered` citait `ramps[0]` au lieu de
+  `ramps[1]` ; `_pixmap` gardait un `bytes` temporaire comme buffer de QImage ; `_load` fusionné dans
+  un `load_catalogue` mémoïsé. Le pass 2 a jugé le code bon et attaqué les TESTS : le balayage ne
+  prouvait pas le mappage cellule↔glyphe et le test des 100 ms ne mesurait qu'un cache chaud. Le
+  pass 3 valide les deux preuves (colonne i byte-égale au rendu du glyphe seul ; `clear_glyph_caches`
+  + `misses >= len(ramp)` rendent un run chaud impossible). **E1 acceptée** (arbitrage Sonnet) sur le
+  buffer QImage : lire un tampon libéré est un comportement indéfini, aucun test Python déterministe
+  ne peut l'attraper ; le codeur a écrit un garde de contenu et l'a déclaré au lieu de le maquiller.
+  `ramps.json` (12 catégories, 30 rampes) est embarqué dans la wheel via `[tool.setuptools.package-data]`
+  — ligne hors owns appliquée par l'orchestrateur après vérification par construction + venv vierge.
+  3 minors de tests consignés (garde QImage faible, rampes non-latines non vérifiées contre un
+  aperçu plat, constante d'encre 0x11 codée en dur).
 - 2026-11-18: **L19 done — commit `75a083d`, PASS Sonnet pass 2** (2 cycles de revue, budget plein).
   Le retry de mistral a rendu 4 fichiers complets (32 tests owned, suite **1941 verte**, ruff et
   contrat propres) : `render_effects` est le chemin verrouillé documenté — `pipeline._apply_effects`
