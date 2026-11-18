@@ -1,0 +1,64 @@
+{
+  "app": "glitch",
+  "effects": [
+    {
+      "enabled": true,
+      "mask": null,
+      "name": "ntsc",
+      "params": {
+        "chroma_lowpass": 0.5,
+        "head_switching": 0.25,
+        "luma_smear": 0.2,
+        "snow": 0.08,
+        "tape_speed": "sp",
+        "tracking_noise": 0.15
+      },
+      "stage": "post"
+    },
+    {
+      "enabled": true,
+      "mask": null,
+      "name": "scanlines",
+      "params": {
+        "darkness": 0.25,
+        "spacing": 4
+      },
+      "stage": "post"
+    }
+  ],
+  "fonts": {},
+  "masks": {},
+  "meta": {
+    "author": "",
+    "created": "",
+    "description": "",
+    "name": "01_vhs_sp",
+    "tags": [],
+    "thumbnail": ""
+  },
+  "output": {
+    "dpi": null,
+    "scale": 1,
+    "width": null
+  },
+  "palette": null,
+  "pipeline": {
+    "algorithm": null,
+    "auto_levels": false,
+    "brightness": 0.0,
+    "color_metric": "srgb",
+    "contrast": 0.0,
+    "gamma": 1.0,
+    "max_side": null,
+    "params": {},
+    "pixel_size": 1,
+    "pre_blur": 0.0,
+    "saturation": 0.0
+  },
+  "renderer": {
+    "name": "pixel",
+    "style": {}
+  },
+  "seed": 0,
+  "version": 3
+}

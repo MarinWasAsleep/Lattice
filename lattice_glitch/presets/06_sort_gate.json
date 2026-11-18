@@ -1,0 +1,58 @@
+{
+  "app": "glitch",
+  "effects": [
+    {
+      "enabled": true,
+      "mask": "gate",
+      "name": "pixel_sort",
+      "params": {
+        "brightness": 0.35,
+        "direction": "rows",
+        "key": "luma"
+      },
+      "stage": "post"
+    }
+  ],
+  "fonts": {},
+  "masks": {
+    "gate": {
+      "data": "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAAAAABWESUoAAAAIElEQVR4nGNk4ODg5IBgOAOZw8RAAIwqGFUwqmC4KgAAk00BP90Mw/QAAAAASUVORK5CYII=",
+      "height": 32,
+      "id": "gate",
+      "width": 32
+    }
+  },
+  "meta": {
+    "author": "",
+    "created": "",
+    "description": "",
+    "name": "06_sort_gate",
+    "tags": [],
+    "thumbnail": ""
+  },
+  "output": {
+    "dpi": null,
+    "scale": 1,
+    "width": null
+  },
+  "palette": null,
+  "pipeline": {
+    "algorithm": null,
+    "auto_levels": false,
+    "brightness": 0.0,
+    "color_metric": "srgb",
+    "contrast": 0.0,
+    "gamma": 1.0,
+    "max_side": null,
+    "params": {},
+    "pixel_size": 1,
+    "pre_blur": 0.0,
+    "saturation": 0.0
+  },
+  "renderer": {
+    "name": "pixel",
+    "style": {}
+  },
+  "seed": 0,
+  "version": 3
+}
