@@ -141,7 +141,7 @@ last_update: 2026-11-18
 | L6 | 1 | done | 0 | 2 | 45c42a2 | glyph ramp — retry invariant 2 + AMD-010 (rampe perceptuelle), PASS v4-pro, 49 tests, DEV-212/213 |
 | L7 | 1 | done | 0 | 2 | d032847 | shape-matched glyphs — retry (AMD-011, comparateur densité, consomme samples), PASS Sonnet pass 2, DEV-215 |
 | L8 | 1 | done | 0 | 2 | f60129c | bitmask — retry Unicode row-major (v4-pro blocker), PASS v4-pro, 48 tests, invariants §3 tenus |
-| L9 | 1 | in_progress | 0 | 0 | | text-halftone — code WIP repris (534 l, aucun test) ; attempt 2 opencode-go (découpe ≤400 l + tests) |
+| L9 | 1 | done | 0 | 4 | a75cfd1 | text-halftone — 5 tentatives : clamp intestable, `_fit` sans trait, mot insécable débordant → `_ink_box` sur encre réelle + césure ; **PASS Sonnet pass 5** ; 64 tests ; 3 minors (canevas trop petit non épinglé, docstring seed/paper perdue, `_flow` 45 l noms à 1 lettre) |
 | L10 | 1 | done | 0 | 3 | 7f2312f | glyph browser + ramps.json — pass 1 FIX (5 défauts de code), pass 2 FIX test-only (2 majors), pass 3 **PASS** ; 30 tests ; E1 sur le buffer QImage (UB, non testable déterministiquement) |
 | L11 | 1 | done | 0 | 1 | 4d03c55 | SVG + export texte (txt/ansi/html) depuis `layout()` — PASS Sonnet pass 1 ; 51 tests ; 3 E1 acceptées (blanc → `·`, dégradation en blocs, `text` refuse l'export texte) ; 5 minors (privés importés entre modules, rects de bord hors grille quand le pas ne divise pas, `·` aussi en ansi/html, `_token` ne gère pas l'espace interne, 2 tests de budget mous) |
 | L12 | 1 | todo | 0 | 0 | | Lattice Glyph shell |
@@ -223,6 +223,21 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
   secours** ; reviews lourdes = Sonnet CLI par défaut, mistral-large-4 en secours.
 - **En vol** : L9 text-halftone (mistral), L17 attempt 3 (mistral), L10 glyph browser (mistral),
   L19 review (mistral-large-4). Prochaines implémentations → hy4/opencode-go.
+- 2026-11-18: **L9 done — commit `a75cfd1`, PASS Sonnet pass 5** (5 tentatives, la carte la plus
+  coûteuse du lot, et la plus instructive). Trois défauts réels trouvés en cascade : (a) l'accept
+  « aucun glyphe hors du canevas » était **intestable** parce que `_place()` clampait les boîtes ;
+  (b) `_fit()` mesurait la bbox de POLICE sans le trait §10, donc l'encre réelle dépassait de
+  `stroke` px ; (c) **plus grave**, `_flow()` ne coupait jamais un mot et `_fit()` abandonnait à
+  size 1 — un mot insécable (« @ » ×400) débordait de 81 px sur 320. Correctif final : `_ink_box()`
+  dérive la bbox des pixels d'encre non nuls du masque trait inclus, `_flow()` casse les mots trop
+  longs, `_fit()` mesure la même bbox et reste borné à 8 passes. **L'orchestrateur s'est trompé en
+  cours de route** : sa première mesure (0,0 px) était complaisante (textes commençant par des
+  caractères fins), la deuxième comptait le padding du masque comme de l'encre (1,0 px fictif
+  partout). En mesurant les pixels non nuls : 0 débordement sur toutes les tailles réalistes ;
+  seule une cellule 3×5 sur un canevas 120×50 px avec 1400 caractères déborde encore, et Sonnet
+  arbitre que c'est une **limite physique acceptable** (le renderer doit remplir le rectangle ; une
+  erreur typée serait un changement de contrat). 3 minors : ce cas non épinglé, docstring `seed`/
+  `paper` perdue, `_flow` à 45 lignes avec des noms d'une lettre.
 - 2026-11-18: **L11 done — commit `4d03c55`, PASS Sonnet pass 1** (1 seul cycle). `svg.py` (395 l) et
   `textout.py` (149 l) implémentent §11 depuis `layout()` : `pixel` en `<rect>` fusionnés (mesuré
   par l'orchestrateur : 2756 rects pour 4096 cellules sur du bruit 4 couleurs), glyphes en un
