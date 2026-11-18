@@ -347,6 +347,27 @@ their own files. Nothing is carried over.
 - decision: à trancher à H12 (question 3 du formulaire).
 - impact: carte de correction à créer (L9b), et la vitrine de Glyph ne peut pas montrer `text` avant.
 
+### DEV-219 — L9c attempt 1 : l'encre relative n'est appliquée qu'en `bg_colour`, `palette` est laissé inchangé
+- class: E1 (interprétation d'une décision humaine) + E7 (produit) | task: L9c | contract: 0.1.0
+  | status: open
+- raised by: orchestrateur (vérification par exécution) | date: 2026-11-18
+- facts: la décision H12 n°2 dit « l'encre devient relative à ±2 crans du fond **dans les modes
+  `palette` et `bg_colour`** ». Le codeur ne l'applique qu'en `bg_colour` et laisse `palette` avec
+  l'encre = couleur de palette de la cellule, au motif que l'accept 3 exige que `bg:"auto"` reproduise
+  exactement l'ancien comportement. **Les deux exigences ne sont pas incompatibles** :
+  `bg:"auto"` + ancienne encre est une variante ; `bg:"auto"` + encre relative est la nouvelle.
+  Mesures orchestrateur : en mode `palette` + `bg:#ffffff`, luma sRGB 0,986 et **contraste 0,055** —
+  l'image est blanche, donc l'accept 1 (« luma > 0,60 ») est satisfait par la lettre, pas par le fond.
+  Second écart : l'accept 2 demande ≥ 5 glyphes distincts dans les 20 % de cellules les plus sombres ;
+  le codeur annonce 5, la mesure de l'orchestrateur en trouve **4** (`- . : =`).
+- assumption / proposal: (1) appliquer l'encre relative aussi en mode `palette` (le fond étant `bg`
+  ou le ton le plus sombre si `auto`) ; (2) recaler l'accept 1 sur une mesure qui discrimine : luma
+  compris entre 0,40 et 0,75 ET contraste > 0,25 (un rendu blanc ne doit pas passer) ;
+  (3) faire vérifier l'accept 2 par le relecteur avec le protocole exact de l'orchestrateur.
+- decision: orchestrateur — renvoi au codeur en attempt 2 avec ces trois points, sans consommer de
+  cycle de revue (la carte n'a pas encore été relue).
+- impact: un seul fichier (`glyph_ramp.py`) et son test ; les 2077 tests restent verts entre-temps.
+
 ## Amendments (registre)
 
 Facts discovered during a task that the contract could not have known, recorded here rather than

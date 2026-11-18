@@ -4,7 +4,10 @@ The ramp contract is explicit and documented, never detected: darkest character 
 lightest last. ``grid.luma`` (S2) picks the character through its sRGB-perceptual encoding
 (AMD-010), so a black/white palette still uses the full ramp. There is no ``size`` option
 (H11): the font size derives from ``cell_h``. Module state is one bounded, input-keyed glyph
-mask cache that never changes the output (§3 invariant 2, H11).
+mask cache that never changes the output (§3 invariant 2, H11). Since H12 (2026-11-18),
+``palette`` honours the declared ``bg`` (explicit ``"auto"`` = the darkest palette entry)
+and ``bg_colour`` uses an ink two palette ranks off the cell colour, with its glyph chosen
+on the |luma - background| gap over the ramp bounded to its medium densities.
 """
 
 from __future__ import annotations
@@ -30,6 +33,7 @@ MODES = ("mono", "fg_colour", "bg_colour", "palette")
 DEFAULT_FG = "#000000"
 DEFAULT_BG = "#ffffff"
 TRANSPARENT = "transparent"
+AUTO_BG = "auto"
 _EPSILON = 1e-6
 _PROBE_SIZE = 100
 _HEX_DIGITS = frozenset("0123456789abcdef")
@@ -62,7 +66,7 @@ class GlyphPlacement(NamedTuple):
 
 
 class GlyphRampRenderer:
-    """Draw one monospace character per cell, its ink density chosen by the cell luma."""
+    """Draw one monospace character per cell; the H12 modes tie ink and glyph to the cell."""
 
     name = NAME
 
@@ -79,10 +83,7 @@ class GlyphRampRenderer:
         return frozenset({"luma", "index"})
 
     def render(self, grid: CellGrid, palette: Palette, style: RenderStyle) -> PILImage.Image:
-        """Rasterise the glyph ramp of grid into an image of the exact grid geometry.
-
-        The image is RGBA when a colour option is ``transparent``, RGB otherwise.
-        """
+        """Rasterise the glyph ramp of grid into an image of the exact grid geometry."""
         frame = _frame(grid, palette, _read_options(style))
         pixels = color.to_rgb8(frame)
         return PILImage.fromarray(pixels, "RGBA" if frame.shape[2] == 4 else "RGB")
@@ -92,23 +93,19 @@ class GlyphRampRenderer:
     ) -> list[GlyphPlacement]:
         """Return one placed glyph per cell, row-major (§3, §11).
 
-        ``fill`` is the ink colour and ``paper`` the background colour of the cell; either is
-        ``#rrggbbaa`` when translucent and ``transparent`` when fully clear, so an export can
-        reproduce a ``bg_colour`` or transparent render. Both the §3 ``layout(grid, style)``
-        form and the ``layout(grid, palette, style)`` form the other glyph renderers use are
-        accepted; the palette only feeds the palette modes.
+        ``fill``/``paper`` are the ink and background colours of the cell.
         """
         palette, style = _layout_arguments(palette, style)
         options = _read_options(style)
-        indices = _ramp_indices(grid.luma, len(options.ramp), options.offset, options.invert)
+        ramp, source = _glyph_ramp(options, grid, palette)
+        indices = _ramp_indices(source, len(ramp), options.offset, options.invert)
         ink, paper = _cell_colours(options, grid, palette)
         placed: list[GlyphPlacement] = []
         for row in range(grid.rows):
             for col in range(grid.cols):
                 placed.append(GlyphPlacement(
-                    options.ramp[int(indices[row, col])],
-                    float(col * grid.cell_w), float(row * grid.cell_h),
-                    float(grid.cell_w), float(grid.cell_h),
+                    ramp[int(indices[row, col])], float(col * grid.cell_w),
+                    float(row * grid.cell_h), float(grid.cell_w), float(grid.cell_h),
                     _hex(ink[row, col]), _hex(paper[row, col]),
                 ))
         return placed
@@ -126,10 +123,7 @@ def _layout_arguments(
 
 
 def _read_options(style: RenderStyle) -> GlyphRampOptions:
-    """Validate style.options and return the typed options of one glyph_ramp render.
-
-    Unknown keys are ignored, so a preset written by a newer app still renders (§6).
-    """
+    """Validate style.options into typed options; unknown keys are ignored (§6)."""
     raw = dict(style.options)
     ramp = raw.get("ramp", DEFAULT_RAMP)
     if not isinstance(ramp, str) or not ramp:
@@ -149,11 +143,16 @@ def _read_options(style: RenderStyle) -> GlyphRampOptions:
     invert = raw.get("invert", False)
     if not isinstance(invert, bool):
         raise ValueError(f"glyph_ramp invert must be a boolean, got {invert!r}")
+    bg = raw.get("bg", DEFAULT_BG)
+    if not isinstance(bg, str):
+        raise ValueError(f"glyph_ramp bg must be a colour string or 'auto', got {bg!r}")
+    if bg.strip().lower() != AUTO_BG:
+        _parse_colour(bg)
     return GlyphRampOptions(
         ramp=ramp,
         font=font,
         fg=_colour_option(raw, "fg", DEFAULT_FG),
-        bg=_colour_option(raw, "bg", DEFAULT_BG),
+        bg=bg,
         mode=mode,
         offset=float(offset),
         invert=invert,
@@ -196,12 +195,7 @@ def _hex(rgba: np.ndarray) -> str:
 
 
 def _font_key(path: str | None) -> tuple[str | None, int, int]:
-    """Return the cache key of a font: its path plus the file's mtime and size.
-
-    The mtime and size make a font replaced at the same path a different key, so a cached
-    mask can never outlive the file it was drawn from (§3 invariant 2). A path that is not
-    an existing file raises ValueError naming it, before anything is drawn or laid out.
-    """
+    """Return a font's cache key: its path plus mtime and size (§3 invariant 2)."""
     if path is None:
         return (None, 0, 0)
     target = Path(path)
@@ -246,11 +240,7 @@ def _glyph_mask(char: str, path: str | None, cell_w: int, cell_h: int) -> np.nda
 def _cached_mask(
     font_key: tuple[str | None, int, int], char: str, cell_w: int, cell_h: int
 ) -> np.ndarray:
-    """Return the read-only ink mask of one glyph, cached per font identity and cell.
-
-    Every input is part of the key, the cache is bounded, and the returned array is not
-    writable, so no caller can observe or cause a change of the rendered output.
-    """
+    """Return the read-only ink mask of one glyph, cached per font identity and cell."""
     font = _load_font(font_key[0], _font_size(cell_w, cell_h, font_key[0]))
     canvas = PILImage.new("L", (cell_w, cell_h), 0)
     ImageDraw.Draw(canvas).text(
@@ -261,13 +251,18 @@ def _cached_mask(
     return mask
 
 
-def _ramp_indices(luma: np.ndarray, count: int, offset: float, invert: bool) -> np.ndarray:
-    """Return the ramp index of every cell: darkest first, shifted by offset, inverted.
+def _palette_luma(palette: np.ndarray) -> np.ndarray:
+    """Return the linear Rec.709 luminance of every palette entry (S2)."""
+    linear = color.srgb_to_linear(np.asarray(palette, dtype=np.float32)[:, :3])
+    return (np.float32(0.2126) * linear[:, 0] + np.float32(0.7152) * linear[:, 1]
+            + np.float32(0.0722) * linear[:, 2])
 
-    ``luma`` is linear light (S2) and indexes the ramp through its sRGB-perceptual encoding
-    (AMD-010): the re-encoding is monotonic, so darkest-first order is preserved and the
-    ordered ramp stays perceptually spaced — a black-to-white source gradient walks the whole
-    ramp instead of collapsing into its dark third. One unit of ``offset`` moves one glyph.
+
+def _ramp_indices(luma: np.ndarray, count: int, offset: float, invert: bool) -> np.ndarray:
+    """Return the ramp index of every cell: darkest first, offset-shifted, inverted.
+
+    ``luma`` is linear light (S2) and indexes the ramp through its sRGB-perceptual
+    encoding (AMD-010); one unit of ``offset`` moves one glyph.
     """
     position = color.linear_to_srgb(np.asarray(luma, dtype=np.float32))
     scaled = (position + np.float32(offset)) * np.float32(count)
@@ -283,34 +278,59 @@ def _palette_colours(grid: CellGrid, palette: Palette) -> np.ndarray:
 
 
 def _darkest(palette: Palette) -> np.ndarray:
-    """Return the RGBA colour of the palette entry with the lowest linear luminance."""
-    linear = color.srgb_to_linear(np.asarray(palette, dtype=np.float32)[:, :3])
-    luma = np.float32(0.2126) * linear[:, 0] + np.float32(0.7152) * linear[:, 1]
-    luma = luma + np.float32(0.0722) * linear[:, 2]
-    row = np.asarray(palette, dtype=np.float32)[int(np.argmin(luma)), :3]
-    return np.concatenate([row, np.ones(1, dtype=np.float32)])
+    """Return the opaque darkest palette entry: the resolution of ``bg: "auto"`` (H12)."""
+    rows = np.asarray(palette, dtype=np.float32)
+    best = rows[int(np.argmin(_palette_luma(rows))), :3]
+    return np.concatenate([best, np.ones(1, dtype=np.float32)])
 
 
 def _cell_colours(
     options: GlyphRampOptions, grid: CellGrid, palette: np.ndarray | None
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Return the (rows, cols, 4) ink and paper colours of every cell for the chosen mode.
+    """Return (ink, paper) colours of every cell; without a palette every mode is fg on bg.
 
-    ``mono`` uses fg on bg; ``fg_colour`` puts the cell palette colour in the ink and bg in
-    the paper; ``bg_colour`` the reverse; ``palette`` takes the ink from the cell and the
-    paper from the palette's darkest entry, so both come from the palette.
+    ``mono`` fg on bg; ``fg_colour`` cell colour ink on bg; ``bg_colour`` the reverse,
+    ink two palette ranks off the cell colour (H12); ``palette`` cell colour ink on the
+    declared ``bg`` (H12).
     """
-    shape = (grid.rows, grid.cols, 4)
-    ink = np.broadcast_to(np.asarray(_parse_colour(options.fg), np.float32), shape).copy()
-    paper = np.broadcast_to(np.asarray(_parse_colour(options.bg), np.float32), shape).copy()
+    ink = np.broadcast_to(np.asarray(_parse_colour(options.fg), np.float32),
+                          (grid.rows, grid.cols, 4)).copy()
     if options.mode == "mono" or palette is None:
-        return ink, paper
+        return ink, _paper(options, grid, palette)
     cells = _palette_colours(grid, palette)
     if options.mode == "fg_colour":
-        return cells, paper
+        return cells, _paper(options, grid, palette)
     if options.mode == "bg_colour":
-        return ink, cells
-    return cells, np.broadcast_to(_darkest(palette), shape).copy()
+        return _relative_ink(np.asarray(palette, np.float32), grid.index), cells
+    return cells, _paper(options, grid, palette)
+
+
+def _paper(options: GlyphRampOptions, grid: CellGrid, palette: np.ndarray | None) -> np.ndarray:
+    """Return the broadcast paper of every cell: bg, or the darkest tone for "auto"."""
+    if options.bg.strip().lower() == AUTO_BG:
+        if palette is None:
+            raise ValueError("glyph_ramp bg 'auto' needs a palette to name its darkest entry")
+        colour = _darkest(np.asarray(palette, np.float32))
+    else:
+        colour = np.asarray(_parse_colour(options.bg), np.float32)
+    return np.broadcast_to(colour, (grid.rows, grid.cols, 4)).copy()
+
+
+def _relative_ink(palette: np.ndarray, index: np.ndarray) -> np.ndarray:
+    """Return the ink of every cell two palette ranks off its own colour (H12).
+
+    The palette is sorted by luma once; a dark cell colour (luma < 0.5) takes the entry
+    two ranks above, a light one two below, clamped into the palette.
+    """
+    rows = np.asarray(palette, dtype=np.float32)
+    luma = _palette_luma(rows)
+    rank = np.empty(luma.shape[0], dtype=np.intp)
+    rank[np.argsort(luma, kind="stable")] = np.arange(luma.shape[0])
+    own = np.asarray(index, dtype=np.intp)
+    jump = np.where(luma[own] < np.float32(0.5), 2, -2)
+    chosen = np.clip(rank[own] + jump, 0, rows.shape[0] - 1)
+    alpha = np.ones(own.shape + (1,), dtype=np.float32)
+    return np.concatenate([rows[chosen, :3], alpha], axis=-1)
 
 
 def _blend(paper: np.ndarray, ink: np.ndarray, mask: np.ndarray) -> np.ndarray:
@@ -331,10 +351,28 @@ def _groups(indices: np.ndarray, count: int) -> list[np.ndarray]:
     return [order[bounds[value] : bounds[value + 1]] for value in range(count)]
 
 
+def _glyph_ramp(
+    options: GlyphRampOptions, grid: CellGrid, palette: np.ndarray | None
+) -> tuple[str, np.ndarray]:
+    """Return the ramp and the per-cell value that indexes it, for the mode.
+
+    ``mono``, ``fg_colour`` and ``palette`` keep absolute luma on the whole ramp
+    (AMD-010); ``bg_colour`` follows the |luma - background| gap (H12) over the ramp
+    bounded to its medium densities (for the default ramp, space and '@' removed).
+    """
+    if options.mode != "bg_colour" or palette is None:
+        return options.ramp, grid.luma
+    luma = _palette_luma(np.asarray(palette, np.float32))
+    fond = luma[np.asarray(grid.index, dtype=np.intp)]
+    ramp = options.ramp[1:-1] if len(options.ramp) >= 3 else options.ramp
+    return ramp, np.abs(grid.luma - fond)
+
+
 def _frame(grid: CellGrid, palette: Palette, options: GlyphRampOptions) -> np.ndarray:
     """Return the (rows*cell_h, cols*cell_w, C) float32 frame of one glyph_ramp render."""
-    count = len(options.ramp)
-    indices = _ramp_indices(grid.luma, count, options.offset, options.invert)
+    ramp, source = _glyph_ramp(options, grid, palette)
+    count = len(ramp)
+    indices = _ramp_indices(source, count, options.offset, options.invert)
     ink, paper = _cell_colours(options, grid, palette)
     alpha = bool(ink[:, :, 3].min() < 1.0 or paper[:, :, 3].min() < 1.0)
     frame = np.empty((grid.rows * grid.cell_h, grid.cols * grid.cell_w, 4), dtype=np.float32)
@@ -344,7 +382,7 @@ def _frame(grid: CellGrid, palette: Palette, options: GlyphRampOptions) -> np.nd
         if cells.size == 0:
             continue
         rows, cols = np.divmod(cells, grid.cols)
-        mask = _glyph_mask(options.ramp[value], options.font, grid.cell_w, grid.cell_h)
+        mask = _glyph_mask(ramp[value], options.font, grid.cell_w, grid.cell_h)
         view[rows, :, cols, :, :] = _blend(paper[rows, cols], ink[rows, cols], mask)
     if alpha:
         return frame

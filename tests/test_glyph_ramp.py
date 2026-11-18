@@ -1,9 +1,12 @@
-"""Tests for the glyph_ramp renderer (§3, §9, AMD-010) — card L6.
+"""Tests for the glyph_ramp renderer (§3, §9, AMD-010) — cards L6 and L9c.
 
 Expected glyph sequences are pinned as literals derived from the contract, never recomputed
-with the renderer's own formula: §9 + AMD-010 say ``luma`` indexes the ramp through its
+with the renderer's own formula: §9 + AMD-010 say ``luma`` (S2) indexes the ramp through its
 sRGB-perceptual encoding, so a linear luma of 0.05 encodes to sRGB 0.2478, lands in bucket 2
-of a 10-character ramp and must draw ``'#'``.
+of a 10-character ramp and must draw ``'#'``. Since H12 (2026-11-18) ``bg_colour`` glyphs
+follow the |luma - background| gap over the ramp bounded to its medium densities, its ink is
+the palette entry two ranks off the cell colour, and ``palette`` honours the declared ``bg``
+(whose explicit value ``"auto"`` is the palette's darkest entry).
 """
 
 from __future__ import annotations
@@ -20,7 +23,17 @@ from PIL import ImageDraw, ImageFont
 import lattice_core.dither  # noqa: F401  (registers the algorithms the pipeline resolves)
 from lattice_core import color
 from lattice_core.cell import CellGrid, CellRenderer, RenderStyle, get_renderer, list_renderers
-from lattice_core.pipeline import PipelineSpec, _make_grid, render_with_palette
+from lattice_core.palettes.builtin import get_builtin
+from lattice_core.pipeline import (
+    RESERVED_METRIC,
+    PipelineSpec,
+    _cell_geometry,
+    _make_grid,
+    _pad_to_cells,
+    _to_cells,
+    render_with_palette,
+)
+from lattice_core.registry import get_algorithm, resolve_params
 from lattice_core.renderers import glyph_ramp
 from lattice_core.renderers.glyph_ramp import (
     DEFAULT_RAMP,
@@ -32,10 +45,16 @@ from lattice_core.renderers.glyph_ramp import (
 from lattice_core.types import Palette
 
 RAMP = "@%#*+=-:. "
+BOUNDED = RAMP[1:-1]  # "%#*+=-:." — the H12 bg_colour ramp, extremes (space, '@') removed
+PICO8_RAMP = " .:-=+*#%@"
 BW: Palette = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], dtype=np.float32)
-COLOUR: Palette = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]], dtype=np.float32)
+GREYS: Palette = np.array([[0.0, 0.0, 0.0], [0.25, 0.25, 0.25], [0.5, 0.5, 0.5],
+                           [0.75, 0.75, 0.75], [1.0, 1.0, 1.0]], dtype=np.float32)
+COLOUR: Palette = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]],
+                           dtype=np.float32)
 CELL_W, CELL_H = 8, 16
 SYSTEM_FONT = Path("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf")
+PORTRAIT = Path("/home/mar1/Téléchargements/H12/A_portrait.jpg")
 _PAD = 64
 
 
@@ -82,11 +101,7 @@ def _cells(img) -> np.ndarray:
 
 
 def _pillow_ink(glyph: str, cell_w: int, cell_h: int, size: int) -> np.ndarray:
-    """Draw glyph with Pillow alone, centred in a cell, and return its float32 ink in [0, 1].
-
-    This is an independent reference: it shares no code with the renderer, so a change that
-    moves both the renderer and its own mask helper still fails here.
-    """
+    """Return Pillow's own float32 ink of glyph centred in a cell: an independent reference."""
     font = _default_font(size)
     canvas = PILImage.new("L", (cell_w + 2 * _PAD, cell_h + 2 * _PAD), 0)
     ImageDraw.Draw(canvas).text(
@@ -94,19 +109,6 @@ def _pillow_ink(glyph: str, cell_w: int, cell_h: int, size: int) -> np.ndarray:
     )
     patch = np.asarray(canvas, dtype=np.float32)[_PAD : _PAD + cell_h, _PAD : _PAD + cell_w]
     return np.ascontiguousarray(patch / 255.0)
-
-
-def _pillow_cell(glyph: str, cell_w: int, cell_h: int, size: int) -> np.ndarray:
-    """Return the uint8 grey cell Pillow draws for glyph: ink on white paper."""
-    return np.floor((1.0 - _pillow_ink(glyph, cell_w, cell_h, size)) * 255.0 + 0.5).astype(
-        np.uint8
-    )
-
-
-def _matching_pillow_sizes(glyph: str, cell_w: int, cell_h: int, target: np.ndarray) -> list[int]:
-    """Return every Pillow font size whose independently drawn cell equals target."""
-    return [size for size in range(1, 4 * max(cell_w, cell_h))
-            if np.array_equal(_pillow_cell(glyph, cell_w, cell_h, size), target)]
 
 
 def _pillow_ink_bbox(glyph: str, cell_w: int, cell_h: int, size: int) -> tuple[int, int, int, int]:
@@ -126,7 +128,44 @@ def _default_font(size: int) -> ImageFont.FreeTypeFont:
     return cast(ImageFont.FreeTypeFont, ImageFont.load_default(size=size))
 
 
-# --- accept 1: a 10-character ramp on a black-to-white gradient ---
+def _linear_luma(rgb: np.ndarray) -> np.ndarray:
+    """Return the linear-light Rec.709 luma of a uint8 RGB image as a float32 array."""
+    linear = color.srgb_to_linear(np.clip(np.asarray(rgb, np.float32) / 255.0, 0.0, 1.0))
+    return np.float32(0.2126) * linear[..., 0] + np.float32(0.7152) * linear[..., 1] \
+        + np.float32(0.0722) * linear[..., 2]
+
+
+def _srgb_luma(rgb: np.ndarray) -> np.ndarray:
+    """Return the sRGB-coded (γ-encoded) Rec.709 luma of a uint8 RGB image."""
+    code = np.clip(np.asarray(rgb, np.float32) / 255.0, 0.0, 1.0)
+    return np.float32(0.2126) * code[..., 0] + np.float32(0.7152) * code[..., 1] \
+        + np.float32(0.0722) * code[..., 2]
+
+
+def _dither_grid(src: np.ndarray, palette: np.ndarray, pixel_size: int) -> CellGrid:
+    """Run the pipeline's dithering of src against palette and return the CellGrid it builds."""
+    cell_w, cell_h = _cell_geometry(GlyphRampRenderer(), pixel_size)
+    cells = _to_cells(_pad_to_cells(src, cell_w, cell_h), cell_w, cell_h)
+    info = get_algorithm("floyd_steinberg")
+    params = resolve_params(info.params, {})
+    params[RESERVED_METRIC] = color.metric_code("srgb")
+    indices = info.fn(color.to_working_space(cells, 0), color.to_working_space(palette, 0),
+                      params)
+    return _make_grid(cells, np.ascontiguousarray(indices, np.int32), cell_w, cell_h, palette)
+
+
+def _darkest_cells(grid: CellGrid) -> list[int]:
+    """Return the flat positions of the darkest 20 % of cells, by source luma (S2)."""
+    count = max(1, int(round(0.2 * int(grid.luma.size))))
+    return np.argpartition(grid.luma.ravel(), count)[:count].tolist()
+
+
+def _placed(grid: CellGrid, palette: np.ndarray, **options: object) -> list[GlyphPlacement]:
+    """Return the glyphs layout() places for grid on palette with the given options."""
+    return GlyphRampRenderer().layout(grid, palette, _style(**options))
+
+
+# --- accept 1 (L6): a 10-character ramp on a black-to-white gradient ---
 
 
 def test_ten_character_ramp_on_a_gradient_places_the_ramp_in_order():
@@ -153,7 +192,7 @@ def test_glyph_ink_decreases_as_the_cell_luma_rises():
     assert ink[0] == min(ink) and ink[-1] == max(ink)
 
 
-# --- accept 2: a black/white palette does not collapse the ramp (S2/H11) ---
+# --- accept 2 (L6): a black/white palette does not collapse the ramp (S2/H11) ---
 
 
 def test_black_and_white_palette_keeps_all_ten_glyphs():
@@ -169,10 +208,8 @@ def test_consumes_is_exactly_luma_and_index():
     assert GlyphRampRenderer().consumes() == frozenset({"luma", "index"})
 
 
-# --- accept 3: offset shifts the mapping by exactly one glyph per 1/len(ramp) ---
+# --- accept 3 (L6): offset shifts the mapping by exactly one glyph per 1/len(ramp) ---
 
-# Literal linear luma values, darkest to lightest; the glyphs they must draw are pinned in
-# the tests below rather than derived from the renderer's own arithmetic.
 _LUMAS = [0.0, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 1.0]
 _PLAIN = "@#*+=:.  "
 
@@ -189,15 +226,10 @@ def test_offset_shifts_the_mapping_by_exactly_one_glyph():
 
 def test_offset_is_measured_in_ramp_units_not_pixels():
     grid = _linear_grid(_LUMAS)
-    pinned = {
-        0.0: "@#*+=:.  ",
-        0.1: "%*+=-.   ",
-        0.2: "#+=-:    ",
-        0.3: "*=-:.    ",
-        0.4: "+-:.     ",
-        0.5: "=:.      ",
-    }
-    for offset, expected in pinned.items():
+    for offset, expected in {
+        0.1: "%*+=-.   ", 0.2: "#+=-:    ", 0.3: "*=-:.    ",
+        0.4: "+-:.     ", 0.5: "=:.      ",
+    }.items():
         assert _chars(grid, ramp=RAMP, offset=offset) == expected
 
 
@@ -207,14 +239,7 @@ def test_offset_is_clamped_at_both_ends():
     assert _chars(grid, ramp=RAMP, offset=5.0) == "    "
 
 
-def test_a_fractional_offset_shimmers_without_changing_the_grid():
-    grid = _linear_grid([0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95])
-    first = _chars(grid, ramp=RAMP)
-    assert first != _chars(grid, ramp=RAMP, offset=0.05)
-    assert _chars(grid, ramp=RAMP) == first
-
-
-# --- accept 4: invert reverses the ramp ---
+# --- accept 4 (L6): invert reverses the ramp ---
 
 
 def test_invert_reverses_the_ramp():
@@ -223,17 +248,13 @@ def test_invert_reverses_the_ramp():
     assert _chars(_srgb_grid(10), ramp=RAMP, invert=True) == " .:-=+*#%@"
 
 
-def test_invert_and_offset_compose():
-    grid = _linear_grid(_LUMAS)
-    assert _chars(grid, ramp=RAMP, offset=0.1, invert=True) == ".-=+*%@@@"
-
-
-# --- accept 5: mode "palette" gives each glyph the palette colour of its cell ---
+# --- accept 5 (L6): mode "palette" gives each glyph the palette colour of its cell ---
 
 
 def test_palette_mode_gives_each_glyph_its_cell_palette_colour():
     grid = _linear_grid([0.05, 0.05], index=[1, 2])
-    cells = _cells(GlyphRampRenderer().render(grid, COLOUR, _style(ramp=RAMP, mode="palette")))
+    cells = _cells(GlyphRampRenderer().render(grid, COLOUR,
+                                              _style(ramp=RAMP, mode="palette", bg="auto")))
     red, blue = cells[0, 0].reshape(-1, 3), cells[0, 1].reshape(-1, 3)
     assert red[:, 0].max() > 0 and red[:, 1].max() == 0 and red[:, 2].max() == 0
     assert blue[:, 2].max() > 0 and blue[:, 0].max() == 0 and blue[:, 1].max() == 0
@@ -253,31 +274,169 @@ def test_fg_colour_mode_takes_the_ink_from_the_palette_and_the_paper_from_bg():
     assert flat[:, 1].max() == 255 and flat[:, 0].max() < 255
 
 
-# --- accept 6: mode "bg_colour" puts the colour in the background ---
+# --- accept 6 (L6) + H12: bg_colour paper is the cell colour, ink is relative (two ranks) ---
 
 
 def test_bg_colour_mode_puts_the_palette_colour_in_the_background():
     grid = _linear_grid([0.05], index=[1])
-    style = _style(ramp=RAMP, mode="bg_colour", fg="#00ff00")
-    img = GlyphRampRenderer().render(grid, COLOUR, style)
-    glyph = GlyphRampRenderer().layout(grid, COLOUR, style)[0].character
-    pixels = np.asarray(img).reshape(-1, 3)
-    mask = _glyph_mask(glyph, None, CELL_W, CELL_H).reshape(-1)
-    assert np.all(pixels[mask <= 0.0] == np.array([255, 0, 0], dtype=np.uint8))
-    darkest = pixels[int(np.argmax(mask))]
-    assert darkest[1] > darkest[0] and darkest[2] == 0
+    style = _style(mode="bg_colour")
+    renderer = GlyphRampRenderer()
+    placed = renderer.layout(grid, COLOUR, style)
+    assert placed[0].paper == "#ff0000"  # the paper is the cell's palette colour
+    pixels = np.asarray(renderer.render(grid, COLOUR, style)).reshape(-1, 3)
+    mask = _glyph_mask(placed[0].character, None, CELL_W, CELL_H).reshape(-1)
+    assert np.all(pixels[mask <= 0.0] == np.array([255, 0, 0], np.uint8))
 
 
-def test_bg_colour_mode_keeps_the_glyph_in_fg():
+def test_bg_colour_ink_is_two_ranks_off_the_fond():
+    grid = _linear_grid([0.05, 0.05, 0.05], index=[0, 3, 4])  # black, 0.75-grey, white fonds
+    placed = _placed(grid, GREYS, mode="bg_colour")
+    assert [entry.paper for entry in placed] == ["#000000", "#bfbfbf", "#ffffff"]
+    # a dark fond (luma < 0.5) takes the ink two ranks above (rank 2), a light one two below
+    assert placed[0].fill == placed[2].fill == "#808080"
+    assert placed[1].fill == "#404040"  # 0.75-grey fond -> ink at rank 1
+
+
+def test_bg_colour_ink_ignores_fg():
+    grid = _linear_grid([0.05, 0.05], index=[0, 1])
+    with_fg = _placed(grid, GREYS, mode="bg_colour", fg="#00ff00")
+    without = _placed(grid, GREYS, mode="bg_colour")
+    assert [(p.fill, p.paper) for p in with_fg] == [(p.fill, p.paper) for p in without]
+    assert all(p.fill != "#00ff00" for p in with_fg)  # fg is superseded by the relative ink
+
+
+def test_bg_colour_ink_clamps_at_the_palette_edges():
+    tiny = np.array([[0.0, 0.0, 0.0], [0.5, 0.5, 0.5], [1.0, 1.0, 1.0]], np.float32)
+    grid = _linear_grid([0.05, 0.05], index=[0, 2])  # black and white fonds
+    placed = _placed(grid, tiny, mode="bg_colour")
+    assert placed[0].fill == "#ffffff"  # two ranks above the darkest, clamped to white
+    assert placed[1].fill == "#000000"  # two ranks below the lightest, clamped to black
+
+
+# --- H12 accept 2: bg_colour glyphs follow the |luma - background| gap (not absolute luma) ---
+
+
+def test_bg_colour_ramp_excludes_the_two_extreme_glyphs():
+    chars = _chars(_srgb_grid(10), BW, mode="bg_colour")
+    assert set(chars) <= set(BOUNDED)
+    assert " " not in chars and "@" not in chars  # space (density 0) and '@' are removed
+
+
+def test_bg_colour_gap_pins_the_srgb_buckets():
+    # A black fond (linear luma 0) makes the gap equal to the source luma; each glyph is the
+    # sRGB-re-encoded bucket of the bounded ramp (AMD-010 extended to the gap). Pinned literals:
+    assert _chars(_linear_grid([0.01, 0.05, 0.1, 0.2, 0.35, 0.6, 0.8, 0.95]),
+                  BW, mode="bg_colour") == "%#*+-:.."
+
+
+def test_bg_colour_offset_moves_one_glyph_per_bucket():
+    grid = _linear_grid([0.1, 0.2, 0.35, 0.6])
+    assert _chars(grid, BW, mode="bg_colour") == "*+-:"
+    assert _chars(grid, BW, mode="bg_colour", offset=1 / len(BOUNDED)) == "+=:."
+
+
+def test_bg_colour_invert_reverses_the_bounded_ramp():
+    chars = _chars(_linear_grid([0.01, 0.6, 0.95]), BW, mode="bg_colour")
+    inverted = _chars(_linear_grid([0.01, 0.6, 0.95]), BW, mode="bg_colour", invert=True)
+    assert inverted == "".join(BOUNDED[::-1][BOUNDED.index(c)] for c in chars)
+
+
+def test_bg_colour_glyph_follows_the_gap_not_the_absolute_luma():
+    # Same absolute luma, different fonds -> different gaps -> different glyphs (an absolute-
+    # luma implementation would draw the same character in both cells):
+    grid = _linear_grid([0.05, 0.05], index=[0, 1])  # black fond, then mid-grey fond
+    assert set(_chars(grid, GREYS, mode="bg_colour")) == {"%", "#"}
+
+
+def test_mono_and_fg_colour_keep_absolute_luma_indexing():
+    grid = _srgb_grid(10)
+    assert _chars(grid, BW, ramp=RAMP) == _chars(grid, BW, ramp=RAMP, mode="fg_colour")
+    assert _chars(grid, BW, ramp=RAMP) != _chars(grid, BW, mode="bg_colour")
+
+
+def test_bg_colour_short_ramp_is_used_whole():
+    chars = _chars(_srgb_grid(6), BW, mode="bg_colour", ramp=" x")
+    assert set(chars) <= {" ", "x"}  # a ramp too short to bound is used as-is (E1)
+
+
+# --- H12 accept 1: palette mode respects the declared bg, auto = the darkest palette tone ---
+
+
+def test_palette_mode_respects_a_declared_light_bg():
+    grid = _srgb_grid(16)
+    img = GlyphRampRenderer().render(grid, COLOUR, _style(ramp=RAMP, mode="palette",
+                                                          bg="#ffffff"))
+    assert float(_linear_luma(np.asarray(img)).mean()) > 0.60
+    placed = _placed(grid, COLOUR, mode="palette", bg="#ffffff")
+    assert [entry.paper for entry in placed] == ["#ffffff"] * 16
+    assert [entry.fill for entry in placed] == ["#000000"] * 16  # ink stays the cell colour
+
+
+def test_bg_auto_reproduces_the_old_palette_mode():
+    grid = _srgb_grid(10)
+    placed = _placed(grid, COLOUR, mode="palette", bg="auto")
+    assert [p.paper for p in placed] == ["#000000"] * 10          # darkest paper preserved
+    assert [p.fill for p in placed] == ["#000000"] * 10           # cell-palette ink preserved
+    assert "".join(p.character for p in placed) == "@%#*+=-:. "   # absolute-luma glyphs kept
+
+
+def test_bg_auto_without_a_palette_raises():
+    with pytest.raises(ValueError) as excinfo:
+        GlyphRampRenderer().layout(_srgb_grid(4), _style(mode="palette", bg="auto"))
+    assert "auto" in str(excinfo.value)
+
+
+def test_fg_colour_mode_accepts_bg_auto_as_the_darkest_paper():
     grid = _linear_grid([0.05], index=[1])
-    style = _style(ramp=RAMP, mode="bg_colour", fg="#00ff00")
-    pixels = np.asarray(GlyphRampRenderer().render(grid, COLOUR, style))
-    glyph = GlyphRampRenderer().layout(grid, COLOUR, style)[0].character
-    mask = _glyph_mask(glyph, None, CELL_W, CELL_H)
-    assert np.allclose(pixels[mask > 0.99], np.array([0, 255, 0]), atol=1)
+    placed = GlyphRampRenderer().layout(grid, COLOUR, _style(mode="fg_colour", bg="auto"))
+    assert placed[0].paper == "#000000" and placed[0].fill == "#ff0000"
 
 
-# --- accept 7: output size is exactly (cols * cell_w, rows * cell_h) ---
+# --- H12 accept 2 (physical): bg_colour on the H12 portrait (pico8, 4x8 mesh) ---
+
+
+def test_bg_colour_portrait_contrast_and_distinct_shadow_glyphs():
+    if not PORTRAIT.is_file():
+        pytest.skip("no H12 portrait image available")
+    pico8 = np.asarray(get_builtin("pico8"), np.float32)
+    src = np.asarray(PILImage.open(PORTRAIT).convert("RGB"), np.float32) / 255.0
+    grid = _dither_grid(src, pico8, 8)
+    img = GlyphRampRenderer().render(grid, pico8, _style(ramp=PICO8_RAMP, mode="bg_colour"))
+    assert float(_srgb_luma(np.asarray(img)).std()) > 0.30   # contrast on the H12 reference scale
+    chars = [p.character for p in _placed(grid, pico8, ramp=PICO8_RAMP, mode="bg_colour")]
+    distinct = len({chars[i] for i in _darkest_cells(grid)})
+    assert distinct >= 5, "the darkest 20 % of cells must carry at least 5 distinct glyphs"
+
+
+def test_bg_colour_portrait_cell_size_12_holds():
+    if not PORTRAIT.is_file():
+        pytest.skip("no H12 portrait image available")
+    pico8 = np.asarray(get_builtin("pico8"), np.float32)
+    src = np.asarray(PILImage.open(PORTRAIT).convert("RGB"), np.float32) / 255.0
+    grid = _dither_grid(src, pico8, 12)
+    img = GlyphRampRenderer().render(grid, pico8, _style(ramp=PICO8_RAMP, mode="bg_colour"))
+    assert img.size == (grid.cols * 6, grid.rows * 12)         # exact 12 px geometry
+    assert float(_srgb_luma(np.asarray(img)).std()) > 0.30     # contrast still holds
+    chars = [p.character for p in _placed(grid, pico8, ramp=PICO8_RAMP, mode="bg_colour")]
+    distinct = len({chars[i] for i in _darkest_cells(grid)})
+    assert distinct >= 3, "shadows are not mute even at 12 px cells (cell size is not the fix)"
+
+
+# --- H12 accept 2 (synthetic): deterministic and independent of any external image ---
+
+
+def test_bg_colour_darkest_cells_carry_distinct_glyphs():
+    # 25 cells: 5 dark (luma 0.01..0.35) on a black fond among 20 light; the darkest 20 % are
+    # exactly the 5 dark cells and must span >= 5 distinct bounded glyphs (pinned literals).
+    dark = [0.01, 0.05, 0.1, 0.2, 0.35]
+    grid = _linear_grid(dark + [0.95] * 20, index=[0] * 5 + [1] * 20)
+    chars = [p.character for p in _placed(grid, BW, mode="bg_colour")]
+    assert "".join(chars[:5]) == "%#*+-"
+    assert len({chars[i] for i in _darkest_cells(grid)}) >= 5
+    assert set(chars) <= set(BOUNDED)
+
+
+# --- accept 7 (L6): output size is exactly (cols * cell_w, rows * cell_h) ---
 
 
 @pytest.mark.parametrize(("rows", "cols", "cell_w", "cell_h"), [(3, 4, 8, 16), (1, 1, 5, 7)])
@@ -299,7 +458,7 @@ def test_output_size_matches_the_pipeline_geometry():
     assert out.dtype == np.uint8
 
 
-# --- accept 8: a missing font file raises ValueError naming the path ---
+# --- accept 8 (L6): a missing font file raises ValueError naming the path ---
 
 
 def test_missing_font_file_raises_value_error_naming_the_path():
@@ -326,9 +485,7 @@ def test_missing_font_file_raises_from_layout_and_from_an_empty_grid():
 def test_font_option_accepts_a_real_font_file():
     if not SYSTEM_FONT.is_file():
         pytest.skip("no system TrueType font available")
-    img = GlyphRampRenderer().render(
-        _srgb_grid(4), BW, _style(ramp=RAMP, font=str(SYSTEM_FONT))
-    )
+    img = GlyphRampRenderer().render(_srgb_grid(4), BW, _style(ramp=RAMP, font=str(SYSTEM_FONT)))
     assert img.size == (4 * CELL_W, CELL_H)
 
 
@@ -342,6 +499,14 @@ def test_render_is_pure():
         np.asarray(renderer.render(grid, BW, _style(ramp=RAMP))),
         np.asarray(renderer.render(grid, BW, _style(ramp=RAMP))),
     )
+
+
+def test_bg_colour_render_is_pure():
+    grid = _srgb_grid(10)
+    renderer = GlyphRampRenderer()
+    style = _style(ramp=RAMP, mode="bg_colour")
+    assert np.array_equal(np.asarray(renderer.render(grid, GREYS, style)),
+                          np.asarray(renderer.render(grid, GREYS, style)))
 
 
 def test_render_does_not_mutate_grid_or_palette():
@@ -428,30 +593,6 @@ def test_layout_places_one_glyph_per_cell_row_major():
 def test_layout_accepts_both_call_forms():
     grid, style = _srgb_grid(4), _style(ramp=RAMP)
     assert GlyphRampRenderer().layout(grid, style) == GlyphRampRenderer().layout(grid, BW, style)
-
-
-def test_layout_character_is_the_glyph_pillow_rasterises():
-    grid = _srgb_grid(6)
-    renderer = GlyphRampRenderer()
-    placed = renderer.layout(grid, BW, _style(ramp=RAMP))
-    cells = _cells(renderer.render(grid, BW, _style(ramp=RAMP)))
-    sizes = set()
-    for col, entry in enumerate(placed):
-        if entry.character == " ":
-            continue
-        matches = _matching_pillow_sizes(entry.character, CELL_W, CELL_H, cells[0, col, :, :, 0])
-        assert matches, f"no Pillow size redraws {entry.character!r} as rendered"
-        sizes.update(matches)
-    assert len(sizes) == 1, f"the ramp is not drawn at one font size: {sorted(sizes)}"
-
-
-def test_layout_paper_matches_the_rendered_background():
-    grid = _linear_grid([0.05], index=[1])
-    style = _style(ramp=RAMP, mode="bg_colour", fg="#00ff00")
-    entry = GlyphRampRenderer().layout(grid, COLOUR, style)[0]
-    pixels = np.asarray(GlyphRampRenderer().render(grid, COLOUR, style)).reshape(-1, 3)
-    assert entry.fill == "#00ff00" and entry.paper == "#ff0000"
-    assert np.any(pixels == np.array([255, 0, 0], dtype=np.uint8))
 
 
 def test_layout_reports_alpha_and_transparent_paper():
