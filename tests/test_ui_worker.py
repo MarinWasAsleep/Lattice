@@ -18,9 +18,9 @@ import lattice_core.dither  # noqa: E402,F401  (registers every algorithm)
 import lattice_core.effects  # noqa: E402,F401  (registers every effect)
 from lattice_core import color  # noqa: E402
 from lattice_core.pipeline import PipelineSpec, render  # noqa: E402
-from lattice_dither.ui import worker as worker_module  # noqa: E402
-from lattice_dither.ui.canvas import PreviewCanvas  # noqa: E402
-from lattice_dither.ui.worker import (  # noqa: E402
+from lattice_core.ui import worker as worker_module  # noqa: E402
+from lattice_core.ui.canvas import PreviewCanvas  # noqa: E402
+from lattice_core.ui.worker import (  # noqa: E402
     MAX_SOURCE_SIDE,
     PREVIEW_MAX_SIDE,
     PREVIEW_STAGES,

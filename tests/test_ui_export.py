@@ -1,4 +1,10 @@
-"""Tests for the export dialog (T33 / CONTRACT §19 to §21)."""
+"""Tests for the shared export dialog (T33 / CONTRACT §19 to §21, card L-UI2).
+
+The dialog lives in lattice_core/ui and covers the four export families: PNG,
+SVG, print and the GIF/video sequence. The video writer and tr are injected by
+the application; these tests inject the Dither ones to prove the pattern, and
+pin that the default export renders beyond the preview cap (REVUE bloquant 1).
+"""
 
 from __future__ import annotations
 
@@ -13,9 +19,13 @@ import pytest  # noqa: E402
 from PIL import Image as PILImage  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
+from lattice_core.pipeline import PipelineSpec  # noqa: E402
+from lattice_core.ui import export_dialog as ed  # noqa: E402
+from lattice_core.ui.export_dialog import ExportDialog, ExportError  # noqa: E402
+from lattice_core.ui.worker import PREVIEW_MAX_SIDE  # noqa: E402
 from lattice_dither.export import video as video_module  # noqa: E402
-from lattice_dither.ui import export_dialog as ed  # noqa: E402
-from lattice_dither.ui.export_dialog import ExportDialog, ExportError  # noqa: E402
+
+SETTINGS_NAME = "LatticeDither"
 
 needs_ffmpeg = pytest.mark.skipif(
     video_module._resolve_ffmpeg() is None, reason="no ffmpeg binary is available"
@@ -27,7 +37,9 @@ class FakeSettings:
 
     store: dict[str, object] = {}
 
-    def __init__(self, organisation: str, application: str) -> None:
+    def __init__(
+        self, organisation: str = SETTINGS_NAME, application: str = SETTINGS_NAME
+    ) -> None:
         self._prefix = f"{organisation}/{application}/"
 
     def value(self, key: str, default: object = None) -> object:
@@ -62,6 +74,11 @@ def _image(size: int = 16) -> np.ndarray:
     return np.repeat(np.where(parity[:, :, None] == 0, 0, 255), 3, axis=2).astype(np.uint8)
 
 
+def _source(size: int = 16) -> np.ndarray:
+    """Return the checkerboard as a float32 pipeline source in [0, 1]."""
+    return _image(size).astype(np.float32) / 255.0
+
+
 def _frames(count: int = 3, size: int = 16) -> list[np.ndarray]:
     """Return count same-size frames with a moving white band."""
     frames = []
@@ -74,7 +91,7 @@ def _frames(count: int = 3, size: int = 16) -> list[np.ndarray]:
 
 def _dialog(kind: str, target: Path, **kwargs) -> ExportDialog:
     """Return a dialog set to kind and pointing at target."""
-    dialog = ExportDialog(_image(), **kwargs)
+    dialog = ExportDialog(_source(), PipelineSpec(), **kwargs)
     dialog.format_box.setCurrentIndex(ed.FORMATS.index(kind))
     dialog.path_edit.setText(str(target))
     return dialog
@@ -82,7 +99,7 @@ def _dialog(kind: str, target: Path, **kwargs) -> ExportDialog:
 
 def test_the_defaults_match_the_contract(qapp, settings) -> None:
     """Every option starts at the contract default."""
-    dialog = ExportDialog(_image())
+    dialog = ExportDialog(_source(), PipelineSpec())
     assert dialog.cell.value() == 1
     assert dialog.dpi.value() == 300
     assert dialog.bleed.value() == 0.0
@@ -95,9 +112,9 @@ def test_the_defaults_match_the_contract(qapp, settings) -> None:
     dialog.deleteLater()
 
 
-def test_all_four_formats_are_offered(qapp, settings) -> None:
-    """The format selector lists SVG, print, GIF and video."""
-    dialog = ExportDialog(_image())
+def test_all_formats_are_offered(qapp, settings) -> None:
+    """The selector lists the four families: PNG, SVG, print, GIF and video."""
+    dialog = ExportDialog(_source(), PipelineSpec())
     offered = [dialog.format_box.itemData(index) for index in range(dialog.format_box.count())]
     assert offered == list(ed.FORMATS)
     assert dialog.stack.count() == len(ed.FORMATS)
@@ -106,12 +123,13 @@ def test_all_four_formats_are_offered(qapp, settings) -> None:
 
 @pytest.mark.parametrize(
     "kind",
-    ["svg", "print", "gif", pytest.param("video", marks=needs_ffmpeg)],
+    ["png", "svg", "print", "gif", pytest.param("video", marks=needs_ffmpeg)],
 )
 def test_each_format_writes_the_expected_files(kind, qapp, settings, tmp_path) -> None:
     """Every format is reachable from the dialog and writes its file."""
     target = tmp_path / f"out{ed.FORMAT_SUFFIX[kind]}"
-    dialog = _dialog(kind, target)
+    kwargs = {"video_writer": video_module.export_video} if kind == "video" else {}
+    dialog = _dialog(kind, target, **kwargs)
     written = dialog.export_now()
     assert written == [target]
     assert dialog.written == [target]
@@ -185,15 +203,60 @@ def test_the_animated_formats_use_the_frame_sequence(qapp, settings, tmp_path) -
     dialog.deleteLater()
 
 
+def test_the_video_writer_receives_the_frame_sequence(qapp, settings, tmp_path) -> None:
+    """The injected video writer receives the frames, the path and the chosen fps."""
+    seen: list[tuple[list[np.ndarray], Path, int]] = []
+
+    def writer(frames: list[np.ndarray], path: Path, *, fps: int = 12) -> bool:
+        seen.append((list(frames), path, fps))
+        path.write_bytes(b"encoded")
+        return True
+
+    frames = _frames()
+    target = tmp_path / "out.mp4"
+    dialog = _dialog("video", target, frames=frames, video_writer=writer)
+    dialog.video_fps.setValue(24)
+    assert dialog.export_now() == [target]
+    assert len(seen) == 1
+    got_frames, path, fps = seen[0]
+    assert path == target
+    assert fps == 24
+    assert len(got_frames) == 3
+    assert np.array_equal(got_frames[0], frames[0])
+    dialog.deleteLater()
+
+
+def test_an_animated_export_without_frames_uses_the_full_render(qapp, settings, tmp_path) -> None:
+    """Without an injected sequence the GIF holds the single full-resolution render."""
+    dialog = _dialog("gif", tmp_path / "still.gif")
+    dialog.export_now()
+    with PILImage.open(tmp_path / "still.gif") as handle:
+        assert handle.n_frames == 1
+        assert handle.size == (16, 16)
+    dialog.deleteLater()
+
+
+def test_the_default_export_renders_beyond_the_preview_cap(qapp, settings, tmp_path) -> None:
+    """The default render is full resolution: the file exceeds the preview proxy."""
+    size = PREVIEW_MAX_SIDE + 100
+    dialog = ExportDialog(_source(size), PipelineSpec())
+    target = tmp_path / "full.png"
+    dialog.path_edit.setText(str(target))
+    dialog.export_now()
+    with PILImage.open(target) as handle:
+        assert handle.size == (size, size)
+    dialog.deleteLater()
+
+
 def test_the_last_directory_survives_a_restart(qapp, settings, tmp_path) -> None:
     """A second dialog starts in the directory the first one exported to."""
     first = _dialog("svg", tmp_path / "out.svg")
     first.export_now()
     first.deleteLater()
-    second = ExportDialog(_image())
+    second = ExportDialog(_source(), PipelineSpec())
     assert second.export_directory() == tmp_path
     assert Path(second.path_edit.text()).parent == tmp_path
-    assert Path(second.path_edit.text()).name == "export.svg"
+    assert Path(second.path_edit.text()).name == f"export{ed.FORMAT_SUFFIX[second.format()]}"
     second.deleteLater()
 
 
@@ -201,7 +264,7 @@ def test_the_remembered_directory_is_stored_in_settings(qapp, settings, tmp_path
     """The export directory is written under the export_dir key."""
     dialog = _dialog("svg", tmp_path / "out.svg")
     dialog.export_now()
-    key = f"{ed.SETTINGS_NAME}/{ed.SETTINGS_NAME}/{ed.EXPORT_DIR_KEY}"
+    key = f"{SETTINGS_NAME}/{SETTINGS_NAME}/{ed.EXPORT_DIR_KEY}"
     assert FakeSettings.store[key] == str(tmp_path)
     dialog.deleteLater()
 
@@ -217,21 +280,43 @@ def test_switching_format_retargets_the_suffix(qapp, settings, tmp_path) -> None
 
 def test_an_empty_path_is_reported(qapp, settings) -> None:
     """Exporting without a path raises ExportError instead of writing anywhere."""
-    dialog = ExportDialog(_image())
+    dialog = ExportDialog(_source(), PipelineSpec())
     dialog.path_edit.setText("")
     with pytest.raises(ExportError):
         dialog.export_now()
     dialog.deleteLater()
 
 
-def test_a_missing_ffmpeg_is_reported_in_the_dialog(qapp, settings, tmp_path, monkeypatch) -> None:
+def test_a_missing_ffmpeg_is_reported_in_the_dialog(qapp, settings, tmp_path) -> None:
     """The video branch reports a missing ffmpeg in the dialog, without a modal box."""
-    monkeypatch.setattr(ed, "export_video", lambda frames, path, *, fps=12: False)
-    dialog = _dialog("video", tmp_path / "out.mp4")
+    dialog = _dialog(
+        "video", tmp_path / "out.mp4", video_writer=lambda frames, path, *, fps=12: False
+    )
     dialog._on_export()
     assert "out.mp4" in dialog.report.text()
     assert dialog.written == []
     assert not (tmp_path / "out.mp4").exists()
+    dialog.deleteLater()
+
+
+def test_a_missing_video_writer_is_reported(qapp, settings, tmp_path) -> None:
+    """Without an injected writer the video branch reports it, without a modal box."""
+    dialog = _dialog("video", tmp_path / "out.mp4")
+    dialog._on_export()
+    assert "video" in dialog.report.text().lower()
+    assert dialog.written == []
+    assert not (tmp_path / "out.mp4").exists()
+    dialog.deleteLater()
+
+
+def test_the_translation_callable_is_injected(qapp, settings, tmp_path) -> None:
+    """Every label goes through the injected tr, here a bracketing stand-in."""
+    dialog = ExportDialog(_source(), PipelineSpec(), tr=lambda key, **kwargs: f"[{key}]")
+    assert dialog.windowTitle() == "[Export]"
+    dialog.format_box.setCurrentIndex(ed.FORMATS.index("print"))
+    dialog.path_edit.setText(str(tmp_path / "out.png"))
+    dialog.export_now()
+    assert dialog.report.text() == "[Exported {name}]"
     dialog.deleteLater()
 
 
@@ -245,4 +330,4 @@ def test_run_export_dialog_returns_the_files_written(qapp, settings, tmp_path, m
         return 0
 
     monkeypatch.setattr(ExportDialog, "exec", fake_exec)
-    assert ed.run_export_dialog(_image()) == [target]
+    assert ed.run_export_dialog(_source(), PipelineSpec()) == [target]

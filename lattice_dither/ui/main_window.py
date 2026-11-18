@@ -37,16 +37,16 @@ from lattice_core.bridge.photocraft import TESTED_PHOTOCRAFT_VERSION
 from lattice_core.pipeline import PipelineSpec
 from lattice_core.presets import is_within, shipped_preset_dir, user_preset_dir
 from lattice_core.types import RGB8, Image
+from lattice_core.ui.canvas import PreviewCanvas
+from lattice_core.ui.worker import PreviewResult, RenderResult, RenderWorker
 from lattice_dither.i18n import tr
 from lattice_dither.preprocess import descreen, detect_grid, snap_to_grid
 from lattice_dither.ui.algorithm_panel import AlgorithmPanel
-from lattice_dither.ui.canvas import PreviewCanvas
 from lattice_dither.ui.commands import CommandController
 from lattice_dither.ui.effects_panel import EffectsPanel
 from lattice_dither.ui.gallery import AlgorithmGallery
 from lattice_dither.ui.palette_panel import PalettePanel
 from lattice_dither.ui.preset_browser import PresetController
-from lattice_dither.ui.worker import PreviewResult, RenderResult, RenderWorker
 
 LOGGER = logging.getLogger(__name__)
 
@@ -239,7 +239,7 @@ class MainWindow(QMainWindow):
     def _start_worker(self) -> None:
         """Create the render worker in its own thread and connect every signal."""
         self.thread = QThread(self)
-        self.worker = RenderWorker()
+        self.worker = RenderWorker(bridge=True, shortcut_name="PhotoCraft (Lattice Dither)")
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.start)
         self.thread.finished.connect(self.worker.deleteLater)

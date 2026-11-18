@@ -20,10 +20,11 @@ from PySide6.QtWidgets import QApplication, QMessageBox, QWidget  # noqa: E402
 from lattice_core.bridge.photocraft import PhotoCraftClient  # noqa: E402
 from lattice_core.pipeline import PipelineSpec  # noqa: E402
 from lattice_core.presets import to_json  # noqa: E402
+from lattice_core.ui import worker as worker_module  # noqa: E402
+from lattice_dither.export.video import export_video  # noqa: E402
 from lattice_dither.i18n import tr  # noqa: E402
 from lattice_dither.ui import commands as cmd  # noqa: E402
 from lattice_dither.ui import main_window as mw  # noqa: E402
-from lattice_dither.ui import worker as worker_module  # noqa: E402
 
 # The eleven shortcuts of §22.2, keyed by the action that carries them.
 CONTRACT_SHORTCUTS: dict[str, tuple[str, ...]] = {
@@ -540,19 +541,32 @@ def test_ctrl_s_exports_a_png(
 
 
 def test_ctrl_e_opens_the_export_dialog(
-    window: mw.MainWindow, monkeypatch: pytest.MonkeyPatch
+    window: mw.MainWindow, monkeypatch: pytest.MonkeyPatch, gradient: np.ndarray
 ) -> None:
-    """The export action hands the last render to the export dialog."""
-    calls: list[tuple[object, object]] = []
-    def fake(image: object, parent: object) -> None:
-        calls.append((image, parent))
+    """The export action hands source and spec to the shared full-resolution dialog.
+
+    L-UI2 (E1 DEV, test périmé par la carte) : Ctrl+E donnait autrefois l'aperçu
+    plafonné (_last_image) au dialogue de l'app ; la carte exige le dialogue du
+    core, qui rend la pleine résolution depuis la source et le spec.
+    """
+    calls: list[tuple[object, object, object, dict]] = []
+
+    def fake(source: object, spec: object, parent: object, **kwargs: object) -> None:
+        calls.append((source, spec, parent, kwargs))
 
     monkeypatch.setattr(cmd, "run_export_dialog", fake)
+    window._set_source(gradient)
     window._last_image = np.zeros((4, 4, 3), dtype=np.uint8)
     window.actions["export_dialog"].trigger()
     assert len(calls) == 1
-    assert calls[0][0] is window._last_image
-    assert calls[0][1] is window
+    source, spec, parent, kwargs = calls[0]
+    assert np.array_equal(source, window.prepared_source)
+    assert not np.array_equal(source, window._last_image)
+    assert spec == window.spec
+    assert parent is window
+    assert kwargs["video_writer"] is export_video
+    assert kwargs["tr"] is tr
+    assert kwargs["settings"] is window._settings
 
 
 def test_the_export_dialog_needs_a_render(window: mw.MainWindow, errors: list[str]) -> None:

@@ -21,7 +21,7 @@ from lattice_core.palettes.extract import extract_palette  # noqa: E402
 from lattice_core.palettes.io import MAX_COLORS, hex_list, load_palette  # noqa: E402
 from lattice_core.palettes.library import get_library, library_names  # noqa: E402
 from lattice_core.pipeline import PaletteSpec, PipelineSpec, render  # noqa: E402
-from lattice_dither.ui import worker as worker_module  # noqa: E402
+from lattice_core.ui import worker as worker_module  # noqa: E402
 from lattice_dither.ui.palette_panel import SWATCH_MIME, PalettePanel  # noqa: E402
 
 import lattice_core.dither  # noqa: E402, F401  isort:skip

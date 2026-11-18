@@ -20,11 +20,11 @@ from PySide6.QtWidgets import (  # noqa: E402
 )
 
 from lattice_core.bridge.photocraft import PhotoCraftClient  # noqa: E402
+from lattice_core.ui import worker as worker_module  # noqa: E402
+from lattice_core.ui.canvas import PreviewCanvas  # noqa: E402
 from lattice_dither.ui import main_window as mw  # noqa: E402
-from lattice_dither.ui import worker as worker_module  # noqa: E402
 from lattice_dither.ui.algorithm_panel import AlgorithmPanel  # noqa: E402
 from lattice_dither.ui.app import create_application, dark_palette, main  # noqa: E402
-from lattice_dither.ui.canvas import PreviewCanvas  # noqa: E402
 from lattice_dither.ui.effects_panel import EffectsPanel  # noqa: E402
 from lattice_dither.ui.main_window import PANEL_TABS, MainWindow  # noqa: E402
 from lattice_dither.ui.palette_panel import PalettePanel  # noqa: E402

@@ -24,8 +24,9 @@ from PySide6.QtGui import QDragEnterEvent, QDropEvent, QKeySequence
 
 from lattice_core import color
 from lattice_core.pipeline import PipelineSpec
+from lattice_core.ui.export_dialog import run_export_dialog
+from lattice_dither.export.video import export_video
 from lattice_dither.i18n import tr
-from lattice_dither.ui.export_dialog import run_export_dialog
 
 if TYPE_CHECKING:
     from lattice_dither.ui.main_window import MainWindow
@@ -267,12 +268,20 @@ class CommandController(QObject):
         self.open_path(Path(path))
 
     def export_dialog(self) -> None:
-        """Open the export dialog on the last rendered preview."""
-        image = self.window._last_image
-        if image is None:
+        """Open the shared core dialog, which renders the pipeline at full resolution."""
+        source = self.window.prepared_source
+        if source is None:
             self.window._error(tr("Load an image before exporting."))
             return
-        run_export_dialog(image, self.window)
+        self.window._rebuild_spec()
+        run_export_dialog(
+            source,
+            copy.deepcopy(self.window.spec),
+            self.window,
+            settings=self.window._settings,
+            video_writer=export_video,
+            tr=tr,
+        )
 
     def rerender(self) -> None:
         """Render the current pipeline again, reporting when there is no source."""

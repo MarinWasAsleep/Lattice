@@ -38,8 +38,8 @@ from lattice_core.palettes.io import (
 from lattice_core.palettes.library import get_library, library_names
 from lattice_core.pipeline import PipelineSpec
 from lattice_core.types import Image
+from lattice_core.ui.worker import PaletteExtraction
 from lattice_dither.i18n import tr
-from lattice_dither.ui.worker import PaletteExtraction
 
 LOGGER = logging.getLogger(__name__)
 
