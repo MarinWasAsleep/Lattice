@@ -416,6 +416,31 @@ their own files. Nothing is carried over.
   est au format du shell, enregistrée pour ré-examen au gel (§18) — test verrou → reroll → sauvegarde →
   parité CLI/GUI puis rechargement → parité + stream figé conservé.
 
+### DEV-224 — L-LOOP : sémantique des axes + APNG + doublon temporaire (E1 ×3)
+- class: E1 ×3 | task: L-LOOP | contract: 0.1.0 | status: applied | date: 2026-11-19
+- facts: contrat silencieux sur les axes de variation et l'APNG (carte P4).
+- decision: axes — `seed` = spec.seed + step*i ; `offset` = np.roll horizontal de step*i px ;
+  `iterations` = premier effet feedback activé, saturé à 8 (§12) ; `step` paramètre ajouté ; count=0 → [].
+  APNG : duration ms, loop, disposal=2. Pas de vidéo ni timeline (§20). Doublon temporaire
+  lattice_core/animation.py / lattice_dither/core/animation.py assumé (exports 1.1 gelés intacts) ;
+  carte de déduplication à venir. PASS 1er cycle (relecture qwen4), test_core_packaging aligné (DEV-226).
+
+### DEV-225 — L21 : interchange au niveau core (E1 ×4)
+- class: E1 ×4 | task: L21 | contract: 0.1.0 | status: applied | date: 2026-11-19
+- facts: §6 « app mismatch is not an error » + « availability from the registry at call time » ;
+  glitch document est continuous-only.
+- decision: load_for_app/render_for_app dans le core (contexte app + warning + fallback), testé via
+  les VRAIS lecteurs d'app (lattice_glyph.document.render_rgb8, glitch read_preset) ; available= est la
+  surface de renderers par app, jamais de table dupliquée ; les starters taggés dither sont v3 (validés
+  par le chargeur v3 + registres) — la tier v1 native de Dither reste intacte (hors owns). PASS 1er cycle.
+
+### DEV-226 — test_core_packaging aligné sur L-LOOP (animation légitime dans le core)
+- class: E1 | task: L-LOOP | contract: 0.1.0 | status: applied | date: 2026-11-19
+- facts: le gate L1 interdisait `animation` dans lattice_core (APPLICATION_MODULES) ; la carte L-LOOP
+  déplace justement le module N-image loop dans le core (aucun import applicatif, accept de la carte).
+- decision: 'animation' retiré de l'ensemble (précédents DEV-205/209 — test aligné au niveau gate) ;
+  la copie app reste pour les exports 1.1 ; rejoué : batterie complète 2167 passed / 1 skipped.
+
 ## Amendments (registre)
 
 Facts discovered during a task that the contract could not have known, recorded here rather than

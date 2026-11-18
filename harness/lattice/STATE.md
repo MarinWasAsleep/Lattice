@@ -156,7 +156,8 @@ last_update: 2026-11-18
 | L9c | 2 | done | 0 | 4 | cb3154c | `glyph_ramp` fond+encre relative+rampe bornée (plage linéaire) — accept amendé (E2 humain), 66 tests, PASS 4e cycle, DEV-220/222 |
 | L-UI2 | 2 | done | 0 | 2 | a384f06 | Dither recâblé sur l'UI du core — ExportDialog 4 formats + Ctrl+E pleine résolution (REVUE bloquant 1), doublons supprimés ; 285 tests, PASS 2e cycle, DEV-221/222 |
 | L20 | 2 | done | 0 | 2 | fdc07d3 | coquille lattice-glitch (21 modules, pyproject, CLI sans Qt) — G9 prouvé, crash export corrigé, NTSC simple+presets ; 8 tests, PASS 2e cycle, DEV-222/223 |
-| L21 | 3 | todo | 0 | 0 | | preset interchange + gallery |
+| L-LOOP | 2 | done | 0 | 1 | 5993bb9 | N-image loop → lattice_core (GIF/APNG, axes seed/offset/feedback) — PASS 1er cycle, 22 tests, hy4-flash-free (épreuve A/B du 19/11), DEV-224/226 |
+| L21 | 3 | done | 0 | 1 | 0ad4ab2 | galerie 41 cellules + interchange presets + 12 starters v3 — PASS 1er cycle, 21 tests, qwen4 (épreuve A/B), DEV-225 |
 | L22 | 3 | todo | 0 | 0 | | acceptance in PhotoCraft and DesignCraft |
 | L23 | 3 | todo | 0 | 0 | | packaging multi-plateforme + installation |
 
@@ -218,9 +219,13 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
   done (commits fadb506/cb3154c/a384f06/fdc07d3), reviews PASS, **2124 passed / 1 skipped**, ruff 0,
   contract OK. Table de routage actée : **hy4-flash-free = masse ; qwen4:free = édition/refactoring +
   reviews de routine ; Sonnet CLI = goût seulement**.
-- **Vague 2 à lancer (épreuve A/B)** : **L21 (gallery/interchange, qwen4)** et **L-LOOP (animation→core,
-  hy4-flash-free)** — même protocole de relecture, compteurs comparés au passage (essais/findings/vitesse).
-  Ensuite L-UI2 minors → carte de suivi i18n (2 clés du dialogue core), puis L22 (acceptance, H14) et L23.
+- **Vague 2 CLOSE (épreuve A/B du 19/11) : deux PASS au 1er cycle.** hy4-flash-free (L-LOOP, S) : 3 min 43,
+  22 tests, 2 minors ; qwen4-max:free (L21, M) : 15 min 38, 21 tests, 3 minors. **Verdict : les deux couches
+  gratuites tiennent le codage, hy4 est imbattable en vitesse sur le mécanique, qwen4 sur la carte M** — la
+  table de routage actée (masse=hy4, édition/reviews=qwen4) est confirmée.
+- **Vague 3** : L22 (acceptance PhotoCraft/DesignCraft, H14) puis L23 (packaging) ; cartes de suivi des minors :
+  i18n fr/en (2 clés du dialogue core), déduplication animation app/core, delegation export_print/export_gif,
+  détails coquille Glitch (seed_panel/window lock/combo ntsc), cosmétique planche L21 (police + marqueur d'échec).
 - 2026-11-18: **H12 DONE — 4 décisions humaines prises** (analyse Sonnet + 4 passes Opus high, toutes
   sur pièces). (1) Le mode `palette` de `glyph_ramp` **respecte `bg`** : la palette ne colore que
   l'encre, le plus sombre de la palette devient `bg: "auto"` explicite et jamais le défaut. (2) Le
@@ -344,3 +349,12 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
   `export/` app : motif S5 à faire déléguer par une carte de suivi ; glitch : docstring seed_panel périmé,
   controller._fixed vs _fixed_streams (cycle déverrouiller/re-verrouiller), combo ntsc non resynchronisé.
   **Prochaine vague : L21 (qwen4) + L-LOOP (hy4) en épreuve A/B.**
+
+- 2026-11-19 (00h50, clôture vague 2 — swarm A/B) : **L-LOOP (hy4) et L21 (qwen4) PASS au 1er cycle**.
+  Batterie complète rejouée : **2167 passed / 1 skipped**, ruff global 0, contract OK. L-LOOP : 149 l,
+  render_sequence identique au module app (vérifié par le relecteur), axes seed/offset/iterations, GIF/APNG,
+  chemin vidéo Dither intact (18 tests). L21 : galerie 41 cellules (33 algos + 8 renderers) sur image de
+  référence déterministe, planche unique < 4 Mo avec downscale prouvé, interchange par les vrais lecteurs
+  d'app, 12 starters v3 (4 par app) validés par les validateurs réels. DEV-224/225/226 enregistrés.
+  **Épreuve A/B conclue : hy4 = masse (vitesse, 1er essai), qwen4 = édition/reviews (rigueur) — les deux
+  gratuites, la relecture reste le filet obligatoire.**
