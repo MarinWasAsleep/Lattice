@@ -1,7 +1,6 @@
 """Tests for the text renderer (§3, §10) — card L9.
 
-Font metrics are pinned against Pillow's own, computed independently here.
-The renderer is palette-independent by contract (S2), so renders compare across palettes.
+Metrics are pinned against Pillow's own; renders compare across palettes (S2).
 """
 
 from __future__ import annotations
@@ -81,14 +80,10 @@ def _ink_bbox(glyph: TextGlyph) -> tuple[float, float, float, float]:
 
 
 def _assert_ink_inside(glyph: TextGlyph, width: int, height: int) -> None:
-    """Assert ink is inside; _fit bounds raw ink, so only the bounded, clipped stroke may spill."""
+    """Assert the real ink box (stroke included) lies wholly inside the canvas."""
     x0, y0, x1, y1 = _ink_bbox(glyph)
-    limit = max(1, glyph.size // 8)  # largest stroke §10 can give a glyph of this size
-    assert -limit <= x0 and x1 <= width + limit, "glyph ink overflows the horizontal edge"
-    assert -limit <= y0 and y1 <= height + limit, "glyph ink overflows the vertical edge"
-
-
-# --- accept 1: fixed keeps one size; variable gives at least five on a gradient ---
+    assert 0.0 <= x0 and x1 <= width, "glyph ink overflows the horizontal edge"
+    assert 0.0 <= y0 and y1 <= height, "glyph ink overflows the vertical edge"
 
 
 def test_fixed_size_mode_gives_every_glyph_the_same_size():
@@ -101,17 +96,12 @@ def test_variable_size_mode_gives_at_least_five_distinct_sizes_on_a_gradient():
     glyphs = _layout(_canvas(18, 6), text="variable size spreads ink across the canvas")
     assert len({glyph.size for glyph in glyphs}) >= 5
     default = _layout(_canvas(20, 6))
-    assert len(default) > 10 and {glyph.character for glyph in default} <= set(
-        text_module.DEFAULT_TEXT
-    )
+    assert len(default) > 10 and {g.character for g in default} <= set(text_module.DEFAULT_TEXT)
 
 
 def test_fixed_size_mode_modulates_opacity_instead_of_size():
     glyphs = _layout(_canvas(18, 6), size_mode="fixed", text="opacity carries the modulation")
     assert len({round(glyph.opacity, 6) for glyph in glyphs}) >= 5
-
-
-# --- accept 2: the rectangle is filled exactly, with no gap and no overflow ---
 
 
 @pytest.mark.parametrize("mode", ["fixed", "variable"])
@@ -149,7 +139,6 @@ def test_every_glyph_ink_lies_inside_the_canvas(mode):
 
 @pytest.mark.parametrize("extra", [2, 8])
 def test_ink_bbox_detects_an_artificially_thick_stroke(extra):
-    """The helper must see a stroke overflow the old font-only bbox could not detect."""
     grid = _canvas(10, 4)
     width, height = grid.cols * grid.cell_w, grid.rows * grid.cell_h
     glyph = _layout(grid, size_mode="variable", text="edge")[0]
@@ -158,7 +147,16 @@ def test_ink_bbox_detects_an_artificially_thick_stroke(extra):
     assert x0 < 0 or y0 < 0 or x1 > width or y1 > height, "stroke overflow went unnoticed"
 
 
-# --- accept 3: a 200-word paragraph wraps, unclipped ---
+def test_unbreakable_word_is_cut_and_reflows_on_a_narrower_canvas():
+    word = "@" * 400
+    options = {"text": word, "size_mode": "fixed", "size": 8}
+    wide, narrow = _canvas(40, 20), _canvas(20, 40)
+    for grid in (wide, narrow):
+        glyphs = _layout(grid, **options)
+        assert len(glyphs) == len(word), "cutting a word must not drop glyphs"
+        for glyph in glyphs:
+            _assert_ink_inside(glyph, grid.cols * grid.cell_w, grid.rows * grid.cell_h)
+    assert len(_line_tops(_layout(narrow, **options))) > len(_line_tops(_layout(wide, **options)))
 
 
 @pytest.mark.parametrize("mode", ["fixed", "variable"])
@@ -178,7 +176,6 @@ def test_200_words_wrap_unclipped_on_neutral_and_gradient(mode, cols, rows, cell
 
 
 def test_layout_reports_real_unclamped_positions():
-    """layout() reports raw pens: recompute them from Pillow metrics, with no private calls."""
     text, kern = "unclamped", 1.0
     glyphs = _layout(_canvas(80, 4, 1, 60), text=text, size=12, kerning=kern, size_mode="fixed")
     font = _default_font(glyphs[0].size)
@@ -192,9 +189,6 @@ def test_layout_reports_real_unclamped_positions():
                                 - font.getlength(glyphs[index + 1].character))
 
 
-# --- accept 4: the same text and seed render identically ---
-
-
 def test_the_same_text_and_seed_render_and_lay_out_identically():
     grid, options = _canvas(14, 6), {"text": "seed me", "seed": 3}
     assert np.array_equal(_frame(grid, **options), _frame(grid, **options))
@@ -202,9 +196,6 @@ def test_the_same_text_and_seed_render_and_lay_out_identically():
     assert np.array_equal(_frame(grid, **options),
                           TextRenderer().render_frame(grid, BW, _style(**options)))
     assert not np.array_equal(_frame(grid, **options), _frame(grid, text="seed me", seed=4))
-
-
-# --- accept 5: empty text raises ValueError naming the option ---
 
 
 @pytest.mark.parametrize("value", ["", "   ", "\n\t ", " \r\n "])
@@ -257,6 +248,17 @@ def test_dark_cells_get_larger_heavier_and_darker_glyphs_than_light_cells():
     assert light.opacity == pytest.approx(MIN_OPACITY, abs=1e-6)
 
 
+def test_low_luma_first_glyph_at_left_edge_has_max_size_and_no_overflow():
+    grid = _canvas(8, 4, flat=0.0)
+    glyphs = _layout(grid, text="MWMWMW")
+    first = glyphs[0]
+    assert first.x == 0.0, "a first glyph that fits must not be shifted right"
+    assert first.size == max(g.size for g in glyphs) and first.stroke >= 1
+    assert first.opacity == pytest.approx(1.0)
+    for glyph in glyphs:
+        _assert_ink_inside(glyph, grid.cols * grid.cell_w, grid.rows * grid.cell_h)
+
+
 def test_ink_never_collapses_on_a_neutral_palette():
     grid = _canvas(18, 6)
     glyphs = _layout(grid, NEUTRAL, text="neutral ink must survive the palette")
@@ -279,7 +281,6 @@ def test_size_and_colour_options_set_size_and_report_colours():
 
 
 def test_weight_mode_is_ignored_only_under_fixed_size_mode():
-    """§10: fixed size modulates opacity only, so weight_mode applies only to variable."""
     grid = _canvas(18, 6, flat=0.0)
     fixed = _layout(grid, size_mode="fixed", weight_mode="variable", text="ink weight")
     variable = _layout(grid, size_mode="variable", weight_mode="variable", text="ink weight")
@@ -353,9 +354,7 @@ def test_registration_metadata_and_layout_call_forms():
     assert renderer.cell_aspect() == 0.5 and renderer.subgrid() == (1, 1)
     assert renderer.consumes() == frozenset({"luma"})
     grid, style = _canvas(8, 4), _style(text="both forms")
-    assert renderer.layout(grid, style) == renderer.layout(  # type: ignore[arg-type]
-        grid, BW, style
-    )
+    assert renderer.layout(grid, style) == renderer.layout(grid, BW, style)  # type: ignore[arg-type]
 
 
 def test_style_options_round_trip_through_json():

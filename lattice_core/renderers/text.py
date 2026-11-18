@@ -1,13 +1,10 @@
-"""The text renderer: a flowing paragraph in a real font, modulated by luma (§10).
+"""The text renderer: a flowing paragraph modulated by luma (§10).
 
-Glyphs are laid out with the font's own advances, pair kerning and line distance, wrapped
-word by word to the canvas width, so the output reads as a paragraph and not a grid. The
-linear luma of the cell under a glyph (S2, re-encoded to sRGB per AMD-010) drives its size
-(0.5x to 1.5x, §10), stroke weight and opacity, so ink never collapses on a neutral palette.
-The paper paints every pixel, ink is clipped to the canvas, and an overflowing paragraph is
-re-flowed smaller rather than clipped. Fonts, metrics and masks are bounded input-keyed
-caches that never change the output (§3 invariant 2, H11). The optional `seed`, absent from
-§10's option list, drives a deterministic jitter kept for reproducibility.
+Glyphs use the font's advances, pair kerning and line distance, wrapped word by word; an
+overlong word is cut character by character. Luma (S2, sRGB per AMD-010) drives each glyph's
+size, stroke and opacity. Wrapping and fit use the real rasterised ink box — the blit's own
+source of truth — so no ink leaves the canvas; a too-tall paragraph re-flows smaller. Caches
+are bounded and input-keyed (§3, H11).
 """
 
 from __future__ import annotations
@@ -41,11 +38,7 @@ _EMPTY_MASK.setflags(write=False)
 
 @dataclass(frozen=True)
 class TextOptions:
-    """Validated options of one text render (§10).
-
-    Fixed size mode forces fixed weight (§10: opacity alone then varies); ``seed`` is a
-    tolerated extra that only drives the deterministic jitter.
-    """
+    """Validated options of one render (§10); fixed size forces fixed weight (opacity only)."""
 
     text: str = DEFAULT_TEXT
     font: str | None = None
@@ -107,23 +100,18 @@ class TextRenderer:
 
     def render_frame(self, grid: CellGrid, palette: Palette, style: RenderStyle) -> np.ndarray:
         """Return the unrounded frame: ink over a fully painted paper, float32 in [0, 1]."""
-        options = _read_options(style)
-        fg = _parse_colour(options.fg)
+        opt = _read_options(style)
+        fg, key = _parse_colour(opt.fg), _font_key(opt.font)
         shape = (grid.rows * grid.cell_h, grid.cols * grid.cell_w, 3)
-        frame = np.full(shape, _parse_colour(options.bg), np.float32)
-        font_key = _font_key(options.font)
-        for glyph in _Paragraph(grid, options).glyphs():
-            _blit(frame, glyph, fg, font_key)
+        frame = np.full(shape, _parse_colour(opt.bg), np.float32)
+        for glyph in _Paragraph(grid, opt).glyphs():
+            _blit(frame, glyph, fg, key)
         return np.ascontiguousarray(frame, dtype=np.float32)
 
     def layout(
         self, grid: CellGrid, palette: Palette | None = None, style: RenderStyle | None = None
     ) -> list[TextGlyph]:
-        """Return every laid-out glyph at its real position, in reading order (§3, §11).
-
-        Both the §3 ``layout(grid, style)`` and ``layout(grid, palette, style)`` forms are
-        accepted; only fg/bg and luma change the output, never the palette.
-        """
+        """Return every laid-out glyph at its real position (both §3 call forms accepted)."""
         _, style = _layout_arguments(palette, style)
         return _Paragraph(grid, _read_options(style)).glyphs()
 
@@ -158,8 +146,7 @@ def _read_options(style: RenderStyle) -> TextOptions:
         text=text, font=font, size=size, line_distance=line_distance, kerning=kerning,
         size_mode=_choice(raw, "size_mode", "variable", SIZE_MODES),
         weight_mode=_choice(raw, "weight_mode", "variable", WEIGHT_MODES),
-        fg=cast(str, fg), bg=cast(str, bg), seed=seed,
-    )
+        fg=cast(str, fg), bg=cast(str, bg), seed=seed)
 
 
 def _number(raw: dict, key: str, default: float) -> float:
@@ -212,6 +199,16 @@ def _kern(font_key: _FontKey, size: int, left: str, right: str) -> float:
     return float(font.getlength(left + right) - font.getlength(left) - font.getlength(right))
 
 
+@lru_cache(maxsize=_CACHE)
+def _ink_box(font_key: _FontKey, char: str, size: int, stroke: int) -> tuple[int, ...]:
+    """Return the glyph's real rasterised ink box (x0, y0, x1, y1), stroke included (§10)."""
+    mask, left, top = _mask(font_key, char, size, stroke)
+    cols, rows = np.flatnonzero(mask.any(axis=0)), np.flatnonzero(mask.any(axis=1))
+    if not len(cols) or not len(rows):
+        return (0, 0, 0, 0)
+    return (left + cols[0], top + rows[0], left + cols[-1] + 1, top + rows[-1] + 1)
+
+
 class _Paragraph:
     """One paragraph laid out over a fixed canvas: modulation, wrapping and fit."""
 
@@ -220,12 +217,10 @@ class _Paragraph:
         if np.shape(grid.luma) != (grid.rows, grid.cols):
             raise ValueError(
                 f"text renderer needs grid.luma of shape {(grid.rows, grid.cols)}, "
-                f"got {np.shape(grid.luma)}"
-            )
+                f"got {np.shape(grid.luma)}")
         self.grid = grid
         self.options = options
-        self.width = grid.cols * grid.cell_w
-        self.height = grid.rows * grid.cell_h
+        self.width, self.height = grid.cols * grid.cell_w, grid.rows * grid.cell_h
         self.chars = list(" ".join(options.text.split()))
         self.font_key = _font_key(options.font)
         ratio = sum(_font(self.font_key, _PROBE_SIZE).getmetrics()) / float(_PROBE_SIZE)
@@ -245,8 +240,8 @@ class _Paragraph:
 
     def _modulate(self) -> None:
         """Fill each character's ink and size factor from the cells under the nominal layout."""
-        options, key = self.options, self.font_key
-        jitter = np.random.default_rng(options.seed).uniform(-JITTER, JITTER, self.count)
+        key = self.font_key
+        jitter = np.random.default_rng(self.options.seed).uniform(-JITTER, JITTER, self.count)
         table = np.ascontiguousarray(1.0 - color.linear_to_srgb(self.grid.luma), np.float32)
         for glyph in self._flow([self.base] * self.count):
             advance = _glyph_metrics(key, glyph.size, glyph.character)[0]
@@ -256,52 +251,64 @@ class _Paragraph:
             row = min(self.grid.rows - 1, max(0, int(y // self.grid.cell_h)))
             ink = float(table[row, col])
             self.inks[glyph.slot] = ink
-            if options.size_mode == "variable":
+            if self.options.size_mode == "variable":
                 self.factors[glyph.slot] = np.clip(
-                    MIN_FACTOR + ink + jitter[glyph.slot], MIN_FACTOR, MAX_FACTOR
-                )
+                    MIN_FACTOR + ink + jitter[glyph.slot], MIN_FACTOR, MAX_FACTOR)
+
+    def _stroke(self, slot: int, size: int) -> int:
+        """Return one glyph's §10 stroke from its ink and size (fixed mode never strokes)."""
+        if self.options.size_mode == "fixed" or self.options.weight_mode == "fixed":
+            return 0
+        return int(round(self.inks[slot] * max(1, size // 8)))
 
     def _flow(self, sizes: list[int]) -> list[_Placed]:
-        """Lay the characters out word by word and wrap each line at the canvas width."""
-        key, options, chars = self.font_key, self.options, self.chars
-        lead_size = max(sizes) if sizes else self.base
-        ascent, descent = _font(key, lead_size).getmetrics()
-        lead = options.line_distance * float(ascent + descent)
+        """Lay characters out word by word, cutting any word too long for an empty line."""
+        key, opt, chars = self.font_key, self.options, self.chars
+        asc, desc = _font(key, max(sizes) if sizes else self.base).getmetrics()
+        lead = opt.line_distance * float(asc + desc)
+        space = _glyph_metrics(key, self.base, " ")[0]
         placed: list[_Placed] = []
-        pen, line, index = 0.0, 0, 0
-        while index < len(chars):
-            stop = index
+        pen, line, idx = 0.0, 0, 0
+        while idx < len(chars):
+            stop = idx
             while stop < len(chars) and chars[stop] != " ":
                 stop += 1
-            if stop == index:  # a separator: nothing to draw, its advance is added below
-                index += 1
+            if stop == idx:  # a separator: nothing to draw
+                idx += 1
                 continue
-            word: list[tuple[int, str, float]] = []
-            cursor = right = left = 0.0
-            for offset in range(index, stop):
-                step, x0, _, x1, _ = _glyph_metrics(key, sizes[offset], chars[offset])
-                word.append((offset, chars[offset], cursor))
-                left = min(left, cursor + x0)
-                right = max(right, cursor + x1)
-                cursor += step
-                if offset + 1 < stop:
-                    cursor += options.kerning * _kern(
-                        key, sizes[offset], chars[offset], chars[offset + 1]
-                    )
-            if pen > 0.0 and pen + max(cursor, right) + 1.0 > self.width:
-                pen, line = 0.0, line + 1
-            shift = -left if left < 0.0 else 0.0
-            for offset, char, relative in word:
-                placed.append(_Placed(char, pen + shift + relative, ascent + line * lead,
-                                      sizes[offset], offset))
-            pen += cursor + _glyph_metrics(key, self.base, " ")[0]
-            index = stop + 1
+            runs, begin, used = [], idx, 0.0
+            for o in range(idx, stop):  # a word too long for one line is cut here
+                box = _ink_box(key, chars[o], sizes[o], self._stroke(o, sizes[o]))
+                step = max(_glyph_metrics(key, sizes[o], chars[o])[0], box[2] - box[0])
+                if used + step + 1.0 > self.width and o > begin:
+                    runs.append((begin, o))
+                    begin, used = o, 0.0
+                used += step
+            runs.append((begin, stop))
+            for begin, end in runs:
+                word, cursor = [], 0.0
+                left = right = 0.0
+                for o in range(begin, end):
+                    word.append((o, chars[o], cursor))
+                    box = _ink_box(key, chars[o], sizes[o], self._stroke(o, sizes[o]))
+                    left, right = min(left, cursor + box[0]), max(right, cursor + box[2])
+                    cursor += _glyph_metrics(key, sizes[o], chars[o])[0]
+                    if o + 1 < end:
+                        cursor += opt.kerning * _kern(key, sizes[o], chars[o], chars[o + 1])
+                shift = -left if left < 0.0 else 0.0
+                if pen > 0.0 and pen + shift + max(cursor, right) + 1.0 > self.width:
+                    pen, line = 0.0, line + 1
+                for o, ch, rel in word:
+                    placed.append(_Placed(ch, pen + shift + rel, asc + line * lead, sizes[o], o))
+                pen += cursor + space
+            idx = stop + 1
         return placed
 
     def _fit(self) -> tuple[list[_Placed], float, float]:
-        """Return the placed glyphs and the shift that brings their ink inside the canvas."""
+        """Return placed glyphs and the shift that brings their real ink inside the canvas."""
         placed: list[_Placed] = []
         dx = dy = 0.0
+        key = self.font_key
         for _ in range(_FIT_PASSES):
             if self.options.size_mode == "fixed":
                 sizes = [self.base] * self.count
@@ -311,15 +318,15 @@ class _Paragraph:
             left = top = math.inf
             right = bottom = -math.inf
             for glyph in placed:
-                x0, y0, x1, y1 = _glyph_metrics(self.font_key, glyph.size, glyph.character)[1:]
-                left = min(left, glyph.pen + x0)
-                right = max(right, glyph.pen + x1)
-                top = min(top, glyph.baseline + y0)
-                bottom = max(bottom, glyph.baseline + y1)
+                stroke = self._stroke(glyph.slot, glyph.size)
+                box = _ink_box(key, glyph.character, glyph.size, stroke)
+                left, right = min(left, glyph.pen + box[0]), max(right, glyph.pen + box[2])
+                top = min(top, glyph.baseline + box[1])
+                bottom = max(bottom, glyph.baseline + box[3])
             if left is math.inf:
                 left = right = top = bottom = 0.0
             dx, dy = max(0.0, -left), max(0.0, -top)
-            if right + dx + 1.0 <= self.width and bottom + dy + 1.0 <= self.height:
+            if right + dx <= self.width and bottom + dy <= self.height:
                 break
             scale = min(self.width / max(right + dx, _EPSILON),
                         self.height / max(bottom + dy, _EPSILON)) * 0.98
@@ -330,27 +337,18 @@ class _Paragraph:
         return placed, dx, dy
 
     def _place(self, placed: list[_Placed], dx: float, dy: float) -> list[TextGlyph]:
-        """Return glyphs at their real positions with size, stroke and opacity (§10).
-
-        Fixed size mode forces fixed weight: §10 says opacity alone carries the modulation,
-        so an explicit `weight_mode: variable` is deliberately ignored in that mode.
-        """
+        """Return glyphs at their real positions with size, stroke and opacity (§10)."""
         out: list[TextGlyph] = []
-        options, key = self.options, self.font_key
-        weight_mode = options.weight_mode if options.size_mode == "variable" else "fixed"
+        opt, key = self.options, self.font_key
         for glyph in placed:
-            advance = _glyph_metrics(key, glyph.size, glyph.character)[0]
-            ascent, descent = _font(key, glyph.size).getmetrics()
-            box_w = advance
-            box_h = float(ascent + descent)
-            x = glyph.pen + dx
-            y = glyph.baseline + dy - ascent
+            asc, desc = _font(key, glyph.size).getmetrics()
+            box_w = _glyph_metrics(key, glyph.size, glyph.character)[0]
+            x, y = glyph.pen + dx, glyph.baseline + dy - asc
             ink = float(self.inks[glyph.slot])
-            stroke = 0 if weight_mode == "fixed" else int(round(ink * max(1, glyph.size // 8)))
             out.append(TextGlyph(
-                glyph.character, x, y, box_w, box_h, options.fg.lower(), options.bg.lower(),
-                glyph.size, stroke, MIN_OPACITY + (1.0 - MIN_OPACITY) * ink,
-            ))
+                glyph.character, x, y, box_w, float(asc + desc), opt.fg.lower(), opt.bg.lower(),
+                glyph.size, self._stroke(glyph.slot, glyph.size),
+                MIN_OPACITY + (1.0 - MIN_OPACITY) * ink))
         return out
 
 
@@ -366,9 +364,7 @@ def _mask(font_key: _FontKey, char: str, size: int, stroke: int) -> tuple[np.nda
         return _EMPTY_MASK, 0, 0
     canvas = PILImage.new("L", (right - left, bottom - top), 0)
     ImageDraw.Draw(canvas).text(
-        (-left, -top), char, font=font, fill=255, anchor="ls",
-        stroke_width=stroke, stroke_fill=255,
-    )
+        (-left, -top), char, font=font, fill=255, anchor="ls", stroke_width=stroke, stroke_fill=255)
     mask = np.asarray(canvas, np.float32) / 255.0
     mask.setflags(write=False)
     return mask, left, top
