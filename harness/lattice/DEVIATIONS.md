@@ -326,6 +326,27 @@ their own files. Nothing is carried over.
   débordement au lieu de la tolérance `max(1, size//8)`.
 
 
+### DEV-218 — renderer `text` : le paragraphe n'est pas répété pour remplir la toile (L9/H12)
+- class: E7 (produit) + E2 (défaut de contrat) | task: L9 (régression découverte à H12) | contract: 0.1.0
+  | status: open
+- raised by: analyse produit H12 (Sonnet puis Opus, 2026-11-18) | date: 2026-11-18
+- facts: `_Paragraph._flow` (`lattice_core/renderers/text.py:271`) boucle sur `while idx < len(chars)` :
+  il pose le texte UNE fois et s'arrête. Mesure orchestrateur : avec 496 caractères et
+  `pixel_size 10`, le texte occupe **3 % de la hauteur du canevas** (26 px sur 900) pour
+  **12 960 cellules disponibles** ; à `pixel_size 24`, 16 %. Le rendu sort donc quasi blanc
+  (luma 0,995–1,000, contraste 0,011–0,042) et les images de H12 ne sont pas des texte-halftones.
+  §10 dit : « Lay out the paragraph with real font metrics … Cells may vary in size … and must still
+  fill the output rectangle exactly ». « Fill the output rectangle exactly » est donc violé : le
+  renderer remplit le CADRE de son flux, mais laisse la toile vide quand le texte est court.
+  Les 64 tests de L9 ne l'ont pas vu : ils vérifient la géométrie (aucun glyphe hors canevas,
+  tailles distinctes, césure) et jamais que la toile est COUVERTE.
+- assumption / proposal: boucler le texte jusqu'à remplir toutes les cellules (répétition du
+  paragraphe), avec un mode `repeat: once` en option pour qui veut un paragraphe unique. Ajouter un
+  test d'accept « la toile est couverte » : la fraction de cellules portant de l'encre doit dépasser
+  un seuil (ex. 90 %) sur un texte court et un canevas large.
+- decision: à trancher à H12 (question 3 du formulaire).
+- impact: carte de correction à créer (L9b), et la vitrine de Glyph ne peut pas montrer `text` avant.
+
 ## Amendments (registre)
 
 Facts discovered during a task that the contract could not have known, recorded here rather than

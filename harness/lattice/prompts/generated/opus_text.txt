@@ -1,0 +1,46 @@
+Note préalable : le PNG fait 2172×1110 et contient 3 lignes × 2 colonnes (portrait, capture, scène × variable, fixed), et non 3 colonnes × 2 lignes. La ligne **scène est coupée** au bord inférieur du fichier, je n'en vois que le premier rang de texte. Mon avis porte donc sur portrait et capture.
+
+## 1. Est-ce que ça marche ?
+**Non, pas encore.** On voit une page de texte avec des accidents de graisse. Ce n'est pas une image en texte-halftone.
+
+Le vrai problème se voit tout de suite : **le texte s'épuise avant de remplir la toile.**
+- **Portrait variable :** une colonne étroite centrée (environ 55 % de la largeur) qui s'arrête vers 85 % de la hauteur. Le reste est blanc.
+- **Capture variable :** le texte n'occupe que le **tiers supérieur**. Les deux tiers du bas sont vides.
+
+Le sujet ne se lit pas. Dans le portrait on voit une masse sombre en bas du bloc, peut-être les épaules, mais aucun visage. Dans la capture, rien de la structure de l'écran n'apparaît.
+
+Vos mesures sont donc biaisées. Une partie de la luma de 0,85 et du contraste de 0,30 vient de la frontière entre zone écrite et zone vide, pas du sujet.
+
+## 2. variable vs fixed
+**Variable est la bonne ligne, et c'est la seule qui produit du ton.** Le noir vient des glyphes gras et agrandis qui se chevauchent : c'est la taille qui fait le travail.
+
+Fixed ressemble à un document Word avec quelques mots grisés. L'opacité seule ne peut pas descendre sous la couverture d'encre d'un glyphe normal (environ 15 à 20 %), donc le résultat reste toujours clair : luma 0,90 à 0,95, contraste divisé par deux. **Fixed ne devrait pas exister comme mode d'image**, au mieux comme option « lisibilité ».
+
+## 3. Le seuil de bascule
+Ce n'est probablement **ni un réglage ni une propriété intrinsèque, mais un défaut du renderer.**
+
+À pixel_size 10, il y a environ 5,8 fois plus de cellules qu'à 24. Les quelque 2 000 caractères du lorem n'en couvrent alors qu'une petite fraction, d'où une luma de 0,996. Le « seuil » entre 16 et 24, c'est simplement le moment où le texte commence à couvrir une part significative de la toile.
+
+**Vérification :** au rendu à pixel_size 10, on devrait trouver un petit bloc en haut et du blanc partout ailleurs.
+
+**Correctif :** boucler le texte jusqu'à remplir toutes les cellules. Ce n'est pas optionnel.
+
+Une fois ce correctif en place :
+- **Valeur par défaut :** 16 à 20.
+- **Avertissement UI :** oui, sous environ 12 px, avec le message « texte illisible, rendu équivalent à un halftone classique ». L'image ne disparaît plus, c'est le texte qui devient illisible.
+
+## 4. Le lorem ipsum comme vitrine
+**Mauvais choix par défaut.** L'idée de l'utilisateur était bonne sur un point : il faut de la densité, et c'est ce qui a fait progresser le rendu. Mais le lorem ipsum se lit comme « maquette pas finie » ; en vitrine, il dit au public que l'outil est un brouillon.
+
+Ce que je recommande :
+- **Défaut :** le texte de l'utilisateur, avec en repli un texte du domaine public ayant du sens et une bonne variété de lettres (manifeste, poème, extrait littéraire).
+- **Dans tous les cas :** le texte doit tourner en boucle.
+- **À éviter :** l'alphabet, trop régulier, qui crée des motifs de moiré.
+
+## 5. Verdict
+**À corriger, pas à retirer.** Trois corrections :
+1. Boucler le texte pour remplir toute la toile (bloquant).
+2. Garder variable comme mode par défaut et reléguer fixed en option.
+3. Régénérer la planche en entier, ligne scène comprise, et refaire les mesures, qui sont faussées aujourd'hui.
+
+**Vitrine :** je n'ai toujours vu aucun rendu bg_colour, donc ce n'est pas un vrai verdict. Mais structurellement, bg_colour remplit 100 % de chaque cellule et porte le ton sans limite de couverture d'encre. Le texte est plafonné par le glyphe. Je parie sur **bg_colour en vitrine**, avec text comme mode signature secondaire une fois corrigé. Envoyez-moi la planche bg_colour pour trancher.
