@@ -1,9 +1,7 @@
 """Tests for the text renderer (§3, §10) — card L9.
 
-Wrap points, leading and kerning are pinned against Pillow's own font metrics, computed
-independently here: a change that moves both the renderer and its arithmetic still fails.
-The renderer is palette-independent by contract (S2), so renders are compared across very
-different palettes.
+Font metrics are pinned against Pillow's own, computed independently here.
+The renderer is palette-independent by contract (S2), so renders compare across palettes.
 """
 
 from __future__ import annotations
@@ -81,6 +79,14 @@ def _default_font(size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.load_default(size=size)  # type: ignore[return-value]
 
 
+def _ink_bbox(glyph: TextGlyph) -> tuple[float, float, float, float]:
+    """Return true ink bounds from font metrics, at the glyph's reported real position."""
+    font = _default_font(glyph.size)
+    ascent = float(font.getmetrics()[0])
+    x0, y0, x1, y1 = font.getbbox(glyph.character, anchor="ls")
+    return (glyph.x + x0, glyph.y + ascent + y0, glyph.x + x1, glyph.y + ascent + y1)
+
+
 # --- accept 1: fixed keeps one size; variable gives at least five on a gradient ---
 
 
@@ -93,6 +99,10 @@ def test_fixed_size_mode_gives_every_glyph_the_same_size():
 def test_variable_size_mode_gives_at_least_five_distinct_sizes_on_a_gradient():
     glyphs = _layout(_canvas(18, 6), text="variable size spreads ink across the canvas")
     assert len({glyph.size for glyph in glyphs}) >= 5
+    default = _layout(_canvas(20, 6))
+    assert len(default) > 10 and {glyph.character for glyph in default} <= set(
+        text_module.DEFAULT_TEXT
+    )
 
 
 def test_fixed_size_mode_modulates_opacity_instead_of_size():
@@ -123,46 +133,52 @@ def test_every_pixel_is_paper_or_ink_blended_over_paper(mode):
     ink, paper = frame[:, :, 0], 1.0 - frame[:, :, 2]
     assert np.allclose(ink, paper, atol=2e-6), "pixels are not blends of the two colours"
     assert ink.max() > 0.5 and ink.min() == 0.0
+    paper_frame = _frame(_canvas(30, 4), text="short")
+    assert np.all(paper_frame[-1, -1] == np.float32(1.0)), DEFAULT_BG
+    assert np.all(paper_frame == np.float32(1.0), axis=-1).mean() > 0.3
 
 
 @pytest.mark.parametrize("mode", ["fixed", "variable"])
-def test_every_glyph_box_lies_inside_the_canvas(mode):
+def test_every_glyph_ink_lies_inside_the_canvas(mode):
     grid = _canvas(10, 4)
     width, height = grid.cols * grid.cell_w, grid.rows * grid.cell_h
-    for glyph in _layout(grid, size_mode=mode, text="boxes stay inside the canvas"):
-        assert 0.0 <= glyph.x and glyph.x + glyph.width <= width
-        assert 0.0 <= glyph.y and glyph.y + glyph.height <= height
-
-
-def test_the_paper_paints_the_whole_rectangle():
-    frame = _frame(_canvas(30, 4), text="short")
-    assert np.all(frame[-1, -1] == np.float32(1.0)), DEFAULT_BG
-    assert np.all(frame == np.float32(1.0), axis=-1).mean() > 0.3
+    for glyph in _layout(grid, size_mode=mode, text="ink stays inside the canvas"):
+        x0, y0, x1, y1 = _ink_bbox(glyph)
+        assert 0 <= x0 and x1 <= width and 0 <= y0 and y1 <= height
 
 
 # --- accept 3: a 200-word paragraph wraps, unclipped ---
 
 
-@pytest.mark.parametrize(("cols", "rows", "cell_w", "cell_h"), [(40, 20, 8, 16), (20, 40, 6, 12)])
-def test_a_200_word_paragraph_wraps_over_many_lines(cols, rows, cell_w, cell_h):
-    tops = _line_tops(_layout(_canvas(cols, rows, cell_w, cell_h), text=PARAGRAPH))
-    assert len(tops) >= 20
-
-
+@pytest.mark.parametrize("mode", ["fixed", "variable"])
 @pytest.mark.parametrize(("cols", "rows", "cell_w", "cell_h"),
-                         [(40, 20, 8, 16), (20, 40, 6, 12), (8, 8, 8, 16)])
-def test_a_200_word_paragraph_never_places_a_glyph_outside_the_canvas(cols, rows, cell_w, cell_h):
+                         [(40, 20, 8, 16), (20, 40, 6, 12), (8, 8, 8, 16), (20, 40, 3, 5)])
+def test_200_words_wrap_unclipped_on_neutral_and_gradient(mode, cols, rows, cell_w, cell_h):
     grid = _canvas(cols, rows, cell_w, cell_h)
     width, height = cols * cell_w, rows * cell_h
-    glyphs = _layout(grid, text=PARAGRAPH)
+    glyphs = _layout(grid, NEUTRAL, text=PARAGRAPH, size_mode=mode)
     assert len(glyphs) == len(PARAGRAPH.replace(" ", ""))
     assert all(isinstance(glyph, TextGlyph) for glyph in glyphs)
-    for glyph in glyphs:
-        assert 0.0 <= glyph.x and glyph.x + glyph.width <= width
-        assert 0.0 <= glyph.y and glyph.y + glyph.height <= height
-    frame = _frame(grid, text=PARAGRAPH)
-    assert frame.shape == (height, width, 3)
-    assert frame.min() >= 0.0 and frame.max() <= 1.0
+    assert len(_line_tops(glyphs)) >= 10
+    for glyph in glyphs:  # real positions from layout(), not a clamped advance box
+        x0, y0, x1, y1 = _ink_bbox(glyph)
+        assert 0 <= x0 and x1 <= width, "glyph ink overflows the horizontal edge"
+        assert 0 <= y0 and y1 <= height, "glyph ink overflows the vertical edge"
+    frame = _frame(grid, NEUTRAL, text=PARAGRAPH, size_mode=mode)
+    assert frame.shape == (height, width, 3) and frame.min() >= 0.0 and frame.max() <= 1.0
+
+
+def test_layout_reports_real_unclamped_positions():
+    """layout() exposes the raw pen/baseline: a reintroduced clamp must fail this."""
+    para = text_module._Paragraph(_canvas(10, 4),
+                                  text_module._read_options(_style(text="real positions")))
+    para._modulate()
+    placed, dx, dy = para._fit()
+    glyphs = para._place(placed, dx, dy)
+    for raw, glyph in zip(placed, glyphs, strict=True):
+        ascent = _default_font(raw.size).getmetrics()[0]
+        assert (glyph.x, glyph.y) == pytest.approx((raw.pen + dx, raw.baseline + dy - ascent))
+    assert len(glyphs) == len(placed)
 
 
 # --- accept 4: the same text and seed render identically ---
@@ -224,12 +240,6 @@ def test_words_wrap_when_they_no_longer_fit_the_width():
     assert len(_line_tops(_layout(_canvas(narrow, 8, 1, 16), **options))) == 3
 
 
-def test_default_text_is_a_usable_paragraph():
-    glyphs = _layout(_canvas(20, 6))
-    assert len(glyphs) > 10
-    assert {glyph.character for glyph in glyphs} <= set(text_module.DEFAULT_TEXT)
-
-
 # --- §10: luma modulation, independent of the palette (S2) ---
 
 
@@ -259,21 +269,31 @@ def test_the_choice_of_palette_never_changes_the_output(palette):
 # --- options ---
 
 
-def test_size_option_sets_the_base_point_size_in_fixed_mode():
-    glyphs = _layout(_canvas(24, 14), size=9, size_mode="fixed", text="sized explicitly")
-    assert {glyph.size for glyph in glyphs} == {9}
-
-
-def test_layout_reports_the_ink_and_paper_colours():
+def test_size_and_colour_options_set_size_and_report_colours():
+    sized = _layout(_canvas(24, 14), size=9, size_mode="fixed", text="sized explicitly")
+    assert {glyph.size for glyph in sized} == {9}
     glyph = _layout(_canvas(6, 3), text="colours", fg="#AABBCC", bg="#FFEEDD")[0]
     assert glyph.fill == "#aabbcc" and glyph.paper == "#ffeedd"
 
 
-def test_missing_font_file_raises_value_error_naming_the_path():
-    path = "/nonexistent/fonts/definitely-not-a-font.ttf"
-    with pytest.raises(ValueError) as excinfo:
-        RENDERER.render(_canvas(6, 3), BW, _style(text="font", font=path))
-    assert path in str(excinfo.value)
+def test_weight_mode_is_ignored_only_under_fixed_size_mode():
+    """§10: fixed size modulates opacity only, so weight_mode applies only to variable."""
+    grid = _canvas(18, 6, flat=0.0)
+    fixed = _layout(grid, size_mode="fixed", weight_mode="variable", text="ink weight")
+    variable = _layout(grid, size_mode="variable", weight_mode="variable", text="ink weight")
+    assert fixed and all(glyph.stroke == 0 for glyph in fixed)
+    assert any(glyph.stroke > 0 for glyph in variable)
+
+
+def test_font_errors_name_the_path_and_distinguish_missing_from_unreadable(tmp_path):
+    missing = "/nonexistent/fonts/definitely-not-a-font.ttf"
+    with pytest.raises(ValueError, match=missing):
+        RENDERER.render(_canvas(6, 3), BW, _style(text="font", font=missing))
+    bad = tmp_path / "broken.ttf"
+    bad.write_bytes(b"not a font")
+    with pytest.raises(ValueError, match="usable font") as excinfo:
+        RENDERER.render(_canvas(6, 3), BW, _style(text="font", font=str(bad)))
+    assert str(bad) in str(excinfo.value)
 
 
 def test_a_real_font_file_is_used():
@@ -283,30 +303,17 @@ def test_a_real_font_file_is_used():
     assert img.size == (10 * CELL_W, 4 * CELL_H)
 
 
-@pytest.mark.parametrize("size", [0, -3, True, 10_000])
-def test_invalid_size_raises_value_error(size):
-    with pytest.raises(ValueError):
-        RENDERER.render(_canvas(6, 3), BW, _style(text="size", size=size))
-
-
-@pytest.mark.parametrize(("key", "value"), [("size_mode", "huge"), ("weight_mode", "bold")])
-def test_unknown_modes_raise_value_error_naming_the_choices(key, value):
+@pytest.mark.parametrize("options", [
+    {"size": 0}, {"size": -3}, {"size": True}, {"size": 10_000},
+    {"size_mode": "huge"}, {"weight_mode": "bold"},
+    {"kerning": -0.5}, {"kerning": 2.5}, {"line_distance": 0.0}, {"line_distance": -1.0},
+    {"fg": "not-a-colour"}, {"fg": "#12345"}, {"fg": "#gggggg"}, {"fg": 12},
+])
+def test_invalid_options_raise_value_error(options):
     with pytest.raises(ValueError) as excinfo:
-        RENDERER.render(_canvas(6, 3), BW, _style(text="mode", **{key: value}))
-    assert "fixed" in str(excinfo.value) and "variable" in str(excinfo.value)
-
-
-@pytest.mark.parametrize(("key", "value"), [("kerning", -0.5), ("kerning", 2.5),
-                                            ("line_distance", 0.0), ("line_distance", -1.0)])
-def test_out_of_range_numbers_raise_value_error(key, value):
-    with pytest.raises(ValueError):
-        RENDERER.render(_canvas(6, 3), BW, _style(text="numbers", **{key: value}))
-
-
-@pytest.mark.parametrize("colour", ["not-a-colour", "#12345", "#gggggg", 12])
-def test_invalid_colours_raise_value_error(colour):
-    with pytest.raises(ValueError):
-        RENDERER.render(_canvas(6, 3), BW, _style(text="colours", fg=colour))
+        RENDERER.render(_canvas(6, 3), BW, _style(text="invalid", **options))
+    if "mode" in options:
+        assert "fixed" in str(excinfo.value) and "variable" in str(excinfo.value)
 
 
 def test_unknown_style_keys_are_ignored_for_forward_compatibility():
@@ -337,18 +344,16 @@ def test_render_frame_matches_render():
     assert np.array_equal(_image(grid, text="consistent rasterisation"), expected)
 
 
-def test_the_renderer_is_registered_under_a_unique_stable_name():
+def test_registration_metadata_and_layout_call_forms():
     renderer = TextRenderer()
-    assert renderer.name == "text"
-    assert get_renderer("text").name == "text"
-    assert list_renderers().count("text") == 1
-    assert isinstance(renderer, CellRenderer)
-
-
-def test_cell_aspect_subgrid_and_consumes():
-    assert RENDERER.cell_aspect() == 0.5
-    assert RENDERER.subgrid() == (1, 1)
-    assert RENDERER.consumes() == frozenset({"luma"})
+    assert renderer.name == "text" and get_renderer("text").name == "text"
+    assert list_renderers().count("text") == 1 and isinstance(renderer, CellRenderer)
+    assert renderer.cell_aspect() == 0.5 and renderer.subgrid() == (1, 1)
+    assert renderer.consumes() == frozenset({"luma"})
+    grid, style = _canvas(8, 4), _style(text="both forms")
+    assert renderer.layout(grid, style) == renderer.layout(  # type: ignore[arg-type]
+        grid, BW, style
+    )
 
 
 def test_style_options_round_trip_through_json():
@@ -361,11 +366,6 @@ def test_style_options_round_trip_through_json():
     reloaded = _style(**json.loads(json.dumps(dict(style.options))))
     assert np.array_equal(np.asarray(RENDERER.render(grid, BW, style)),
                           np.asarray(RENDERER.render(grid, BW, reloaded)))
-
-
-def test_layout_accepts_both_call_forms():
-    grid, style = _canvas(8, 4), _style(text="both forms")
-    assert RENDERER.layout(grid, style) == RENDERER.layout(grid, BW, style)
 
 
 def test_cached_masks_are_read_only_and_the_cache_is_bounded():

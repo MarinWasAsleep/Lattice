@@ -6,7 +6,8 @@ linear luma of the cell under a glyph (S2, re-encoded to sRGB per AMD-010) drive
 (0.5x to 1.5x, §10), stroke weight and opacity, so ink never collapses on a neutral palette.
 The paper paints every pixel, ink is clipped to the canvas, and an overflowing paragraph is
 re-flowed smaller rather than clipped. Fonts, metrics and masks are bounded input-keyed
-caches that never change the output (§3 invariant 2, H11); randomness is a seed-keyed jitter.
+caches that never change the output (§3 invariant 2, H11). The optional `seed`, absent from
+§10's option list, drives a deterministic jitter kept for reproducibility.
 """
 
 from __future__ import annotations
@@ -27,26 +28,24 @@ from lattice_core.types import Palette
 
 _FontKey = tuple[str | None, int, int]
 _Metrics = tuple[float, float, float, float, float]
-NAME = "text"
-CELL_ASPECT = 0.5
+NAME, CELL_ASPECT = "text", 0.5
 DEFAULT_TEXT = "Lattice renders a paragraph in a real font, one glyph at a time."
-DEFAULT_FG = "#000000"
-DEFAULT_BG = "#ffffff"
-SIZE_MODES = ("fixed", "variable")
-WEIGHT_MODES = ("fixed", "variable")
-MIN_FACTOR, MAX_FACTOR = 0.5, 1.5
-MIN_OPACITY = 0.12
-MAX_SIZE, JITTER = 512, 0.08
+DEFAULT_FG, DEFAULT_BG = "#000000", "#ffffff"
+SIZE_MODES = WEIGHT_MODES = ("fixed", "variable")
+MIN_FACTOR, MAX_FACTOR, MIN_OPACITY, MAX_SIZE, JITTER = 0.5, 1.5, 0.12, 512, 0.08
 _PROBE_SIZE, _FIT_PASSES, _CACHE = 100, 8, 1024
-_EPSILON = 1e-6
-_HEX_DIGITS = frozenset("0123456789abcdef")
+_EPSILON, _HEX_DIGITS = 1e-6, frozenset("0123456789abcdef")
 _EMPTY_MASK = np.zeros((1, 1), np.float32)  # read-only: an inkless glyph's mask
 _EMPTY_MASK.setflags(write=False)
 
 
 @dataclass(frozen=True)
 class TextOptions:
-    """Validated options of one text render (§10)."""
+    """Validated options of one text render (§10).
+
+    Fixed size mode forces fixed weight (§10: opacity alone then varies); ``seed`` is a
+    tolerated extra that only drives the deterministic jitter.
+    """
 
     text: str = DEFAULT_TEXT
     font: str | None = None
@@ -54,10 +53,10 @@ class TextOptions:
     line_distance: float = 1.2
     kerning: float = 1.0
     size_mode: str = "variable"
-    weight_mode: str = "variable"
+    weight_mode: str = "variable"  # ignored when size_mode="fixed" (§10: opacity only)
     fg: str = DEFAULT_FG
     bg: str = DEFAULT_BG
-    seed: int = 0
+    seed: int = 0  # deterministic jitter; §10 omits the option but reproducibility needs it
 
 
 class TextGlyph(NamedTuple):
@@ -120,7 +119,7 @@ class TextRenderer:
     def layout(
         self, grid: CellGrid, palette: Palette | None = None, style: RenderStyle | None = None
     ) -> list[TextGlyph]:
-        """Return every visible glyph inside the canvas, in reading order (§3, §11).
+        """Return every laid-out glyph at its real position, in reading order (§3, §11).
 
         Both the §3 ``layout(grid, style)`` and ``layout(grid, palette, style)`` forms are
         accepted; only fg/bg and luma change the output, never the palette.
@@ -138,10 +137,7 @@ def _read_options(style: RenderStyle) -> TextOptions:
     font = raw.get("font")
     if font is not None and not isinstance(font, str):
         raise ValueError(f"text renderer option 'font' must be a path string or null: {font!r}")
-    try:
-        _font_key(font)  # ValueError naming the path, before anything is drawn
-    except ValueError as exc:
-        raise ValueError(f"text renderer font file not found: {font}") from exc
+    _font_key(font)  # a missing path raises naming it; an unreadable font is rejected in _font()
     size = raw.get("size")
     if size is not None and (isinstance(size, bool) or not isinstance(size, int)
                              or not 1 <= size <= MAX_SIZE):
@@ -240,7 +236,7 @@ class _Paragraph:
         self.inks = np.zeros(self.count, dtype=np.float32)
 
     def glyphs(self) -> list[TextGlyph]:
-        """Lay the paragraph out and return every visible glyph, clamped to the canvas."""
+        """Lay the paragraph out and return every glyph at its real, unclamped position."""
         if not self.chars or self.width <= 0 or self.height <= 0:
             return []
         self._modulate()
@@ -334,17 +330,21 @@ class _Paragraph:
         return placed, dx, dy
 
     def _place(self, placed: list[_Placed], dx: float, dy: float) -> list[TextGlyph]:
-        """Return the glyphs as boxes clamped inside the canvas, with size, stroke, opacity."""
+        """Return glyphs at their real positions with size, stroke and opacity (§10).
+
+        Fixed size mode forces fixed weight: §10 says opacity alone carries the modulation,
+        so an explicit `weight_mode: variable` is deliberately ignored in that mode.
+        """
         out: list[TextGlyph] = []
         options, key = self.options, self.font_key
         weight_mode = options.weight_mode if options.size_mode == "variable" else "fixed"
         for glyph in placed:
             advance = _glyph_metrics(key, glyph.size, glyph.character)[0]
             ascent, descent = _font(key, glyph.size).getmetrics()
-            box_w = min(advance, float(self.width))
-            box_h = min(float(ascent + descent), float(self.height))
-            x = min(max(glyph.pen + dx, 0.0), max(0.0, self.width - box_w))
-            y = min(max(glyph.baseline + dy - ascent, 0.0), max(0.0, self.height - box_h))
+            box_w = advance
+            box_h = float(ascent + descent)
+            x = glyph.pen + dx
+            y = glyph.baseline + dy - ascent
             ink = float(self.inks[glyph.slot])
             stroke = 0 if weight_mode == "fixed" else int(round(ink * max(1, glyph.size // 8)))
             out.append(TextGlyph(
