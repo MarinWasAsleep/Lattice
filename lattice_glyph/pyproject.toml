@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lattice-glyph"
+version = "0.1.0"
+description = "Lattice Glyph: glyph, bitmask and text rendering for PhotoCraft and DesignCraft"
+requires-python = ">=3.13"
+license = "MIT OR Apache-2.0"
+dependencies = [
+    "lattice-core>=0.1,<0.2",
+    "numpy",
+    "numba",
+    "Pillow",
+]
+
+[project.optional-dependencies]
+ui = ["lattice-core[ui]"]
+
+[project.scripts]
+lattice-glyph-cli = "lattice_glyph.cli:main"
+
+# The distribution lives beside the application directory, as lattice-dither does. The
+# mapping below makes a build started from this directory ship the package itself and its
+# presets, instead of a wheel that carries only metadata.
+[tool.setuptools]
+packages = ["lattice_glyph"]
+package-dir = { "lattice_glyph" = "." }
+
+[tool.setuptools.package-data]
+lattice_glyph = ["presets/*.json"]
