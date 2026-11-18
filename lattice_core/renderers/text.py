@@ -4,7 +4,7 @@ Glyphs use the font's advances, pair kerning and line distance, wrapped word by 
 overlong word is cut character by character. Luma (S2, sRGB per AMD-010) drives each glyph's
 size, stroke and opacity. Wrapping and fit use the real rasterised ink box — the blit's own
 source of truth — so no ink leaves the canvas; a too-tall paragraph re-flows smaller. Caches
-are bounded and input-keyed (§3, H11).
+are bounded and input-keyed (§3, H11); repeat=fill loops the paragraph to the bottom (H12).
 """
 
 from __future__ import annotations
@@ -47,6 +47,7 @@ class TextOptions:
     kerning: float = 1.0
     size_mode: str = "variable"
     weight_mode: str = "variable"  # ignored when size_mode="fixed" (§10: opacity only)
+    repeat: str = "fill"  # fill loops the paragraph to the bottom (H12); once keeps L9
     fg: str = DEFAULT_FG
     bg: str = DEFAULT_BG
     seed: int = 0  # deterministic jitter; §10 omits the option but reproducibility needs it
@@ -146,6 +147,7 @@ def _read_options(style: RenderStyle) -> TextOptions:
         text=text, font=font, size=size, line_distance=line_distance, kerning=kerning,
         size_mode=_choice(raw, "size_mode", "variable", SIZE_MODES),
         weight_mode=_choice(raw, "weight_mode", "variable", WEIGHT_MODES),
+        repeat=_choice(raw, "repeat", "fill", ("fill", "once")),
         fg=cast(str, fg), bg=cast(str, bg), seed=seed)
 
 
@@ -210,7 +212,7 @@ def _ink_box(font_key: _FontKey, char: str, size: int, stroke: int) -> tuple[int
 
 
 class _Paragraph:
-    """One paragraph laid out over a fixed canvas: modulation, wrapping and fit."""
+    """One paragraph laid out over a fixed canvas: modulation, wrapping, repetition and fit."""
 
     def __init__(self, grid: CellGrid, options: TextOptions) -> None:
         """Measure the canvas, the font and the nominal point size of the paragraph."""
@@ -234,42 +236,51 @@ class _Paragraph:
         """Lay the paragraph out and return every glyph at its real, unclamped position."""
         if not self.chars or self.width <= 0 or self.height <= 0:
             return []
-        self._modulate()
+        if self.options.repeat == "once":
+            self._modulate(self._flow([self.base] * self.count))
         placed, dx, dy = self._fit()
         return self._place(placed, dx, dy)
 
-    def _modulate(self) -> None:
-        """Fill each character's ink and size factor from the cells under the nominal layout."""
-        key = self.font_key
-        jitter = np.random.default_rng(self.options.seed).uniform(-JITTER, JITTER, self.count)
+    def _modulate(self, placed: list[_Placed]) -> list[int]:
+        """Sample the luma under each placed glyph; return the sizes the next flow must use."""
+        key, fill = self.font_key, self.options.repeat == "fill"
+        n = len(placed) if fill else len(self.chars)
+        jitter = np.random.default_rng(self.options.seed).uniform(-JITTER, JITTER, n)
         table = np.ascontiguousarray(1.0 - color.linear_to_srgb(self.grid.luma), np.float32)
-        for glyph in self._flow([self.base] * self.count):
+        inks, fac = np.zeros(n, np.float32), np.ones(n, np.float32)
+        for glyph in placed:
             advance = _glyph_metrics(key, glyph.size, glyph.character)[0]
             x = glyph.pen + 0.5 * advance
             y = glyph.baseline - 0.5 * _font(key, glyph.size).getmetrics()[0]
             col = min(self.grid.cols - 1, max(0, int(x // self.grid.cell_w)))
             row = min(self.grid.rows - 1, max(0, int(y // self.grid.cell_h)))
             ink = float(table[row, col])
-            self.inks[glyph.slot] = ink
+            inks[glyph.slot] = ink
             if self.options.size_mode == "variable":
-                self.factors[glyph.slot] = np.clip(
+                fac[glyph.slot] = np.clip(
                     MIN_FACTOR + ink + jitter[glyph.slot], MIN_FACTOR, MAX_FACTOR)
+        self.inks, self.factors, self.count = inks, fac, (len(placed) if fill else self.count)
+        return ([self.base] * self.count if self.options.size_mode == "fixed" else
+                [max(1, int(round(self.base * float(f)))) for f in self.factors])
 
     def _stroke(self, slot: int, size: int) -> int:
         """Return one glyph's §10 stroke from its ink and size (fixed mode never strokes)."""
         if self.options.size_mode == "fixed" or self.options.weight_mode == "fixed":
             return 0
-        return int(round(self.inks[slot] * max(1, size // 8)))
+        return int(round(self.inks[min(slot, len(self.inks) - 1)] * max(1, size // 8)))
 
     def _flow(self, sizes: list[int]) -> list[_Placed]:
-        """Lay characters out word by word, cutting any word too long for an empty line."""
+        """Lay words out, cutting overlong ones; fill repeats the paragraph to the bottom."""
         key, opt, chars = self.font_key, self.options, self.chars
+        fill = opt.repeat == "fill"
         asc, desc = _font(key, max(sizes) if sizes else self.base).getmetrics()
         lead = opt.line_distance * float(asc + desc)
         space = _glyph_metrics(key, self.base, " ")[0]
         placed: list[_Placed] = []
-        pen, line, idx = 0.0, 0, 0
-        while idx < len(chars):
+        pen, line, idx, occ = 0.0, 0, 0, 0
+        while idx < len(chars) or fill:
+            if idx >= len(chars):
+                idx = 0
             stop = idx
             while stop < len(chars) and chars[stop] != " ":
                 stop += 1
@@ -278,8 +289,10 @@ class _Paragraph:
                 continue
             runs, begin, used = [], idx, 0.0
             for o in range(idx, stop):  # a word too long for one line is cut here
-                box = _ink_box(key, chars[o], sizes[o], self._stroke(o, sizes[o]))
-                step = max(_glyph_metrics(key, sizes[o], chars[o])[0], box[2] - box[0])
+                j = o if not fill else occ + (o - idx)
+                size = sizes[j] if j < len(sizes) else self.base
+                box = _ink_box(key, chars[o], size, self._stroke(j, size))
+                step = max(_glyph_metrics(key, size, chars[o])[0], box[2] - box[0])
                 if used + step + 1.0 > self.width and o > begin:
                     runs.append((begin, o))
                     begin, used = o, 0.0
@@ -287,19 +300,26 @@ class _Paragraph:
             runs.append((begin, stop))
             for begin, end in runs:
                 word, cursor = [], 0.0
-                left = right = 0.0
+                left = right = bottom = 0.0
                 for o in range(begin, end):
-                    word.append((o, chars[o], cursor))
-                    box = _ink_box(key, chars[o], sizes[o], self._stroke(o, sizes[o]))
+                    j = o if not fill else occ + (o - begin)
+                    size = sizes[j] if j < len(sizes) else self.base
+                    word.append((o, chars[o], cursor, size, j))
+                    box = _ink_box(key, chars[o], size, self._stroke(j, size))
                     left, right = min(left, cursor + box[0]), max(right, cursor + box[2])
-                    cursor += _glyph_metrics(key, sizes[o], chars[o])[0]
+                    bottom = max(bottom, box[3])
+                    cursor += _glyph_metrics(key, size, chars[o])[0]
                     if o + 1 < end:
-                        cursor += opt.kerning * _kern(key, sizes[o], chars[o], chars[o + 1])
+                        cursor += opt.kerning * _kern(key, size, chars[o], chars[o + 1])
                 shift = -left if left < 0.0 else 0.0
                 if pen > 0.0 and pen + shift + max(cursor, right) + 1.0 > self.width:
                     pen, line = 0.0, line + 1
-                for o, ch, rel in word:
-                    placed.append(_Placed(ch, pen + shift + rel, asc + line * lead, sizes[o], o))
+                baseline = asc + line * lead
+                if fill and baseline + bottom > self.height:
+                    return placed
+                for _, ch, rel, size, slot in word:
+                    placed.append(_Placed(ch, pen + shift + rel, baseline, size, slot))
+                occ += end - begin
                 pen += cursor + space
             idx = stop + 1
         return placed
@@ -308,13 +328,16 @@ class _Paragraph:
         """Return placed glyphs and the shift that brings their real ink inside the canvas."""
         placed: list[_Placed] = []
         dx = dy = 0.0
-        key = self.font_key
-        for _ in range(_FIT_PASSES):
+        key, fill = self.font_key, self.options.repeat == "fill"
+        for p in range(_FIT_PASSES):
             if self.options.size_mode == "fixed":
                 sizes = [self.base] * self.count
             else:
                 sizes = [max(1, int(round(self.base * float(f)))) for f in self.factors]
             placed = self._flow(sizes)
+            # the last pass never skips: dx/dy must match the returned placed (no stale shift)
+            if fill and placed and p + 1 < _FIT_PASSES and self._modulate(placed) != sizes:
+                continue
             left = top = math.inf
             right = bottom = -math.inf
             for glyph in placed:
@@ -326,7 +349,7 @@ class _Paragraph:
             if left is math.inf:
                 left = right = top = bottom = 0.0
             dx, dy = max(0.0, -left), max(0.0, -top)
-            if right + dx <= self.width and bottom + dy <= self.height:
+            if (placed or not fill) and right + dx <= self.width and bottom + dy <= self.height:
                 break
             scale = min(self.width / max(right + dx, _EPSILON),
                         self.height / max(bottom + dy, _EPSILON)) * 0.98
@@ -344,7 +367,7 @@ class _Paragraph:
             asc, desc = _font(key, glyph.size).getmetrics()
             box_w = _glyph_metrics(key, glyph.size, glyph.character)[0]
             x, y = glyph.pen + dx, glyph.baseline + dy - asc
-            ink = float(self.inks[glyph.slot])
+            ink = float(self.inks[min(glyph.slot, len(self.inks) - 1)])
             out.append(TextGlyph(
                 glyph.character, x, y, box_w, float(asc + desc), opt.fg.lower(), opt.bg.lower(),
                 glyph.size, self._stroke(glyph.slot, glyph.size),
