@@ -1,0 +1,53 @@
+{
+  "verdict": "FIX",
+  "findings": [
+    {
+      "severity": "major",
+      "file": "tests/test_text.py",
+      "line": 82,
+      "what": "`_ink_bbox` measures ink with `font.getbbox(char, anchor='ls')` and ignores `glyph.stroke`. The `variable` mode strokes glyphs by `round(ink * max(1, size // 8))` px, which widens the real ink on every side.",
+      "why": "Accept 3 says 'not a single glyph outside the canvas'. The 200-word and ink-inside tests pass `size_mode='variable'` with the default `weight_mode='variable'`, so stroked glyphs are checked as if they had no stroke. A glyph at the edge can overflow by `stroke` px and the test will not see it. Rasterisation silently clips it (`_blit`), but `layout()` now reports real positions and §11 exports (SVG, text) consume it, so the overflow would show up in those exports. The coder's claim that `_fit()` needs no change was measured on 'raw ink bbox' and so does not cover the stroke.",
+      "fix": "Pass `stroke_width=glyph.stroke` to `getbbox` in `_ink_bbox`, or widen the bounds by `glyph.stroke`. If a case then fails, make `_fit()` shrink the margin to account for stroke. Run that check on neutral luma, where ink is at its maximum."
+    },
+    {
+      "severity": "minor",
+      "file": "tests/test_text.py",
+      "line": 168,
+      "what": "`test_layout_reports_real_unclamped_positions` calls the private `_Paragraph._modulate`, `_fit` and `_place`, then re-derives `pen + dx` and `baseline + dy - ascent`, which is the same arithmetic as `_place`.",
+      "why": "It restates the implementation and breaks on any refactor. It also does not state the contract, which is that `layout()` must not clamp. The ink-bbox tests do not catch a reintroduced clamp, because a clamp would only make them pass more easily.",
+      "fix": "Test through the public `layout()`. Build a case where the real position is outside the canvas (for example a glyph larger than the canvas under a tiny `size`) and assert a negative or overflowing `x` or `y`. If `_fit` makes that impossible, document the white-box test as intentional."
+    },
+    {
+      "severity": "minor",
+      "file": "tests/test_text.py",
+      "line": 316,
+      "what": "`test_invalid_options_raise_value_error` merges 14 cases into one parametrisation, and the 'option named in the message' check applies only to modes. The old tests named the option for size, kerning and colour.",
+      "why": "Accept 5 requires the error to name the option, and that is the one rule the card spells out. Option-name coverage was lost for `size`, `kerning`, `line_distance` and `fg`. The distinct-message claim for fonts is only checked through `match=missing` and 'usable font'. The 'font file not found' text is never asserted.",
+      "fix": "Assert that the option name (the dict key) appears in `str(excinfo.value)` for every case. Assert the exact 'font file not found' wording for the missing-font case."
+    },
+    {
+      "severity": "minor",
+      "file": "lattice_core/renderers/text.py",
+      "line": 31,
+      "what": "Constants are packed with tuple assignments (`NAME, CELL_ASPECT = ...`, `SIZE_MODES = WEIGHT_MODES = ...`, five values on one line). This looks like golfing to hit the 400-line cap.",
+      "why": "Readability and hygiene. It also hides that `MAX_SIZE` and `JITTER` are unrelated to opacity and factor, and any edit becomes a multi-name diff.",
+      "fix": "Restore one constant per line, grouped by theme. Cut length elsewhere if the cap needs it."
+    },
+    {
+      "severity": "minor",
+      "file": "lattice_core/renderers/text.py",
+      "line": 336,
+      "what": "`_place` keeps `box_w = advance` and `box_h = ...` as separate intermediates, and `TextGlyph.width` and `height` are now unclamped advance and line boxes that can extend past the canvas.",
+      "why": "The `layout()` docstring should say that width and height are advance and line boxes, not visible ink. Otherwise an SVG or text exporter may treat them as bounds.",
+      "fix": "Document the semantics of `width` and `height` in the `TextGlyph` docstring, and inline `box_w` and `box_h`."
+    }
+  ],
+  "regression": "none (the new renderer adds no change to frozen behaviour; the diff is confined to text.py and test_text.py; suite 2052 passed, G3 OK)",
+  "renderer_invariants": "all six hold (output size, purity, no mutation of grid or palette, cell_aspect 0.5, unique name 'text', JSON round-trip). Each has a test. Note that `layout()` is now unclamped, which the §3 invariants do not restrict.",
+  "tests_that_cannot_fail": [
+    "test_layout_reports_real_unclamped_positions (restates `_place`)",
+    "the ink-inside and 200-word bbox checks cannot fail on stroke overflow, because stroke is not measured",
+    "the 'mode' branch in test_invalid_options_raise_value_error is only reached for two of the 14 cases"
+  ],
+  "notes": "I reviewed from the diff only and did not run the code. I could not verify the claim that `_fit()` never lets ink leave the canvas, but it should be re-measured including stroke. The E1 deviations (weight_mode ignored under fixed size_mode, undocumented `seed`) are acceptable and documented. No E8 or E9 leaks are visible in the diff."
+}

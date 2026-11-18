@@ -291,6 +291,25 @@ their own files. Nothing is carried over.
   sa propre carte, pas un ajout silencieux.
 - impact: aucun code hors L19 ; à reconsidérer à H13 (Lattice Glitch vit de ces accidents).
 
+### DEV-217
+- class: E2 (budget de revue épuisé) + E3 (correctif borné test-only) | task: L9 | contract: 0.1.0
+  | status: open (décision orchestrateur : 3e cycle borné, PASS exigé sinon ESCALATE humain)
+- raised by: orchestrateur | date: 2026-11-18
+- facts: L9 a consommé ses 2 cycles de revue (pass 1 FIX : clamp de `_place` rendant l'accept 3
+  intestable, `weight_mode` silencieux ; pass 2 FIX : 1 major + 4 minors, DONT AUCUN ne porte sur le
+  code produit — le major est que le helper de test `_ink_bbox` mesure l'encre avec
+  `font.getbbox(char, anchor='ls')` en IGNORANT `glyph.stroke`, alors que le mode `variable` épaissit
+  le trait de `round(ink * max(1, size // 8))` px ; l'accept « aucun glyphe hors du canevas » ne peut
+  donc pas détecter un débordement dû au trait. Mesure indépendante de l'orchestrateur, en utilisant
+  `_mask` (qui inclut le padding de trait) : 0 glyphe hors canevas sur 1008 glyphes × 6 combinaisons
+  (cellules 8×16, 6×12, 3×5 × size_mode fixed/variable), dépassement max 0,0 px. Le code est donc
+  correct ; c'est la preuve qui manque.
+- assumption / proposal: 3e cycle borné TEST-ONLY (attempt 4), sur hy4-flash-free, avec interdiction
+  de modifier le comportement de rendu. Si le PASS n'est pas obtenu : ESCALATE humain. `r` reste à 2
+  dans la table (compteur officiel).
+- decision: orchestrateur | date: 2026-11-18
+- impact: un cycle supplémentaire pour L9 ; rien d'autre.
+
 ## Amendments (registre)
 
 Facts discovered during a task that the contract could not have known, recorded here rather than
