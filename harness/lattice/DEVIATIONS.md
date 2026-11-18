@@ -273,6 +273,24 @@ their own files. Nothing is carried over.
   (jugement des rampes sur images réelles) — réversible en une ligne.
 - status: applied (PATCH §9) — arbitrage visuel final à H12
 
+### DEV-216
+- class: E1 (silence du contrat sur la persistance des verrous) | task: L19 | contract: 0.1.0
+  | status: accepted
+- raised by: relecteur pass 1 (Sonnet) | date: 2026-11-18
+- facts: `SeedController.lock()` fige le flux d'un module à l'instant de l'appel ; §6 ne sérialise
+  que `seed`, donc un preset sauvegardé après verrouillage puis rechargé perd la disposition
+  verrouillée (le relecteur relève que §18 promet « a good accident is reproducible »). Second
+  point : `SeedController`/`render_effects` n'est pas le chemin de `pipeline.render`, qui garde
+  `default_rng(seed + offset + i)` (bit-exact, sous G7).
+- assumption / proposal: (1) les verrous sont **session-only** en 0.1 — un preset transporte la
+  graine, pas l'état de verrouillage ; (2) `pipeline.py` n'est pas modifié : son seeding est
+  bit-exact et sous G7, et il n'est pas dans les `owns` de L19 — `render_effects` est le chemin
+  documenté pour les effets verrouillés.
+- decision: accepted | by: orchestrateur | date: 2026-11-18 — le contrat §6 reste inchangé ; si H13
+  montre le besoin de presets verrouillés, ce sera un MINOR de contrat (clé `masks`/`locks`) avec
+  sa propre carte, pas un ajout silencieux.
+- impact: aucun code hors L19 ; à reconsidérer à H13 (Lattice Glitch vit de ces accidents).
+
 ## Amendments (registre)
 
 Facts discovered during a task that the contract could not have known, recorded here rather than

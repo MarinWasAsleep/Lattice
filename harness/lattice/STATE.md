@@ -6,7 +6,7 @@
 contract_version: 0.1.0
 base_contracts: DitherCraft 1.0.0 (§1–§11) and 1.1.0 (§12–§25), frozen, in force for the dithering app
 max_concurrency: 4
-last_update: 2026-11-16
+last_update: 2026-11-18
 
 ## Environment
 
@@ -141,17 +141,17 @@ last_update: 2026-11-16
 | L6 | 1 | done | 0 | 2 | 45c42a2 | glyph ramp — retry invariant 2 + AMD-010 (rampe perceptuelle), PASS v4-pro, 49 tests, DEV-212/213 |
 | L7 | 1 | done | 0 | 2 | d032847 | shape-matched glyphs — retry (AMD-011, comparateur densité, consomme samples), PASS Sonnet pass 2, DEV-215 |
 | L8 | 1 | done | 0 | 2 | f60129c | bitmask — retry Unicode row-major (v4-pro blocker), PASS v4-pro, 48 tests, invariants §3 tenus |
-| L9 | 1 | in_progress | 0 | 0 | | text-halftone — mistral (standard, strict) |
-| L10 | 1 | in_progress | 0 | 0 | | glyph browser + non-Latin ramps — mistral (review light) |
+| L9 | 1 | in_progress | 0 | 0 | | text-halftone — code WIP repris (534 l, aucun test) ; attempt 2 opencode-go (découpe ≤400 l + tests) |
+| L10 | 1 | in_progress | 0 | 0 | | glyph browser + non-Latin ramps — code WIP repris (413 l + ramps.json, aucun test) ; attempt 2 à dispatcher |
 | L11 | 1 | todo | 0 | 0 | | SVG export |
 | L12 | 1 | todo | 0 | 0 | | Lattice Glyph shell |
 | L13 | 2 | done | 0 | 1 | 11fe38a | feedback buffer — 2e carte hy4-flash-free : PASS strict du 1er essai (mistral-large-4, vérifié par exécution) → TIER MASSE ACTÉ |
 | L14 | 2 | done | 0 | 1 | 0b0881d | displacement — PASS mistral-large-4 (5 accepts re-vérifiés par exécution, mutation-killed) ; monoplan pilote 2 axes (lecture §13) |
 | L15 | 2 | done | 0 | 2 | f19f5cc | pixel sort — retry (mask aligné L14, tests non-tautologiques), PASS v4-pro pass 2, DEV-214 |
 | L16 | 2 | done | 0 | 1 | c896465 | channel shift — 3e carte hy4 : PASS mistral-large-4, 0 finding, vérifié par exécution |
-| L17 | 2 | in_progress | 1 | 0 | | NTSC / VHS — nous (standard, strict) — review pass 1 FIX (Sonnet : axe filtrer, ringing, head_switching, toggle, labels), retry mistral |
+| L17 | 2 | done | 2 | 2 | 87b3a5d | NTSC / VHS — PASS Sonnet pass 3 (50 tests owned) ; 4 minors : labels i18n (carte catalogue future), LABEL_NOTES mort, constant_k = brick-wall, tracking_noise jusqu'à 25 % de largeur |
 | L18 | 2 | done | 0 | 1 | (commit L18) | CRT / scanlines — PASS mistral-large-4 : pixels d'appareil vérifiés en direct, DEV-214 exact, 35 tests |
-| L19 | 2 | in_progress | 0 | 0 | | seed + masks — code livré sur disque (22 tests, 1915 verte, perturbé par le budget nous) ; review mistral-large-4 |
+| L19 | 2 | in_progress | 0 | 1 | f868db0 | seed + masks — review pass 1 FIX (Sonnet, 5 majors d'intégration : SeedController hors pipeline, verrous non sérialisés, MaskRef hors preset, 2 tests vides) ; retry attempt 2 mistral |
 | L20 | 2 | todo | 0 | 0 | | Lattice Glitch shell |
 | L21 | 3 | todo | 0 | 0 | | preset interchange + gallery |
 | L22 | 3 | todo | 0 | 0 | | acceptance in PhotoCraft and DesignCraft |
@@ -222,6 +222,21 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
   secours** ; reviews lourdes = Sonnet CLI par défaut, mistral-large-4 en secours.
 - **En vol** : L9 text-halftone (mistral), L17 attempt 3 (mistral), L10 glyph browser (mistral),
   L19 review (mistral-large-4). Prochaines implémentations → hy4/opencode-go.
+- 2026-11-18: **reprise — L17 done, commit `87b3a5d`**. `git stash apply` du WIP 17/11 : `effects/__init__.py`
+  réintègre `ntsc`, `.probe_crt.py` (sonde jetable) supprimé, ruff ramené à 0. **Relecture pass 3
+  (Sonnet thinking high, cycle 3 sous E2/D EV-210) : PASS** — les findings pass 1/2 sont vérifiés
+  corrigés (bandwidth sur l'axe des lignes, ringing à lobes négatifs, head_switching clampé,
+  `seed` + `rng` pilotent ensemble le bruit, un générateur enfant par étage). 4 minors notés :
+  labels ParamSpec réutilisant le catalogue i18n gelé (→ carte future sur le propriétaire du
+  catalogue), `LABEL_NOTES` jamais lu par le code, `constant_k` est en fait un brick-wall,
+  `tracking_noise` déplace jusqu'à 25 % de la largeur par ligne (presets VHS à surveiller à H13).
+  Gates : ruff 0, contract OK, **1904 passed / 1 skipped**.
+- 2026-11-18: **L19 review pass 1 : FIX (Sonnet)** — 5 majors, tous d'intégration, pas de maths :
+  `SeedController` n'est câblé qu'au chemin `render_effects` et pas à `pipeline.render`; les verrous
+  ne sont pas sérialisés ; `MaskRef` n'est relié ni à `preset.masks` ni à `effects[].mask`; deux
+  tests ne peuvent pas échouer (comparaison uint8 triviale ; liste d'effets codée en dur). Décision
+  orchestrateur : les verrous restent **session-only** en 0.1 (DEV-216, E1) — §6 continue de ne
+  sérialiser que `seed` ; le câblage pipeline est refusé (hors owns, seeding bit-exact sous G7).
 - **CLÔTURE DE SESSION 17/11 (point stable vérifié)** : arbre propre, HEAD `7c10e9c` poussé,
   **1854 passed / 1 skipped**, ruff clean, `tools/check_contract.py` → contract OK.
   L19 (seed + masks) livré et commité (code vérifié, relecture non faite — à reprendre).
