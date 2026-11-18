@@ -1,3 +1,10 @@
+# Reviewer prompt template — Lattice harness 0.1
+
+Placeholders in `{{ }}` are filled by the orchestrator. Everything above `{{TASK_CARD}}` is the
+stable prefix.
+
+---
+
 You are reviewing one task of the Lattice project: a family of free, open-source image-transformation
 applications sharing one engine, each running standalone and also plugging into the ArtCraft suite.
 You see the task card, the contract sections it must satisfy, the git diff, the gate results and the
@@ -59,107 +66,70 @@ OUTPUT FORMAT, nothing else:
 }
 ```
 
-CONTRACT EXCERPTS (version 0.1.0-draft)
+CONTRACT EXCERPTS (version 0.1.0)
 
-## §3 The CellRenderer contract
+## §18 Seed and masks
 
-This is the architectural bet of the project. Everything else is an implementation detail.
+**Seed.** One seed drives every random operator in a render. Reroll is a single button. Each module
+can be locked so a reroll changes the noise without losing the block layout. The seed is serialised
+into the preset, so a good accident is reproducible.
 
-```python
-@dataclass(frozen=True)
-class CellGrid:
-    cols: int
-    rows: int
-    cell_w: int
-    cell_h: int
-    index: np.ndarray      # (rows, cols) int32, palette index per cell
-    coverage: np.ndarray   # (rows, cols) float32 in [0, 1], ink coverage per cell
-    luma: np.ndarray       # (rows, cols) float32, linear luminance of the SOURCE cell
-                           # computed before quantisation (S2, decided 2026-11-16)
-    samples: np.ndarray    # (rows, cols, k) float32 in [0, 1], sub-cell luminance
-    subindex: np.ndarray | None = None  # (rows, cols, sx*sy) int32, palette index per
-                                        # sub-point, present when subgrid != (1, 1) (S3)
+**Masks.** A greyscale image, same size as the source, where 0 means no effect and 1 means full
+effect. Masks are:
+- paintable in the app (brush, gradient, luminance range),
+- importable and exportable as PNG,
+- referenced by path in the preset, or embedded as base64 when under 64 KB.
 
-@dataclass(frozen=True)
-class RenderStyle:
-    options: Mapping[str, object]   # renderer-specific, JSON-serialisable
+A global effect is a filter. A localised effect is a composition. Every glitch effect accepts a
+mask.
 
-class CellRenderer(Protocol):
-    name: str
-    def cell_aspect(self) -> float: ...
-    def subgrid(self) -> tuple[int, int]: ...  # default (1, 1); braille (2, 4), sextant (2, 3) (S3)
-    def consumes(self) -> frozenset[str]: ...  # subset of {"index", "luma", "samples"} (S2)
-    def render(self, grid: CellGrid, palette: np.ndarray, style: RenderStyle) -> Image.Image: ...
+
+
+## §6 Preset format v3
+
+One format for the whole suite. Human-readable, diffable, portable.
+
+```json
+{
+  "version": 3,
+  "app": "glyph",
+  "meta": {"name": "", "author": "", "created": ""},
+  "renderer": {"name": "glyph_ramp", "style": {}},
+  "palette": {"colors": ["#000000", "#ffffff"], "locked": false, "order": null,
+              "source": "integrated",
+              "extract": {"from": "image", "n_colors": 16, "rows": null}},
+  "pipeline": {
+    "algorithm": "floyd_steinberg", "params": {}, "color_metric": "srgb",
+    "pixel_size": 1, "max_side": null, "brightness": 0.0, "contrast": 0.0,
+    "gamma": 1.0, "saturation": 0.0, "pre_blur": 0.0, "auto_levels": false
+  },
+  "effects": [{"name": "scanlines", "params": {}, "enabled": true, "stage": "post", "mask": null}],
+  "masks": {"flip": {"kind": "v_flip"}},
+  "fonts": {"ramp": {"family": "DejaVu Sans Mono", "style": "", "fallback": ["mono"]}},
+  "output": {"scale": 1, "width": null, "dpi": null},
+  "seed": 0
+}
 ```
 
-Registry: `register_renderer`, `get_renderer(name)`, `list_renderers()`.
+**v3 completeness (S4, decided 2026-11-16).** The v3 format keeps every capability the v1/v2
+formats had: `effects[].stage: "pre" | "post"` (default `post`), `palette.source` +
+`palette.extract` (how the palette of a preset was obtained — integrated, extracted from the
+image, or imported), `masks: {id: {...}}` referenced by `effects[].mask`, `fonts: {id: {family,
+style, fallback[]}}` resolved by family name then shipped fallbacks (no absolute paths), and
+`output: {scale, width?, dpi?}` feeding §17. Unknown keys remain preserved on round-trip.
 
-Normative invariants, each one a test:
+Rules:
 
-1. `render` returns an image of exactly `(cols * cell_w, rows * cell_h)` pixels.
-2. `render` is pure: identical inputs produce identical output, no module-level state.
-3. `render` does not mutate `grid` or `palette`.
-4. `cell_aspect()` returns width/height of one cell. The pipeline uses it to choose the grid so the
-   output preserves the source aspect ratio.
-5. `name` is unique across the registry and stable across versions.
-6. `style.options` round-trips through JSON without loss.
+- `from_json` accepts versions 1, 2 and 3. Versions 1 and 2 are Lattice Dither formats and map to
+  `app: "dither"`, `renderer: "pixel"`. Any other version raises `ValueError` naming it.
+- Unknown top-level keys and unknown `style` keys are **preserved** on round-trip. A preset written
+  by a newer app must survive a load/save by an older one.
+- An `app` mismatch is not an error. Any app may load any preset. If the named renderer is absent,
+  the app falls back to its default renderer and records a warning in the result.
+- `to_json` writes sorted keys, two-space indent, one trailing newline.
+- `seed` is part of the preset. Two runs of the same preset produce identical output.
 
-**Why the split.** The dithering stage decides *which palette entry* each cell receives. The
-renderer decides *how to draw that entry*: a solid square, a glyph whose density matches the
-entry's luminance, a braille bitmask, a paragraph of text. This is what lets 33 dithering
-algorithms serve three applications without being rewritten.
 
-`coverage` is derived once, in the pipeline, not by the renderer:
-
-```
-lum(c)      = 0.2126 R + 0.7152 G + 0.0722 B, computed in linear light
-coverage    = (lum(palette[index]) - lum_min) / (lum_max - lum_min)
-coverage    = 0.0 where lum_max == lum_min
-```
-
-`samples` is produced by supersampling the source cell on a `k`-point stencil. `k` is a renderer
-property: 1 for `pixel`, 6 for `glyph_shape`, 8 for braille, 6 for sextant, 4 for quadrant.
-
-**Luma — independent of the palette (S2, decided 2026-11-16).** `grid.luma` is the linear
-luminance of the source cell (step-7 pixels, computed in linear light) taken BEFORE quantisation.
-Each renderer declares what it consumes via `consumes()`; `glyph_ramp` and `glyph_shape` consume
-`luma` for ink-density ramps, so a black/white palette still uses the full glyph ramp. The L2
-"coverage is monotone" test stays; a new L2 test asserts "luma is continuous and independent of
-the palette".
-
-**Sub-point dithering (S3, decided 2026-11-16).** A renderer may declare `subgrid = (sx, sy)`
-(braille 2×4, sextant 2×3). The pipeline then runs the chosen algorithm at resolution
-`(rows·sy, cols·sx)` and hands the renderer `grid.subindex: (rows, cols, sx·sy) int32`. The
-bitmask and text renderers only pack sub-points into codepoints; the single boolean `dither`
-option is removed. New L2 test: sub-point coverage is monotone at the subgrid resolution.
-
-## §5 Pipeline
-
-Inherits Lattice Dither §13 (pre-dither conditioning) and its render order, with step 8 replaced by
-the renderer call. The normative order becomes:
-
-1. If `max_side`: area-downscale so `max(H, W) <= max_side`. Call this shape S.
-2. Enabled pre-effects in order; effect i gets `default_rng(seed + i)`.
-3. `auto_levels` if enabled.
-4. `adjust(brightness, contrast, gamma, saturation)`.
-5. `pre_blur` if > 0 (separable Gaussian, sigma = `pre_blur / 3`).
-6. Compute grid geometry from `renderer.cell_aspect()` and `pixel_size`.
-7. Downscale to the grid.
-8. `resolve_palette` on the image from step 7.
-9. Algorithm (params through `resolve_params`) → `index`.
-10. Derive `coverage` and `samples` per §3.
-11. `renderer.render(grid, palette, style)`.
-12. Enabled post-effects in order; effect j gets `default_rng(seed + 1000 + j)`.
-
-Steps 3, 4 and 5 must be no-ops at their defaults. Step 11 replaces the 1.0 `apply_palette` +
-`upscale_nearest` pair; `PixelRenderer` reproduces that pair exactly.
-
-**Continuous mode (S1, decided 2026-11-16).** The pipeline may run without quantisation:
-`algorithm: null` and `palette: null` are legal. In that mode steps 8 and 9 are skipped,
-`grid.luma`/`samples` are derived from the step-7 cells, the renderer must be `pixel` at
-cell 1×1, and `grid.index` carries nearest-source pixels (a pass-through). Lattice Glitch is an
-effect-graph app that consumes the core (seed, masks, presets, bridge, CLI) without depending on
-the CellRenderer quantisation chain.
 
 TASK CARD
 
@@ -179,20 +149,21 @@ TASK CARD
   - a mask over 64 KB is referenced by path, not embedded.
   - the seed is serialised into the preset and restored on load.
 
-GATE RESULTS (L19, attempt 1 — deepseek-v4-flash-0731, code livré puis interrompu par la
-coupure du budget nous AVANT son rapport final ; l'orchestrateur a vérifié le disque : fichiers
-présents/complets, aucun import app)
-- Owned tests : **22 passed** (0,40 s). Suite complète : **1915 passed, 1 skipped**.
-- seed.py (~93 L) : SeedController splitmix64 — streams par module depuis la graine globale,
-  locks par module. mask.py (~164 L) : blending 0→1, ValueError sur shape mismatch des masques.
-- Le rapport du codeur (notes/E1) est PERDU (coupure) — le relecteur doit évaluer lui-même :
-  labels ParamSpec (§18 ne spécifie rien ?), transport/contour du schéma masque (DEV-214 :
-  keyword-only + ValueError), sérialisation du seed dans le preset, masque path-vs-base64 < 64 Ko.
 
-DIFF (arbre de travail vs HEAD — seed.py, mask.py, tests)
+
+GATE RESULTS (L19, attempt 1 — code déjà commité, revue jamais faite à la session précédente)
+- Owned tests : 22 passed (tests/test_seed.py + tests/test_mask.py).
+- Suite complète au HEAD 8058d2e : 1904 passed, 1 skipped (la suite compte aussi les cartes livrées après L19).
+- G1 ruff : all checks passed. G3 check_contract : OK.
+- Le correctif 19f68e2 (isolation test_seed) est dû à l'arrivée de ntsc dans effects/__init__ pendant
+  L17 : il change l'import d'un test, pas le comportement testé. Vérifie qu'il ne masque pas un
+  couplage réel (le test doit rester significatif).
+
+DIFF (lattice_core/seed.py + lattice_core/mask.py + leurs deux fichiers de tests, vs HEAD avant la carte)
+
 diff --git a/lattice_core/mask.py b/lattice_core/mask.py
 new file mode 100644
-index 0000000..89bb54f
+index 0000000..8378544
 --- /dev/null
 +++ b/lattice_core/mask.py
 @@ -0,0 +1,165 @@
@@ -230,7 +201,7 @@ index 0000000..89bb54f
 +    data: str | None = None
 +
 +    @classmethod
-+    def from_mask(cls, mask: Image, ref_id: str, *, path: str | None = None) -> "MaskRef":
++    def from_mask(cls, mask: Image, ref_id: str, *, path: str | None = None) -> MaskRef:
 +        """Build a reference for mask, embedding when possible and requiring a path otherwise."""
 +        plane = _plane(mask)
 +        payload = to_png(plane)
@@ -244,7 +215,7 @@ index 0000000..89bb54f
 +        return cls(ref_id, plane.shape[1], plane.shape[0], path=str(path))
 +
 +    @classmethod
-+    def from_path(cls, path: str | Path, ref_id: str) -> "MaskRef":
++    def from_path(cls, path: str | Path, ref_id: str) -> MaskRef:
 +        """Load the dimensions of an exported PNG mask without decoding its values."""
 +        plane = import_png(path)
 +        return cls(ref_id, plane.shape[1], plane.shape[0], path=str(path))
@@ -263,7 +234,7 @@ index 0000000..89bb54f
 +        return item
 +
 +    @classmethod
-+    def from_dict(cls, item: dict) -> "MaskRef":
++    def from_dict(cls, item: dict) -> MaskRef:
 +        """Rebuild a reference from its JSON dict, rejecting an entry with both keys."""
 +        ref = cls(str(item["id"]), _int(item, "width"), _int(item, "height"),
 +                  path=_str_or_none(item.get("path")),
@@ -361,10 +332,9 @@ index 0000000..89bb54f
 +    one = np.float32(1.0)
 +    out = (one - weight) * source + weight * effect
 +    return np.ascontiguousarray(np.clip(out, 0.0, 1.0), dtype=np.float32)
-\ No newline at end of file
 diff --git a/lattice_core/seed.py b/lattice_core/seed.py
 new file mode 100644
-index 0000000..b177da4
+index 0000000..2d82e8d
 --- /dev/null
 +++ b/lattice_core/seed.py
 @@ -0,0 +1,94 @@
@@ -462,10 +432,9 @@ index 0000000..b177da4
 +        )
 +        stages.append(out)
 +    return stages
-\ No newline at end of file
 diff --git a/tests/test_mask.py b/tests/test_mask.py
 new file mode 100644
-index 0000000..cddb3d4
+index 0000000..cc04a48
 --- /dev/null
 +++ b/tests/test_mask.py
 @@ -0,0 +1,155 @@
@@ -624,10 +593,9 @@ index 0000000..cddb3d4
 +    with pytest.raises(ValueError):
 +        MaskRef.from_dict({"id": "a", "width": 4, "height": 4,
 +                           "path": "p", "data": "d"})
-\ No newline at end of file
 diff --git a/tests/test_seed.py b/tests/test_seed.py
 new file mode 100644
-index 0000000..73694cc
+index 0000000..600dffe
 --- /dev/null
 +++ b/tests/test_seed.py
 @@ -0,0 +1,116 @@
@@ -636,11 +604,10 @@ index 0000000..73694cc
 +from __future__ import annotations
 +
 +import numpy as np
-+import pytest
 +
-+from lattice_core.registry import get_effect
-+from lattice_core.preset import Preset, from_json, from_pipeline_spec, to_json, to_pipeline_spec
++import lattice_core.effects  # noqa: F401 — enregistre les effets (registre peuplé à l'import)
 +from lattice_core.pipeline import EffectInstance, PipelineSpec, render
++from lattice_core.preset import Preset, from_json, from_pipeline_spec, to_json, to_pipeline_spec
 +from lattice_core.seed import SeedController, module_seed, render_effects
 +
 +_JPEG = {"quality": 40, "corruptions": 5}
@@ -675,8 +642,9 @@ index 0000000..73694cc
 +    """Running render_effects with the same controller twice gives identical stages."""
 +    img = np.clip(rng.random((32, 32, 3), dtype=np.float32), 0.0, 1.0).astype(np.float32)
 +    controller = SeedController(seed=99)
-+    first = render_effects(img, ["jpeg_glitch", "ntsc"], controller, params={"jpeg_glitch": _JPEG})
-+    second = render_effects(img, ["jpeg_glitch", "ntsc"], controller,
++    first = render_effects(img, ["jpeg_glitch", "gaussian_blur"], controller,
++                           params={"jpeg_glitch": _JPEG})
++    second = render_effects(img, ["jpeg_glitch", "gaussian_blur"], controller,
 +                            params={"jpeg_glitch": _JPEG})
 +    for a, b in zip(first, second, strict=True):
 +        assert np.array_equal(a, b)
@@ -747,4 +715,10 @@ index 0000000..73694cc
 +def test_missing_seed_defaults_to_zero() -> None:
 +    """An absent seed field loads as 0, never crashing."""
 +    assert from_json('{"version": 3, "meta": {}}').seed == 0
-\ No newline at end of file
+
+
+CODER NOTES AND DEVIATIONS
+- Commité en f868db0 avec 22 tests owned ; suite 1854 verte au moment de la clôture.
+- Déviation possible non consignée : le contrat §18 dit « each module can be locked » — vérifie que le
+  verrouillage est par module et que le preset conserve les verrous, pas seulement la graine.
+- Aucune autre déviation déclarée.
