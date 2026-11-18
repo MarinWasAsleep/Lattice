@@ -22,6 +22,7 @@ include = ["lattice_core*"]
 
 [tool.setuptools.package-data]
 "lattice_core.palettes" = ["data/*"]
+"lattice_core" = ["data/*.json"]
 
 [tool.ruff]
 line-length = 100
