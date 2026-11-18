@@ -1,0 +1,68 @@
+{
+  "app": "glitch",
+  "effects": [
+    {
+      "enabled": true,
+      "mask": null,
+      "name": "pixel_sort",
+      "params": {
+        "brightness": 0.45,
+        "direction": "rows",
+        "key": "luma"
+      },
+      "stage": "post"
+    },
+    {
+      "enabled": true,
+      "mask": null,
+      "name": "feedback",
+      "params": {
+        "amount": 3.0,
+        "blend": "screen",
+        "decay": 0.6,
+        "iterations": 2,
+        "transform": "translate"
+      },
+      "stage": "post"
+    }
+  ],
+  "fonts": {},
+  "masks": {},
+  "meta": {
+    "author": "Lattice",
+    "created": "2026-11-19",
+    "description": "Row luma sort feeding a translated feedback echo.",
+    "name": "glitch_03_sort_echo",
+    "tags": [
+      "glitch",
+      "sort",
+      "feedback"
+    ],
+    "thumbnail": ""
+  },
+  "output": {
+    "dpi": null,
+    "scale": 1,
+    "width": null
+  },
+  "palette": null,
+  "pipeline": {
+    "algorithm": null,
+    "auto_levels": false,
+    "brightness": 0.0,
+    "color_metric": "srgb",
+    "contrast": 0.0,
+    "gamma": 1.0,
+    "max_side": null,
+    "params": {},
+    "pixel_size": 1,
+    "pre_blur": 0.0,
+    "saturation": 0.0
+  },
+  "renderer": {
+    "name": "pixel",
+    "style": {}
+  },
+  "seed": 9,
+  "version": 3
+}

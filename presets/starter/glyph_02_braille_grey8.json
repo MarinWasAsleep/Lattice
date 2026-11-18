@@ -1,0 +1,54 @@
+{
+  "app": "glyph",
+  "effects": [],
+  "fonts": {},
+  "masks": {},
+  "meta": {
+    "author": "Lattice",
+    "created": "2026-11-19",
+    "description": "Braille cells on 8 greys, Bayer 4 ordering.",
+    "name": "glyph_02_braille_grey8",
+    "tags": [
+      "glyph",
+      "braille",
+      "grey"
+    ],
+    "thumbnail": ""
+  },
+  "output": {
+    "dpi": null,
+    "scale": 1,
+    "width": null
+  },
+  "palette": {
+    "colors": [],
+    "extract": {
+      "from": "image",
+      "n_colors": 8,
+      "rows": null
+    },
+    "locked": false,
+    "name": "grey_8",
+    "order": null,
+    "source": "integrated"
+  },
+  "pipeline": {
+    "algorithm": "bayer_4",
+    "auto_levels": false,
+    "brightness": 0.0,
+    "color_metric": "srgb",
+    "contrast": 0.0,
+    "gamma": 1.0,
+    "max_side": null,
+    "params": {},
+    "pixel_size": 8,
+    "pre_blur": 0.0,
+    "saturation": 0.0
+  },
+  "renderer": {
+    "name": "braille",
+    "style": {}
+  },
+  "seed": 0,
+  "version": 3
+}

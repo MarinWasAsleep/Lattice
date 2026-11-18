@@ -1,0 +1,65 @@
+{
+  "app": "dither",
+  "effects": [
+    {
+      "enabled": true,
+      "mask": null,
+      "name": "sharpen",
+      "params": {
+        "amount": 0.6,
+        "radius": 1.5
+      },
+      "stage": "post"
+    }
+  ],
+  "fonts": {},
+  "masks": {},
+  "meta": {
+    "author": "Lattice",
+    "created": "2026-11-19",
+    "description": "Atkinson on 16 greys with a light sharpen finish.",
+    "name": "dither_04_grey16_atkinson",
+    "tags": [
+      "dither",
+      "grey",
+      "error_diffusion"
+    ],
+    "thumbnail": ""
+  },
+  "output": {
+    "dpi": null,
+    "scale": 1,
+    "width": null
+  },
+  "palette": {
+    "colors": [],
+    "extract": {
+      "from": "image",
+      "n_colors": 8,
+      "rows": null
+    },
+    "locked": false,
+    "name": "grey_16",
+    "order": null,
+    "source": "integrated"
+  },
+  "pipeline": {
+    "algorithm": "atkinson",
+    "auto_levels": false,
+    "brightness": 0.0,
+    "color_metric": "srgb",
+    "contrast": 0.0,
+    "gamma": 1.0,
+    "max_side": null,
+    "params": {},
+    "pixel_size": 2,
+    "pre_blur": 0.0,
+    "saturation": 0.0
+  },
+  "renderer": {
+    "name": "pixel",
+    "style": {}
+  },
+  "seed": 3,
+  "version": 3
+}
