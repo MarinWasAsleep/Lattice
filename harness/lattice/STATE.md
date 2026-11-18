@@ -143,7 +143,7 @@ last_update: 2026-11-18
 | L8 | 1 | done | 0 | 2 | f60129c | bitmask — retry Unicode row-major (v4-pro blocker), PASS v4-pro, 48 tests, invariants §3 tenus |
 | L9 | 1 | in_progress | 0 | 0 | | text-halftone — code WIP repris (534 l, aucun test) ; attempt 2 opencode-go (découpe ≤400 l + tests) |
 | L10 | 1 | done | 0 | 3 | 7f2312f | glyph browser + ramps.json — pass 1 FIX (5 défauts de code), pass 2 FIX test-only (2 majors), pass 3 **PASS** ; 30 tests ; E1 sur le buffer QImage (UB, non testable déterministiquement) |
-| L11 | 1 | todo | 0 | 0 | | SVG export |
+| L11 | 1 | done | 0 | 1 | 4d03c55 | SVG + export texte (txt/ansi/html) depuis `layout()` — PASS Sonnet pass 1 ; 51 tests ; 3 E1 acceptées (blanc → `·`, dégradation en blocs, `text` refuse l'export texte) ; 5 minors (privés importés entre modules, rects de bord hors grille quand le pas ne divise pas, `·` aussi en ansi/html, `_token` ne gère pas l'espace interne, 2 tests de budget mous) |
 | L12 | 1 | todo | 0 | 0 | | Lattice Glyph shell |
 | L13 | 2 | done | 0 | 1 | 11fe38a | feedback buffer — 2e carte hy4-flash-free : PASS strict du 1er essai (mistral-large-4, vérifié par exécution) → TIER MASSE ACTÉ |
 | L14 | 2 | done | 0 | 1 | 0b0881d | displacement — PASS mistral-large-4 (5 accepts re-vérifiés par exécution, mutation-killed) ; monoplan pilote 2 axes (lecture §13) |
@@ -222,6 +222,17 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
   secours** ; reviews lourdes = Sonnet CLI par défaut, mistral-large-4 en secours.
 - **En vol** : L9 text-halftone (mistral), L17 attempt 3 (mistral), L10 glyph browser (mistral),
   L19 review (mistral-large-4). Prochaines implémentations → hy4/opencode-go.
+- 2026-11-18: **L11 done — commit `4d03c55`, PASS Sonnet pass 1** (1 seul cycle). `svg.py` (395 l) et
+  `textout.py` (149 l) implémentent §11 depuis `layout()` : `pixel` en `<rect>` fusionnés (mesuré
+  par l'orchestrateur : 2756 rects pour 4096 cellules sur du bruit 4 couleurs), glyphes en un
+  `<text>` par glyphe (256/256 vérifié), budget 8 MB avec dégradation en rectangles à l'opacité de
+  `coverage` puis en blocs coalescés, chaque étape rapportée. Export texte `txt`/`ansi`/`html`, ANSI
+  jamais dans le chemin texte. Indépendance vérifiée après import : ni PySide6 ni `lattice_dither`
+  dans `sys.modules`. **Les 3 E1 sont acceptées par la relecture** : `·` pour une cellule blanche
+  (un espace disparaîtrait au split), dégradation en blocs (c'est ce que §11 prescrit), et `text`
+  qui REFUSE l'export texte — §11 ne liste que glyph_ramp/glyph_shape/bitmask (52 placements pour
+  4608 cellules : il n'y a pas de grille à imprimer). 5 minors consignés, dont deux tests de budget
+  mous et des rects de bord qui peuvent dépasser la grille quand le pas ne la divise pas.
 - 2026-11-18: **L10 done — commit `7f2312f`, PASS Sonnet pass 3** (3 cycles de revue consommés).
   Le WIP repris cachait cinq vrais défauts, corrigés : `render_ramp_preview` renvoyait HxWx4 quand
   `fg`/`bg` valait `transparent` (réinterprété en RGB888 → couleurs et stride faux) ; `select_ramp`

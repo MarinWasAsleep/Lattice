@@ -1,0 +1,53 @@
+{
+  "verdict": "PASS",
+  "findings": [
+    {
+      "severity": "minor",
+      "file": "lattice_core/textout.py",
+      "line": 0,
+      "what": "textout.py imports the private names `_digits` and `_placements` from svg.py.",
+      "why": "Cross-module use of underscore names couples the two files to each other's internals. A rename in svg.py breaks textout.py silently.",
+      "fix": "Expose them in svg.py as public helpers (`placements`, `hex_digits`), or move them to a small shared module."
+    },
+    {
+      "severity": "minor",
+      "file": "lattice_core/svg.py",
+      "line": 0,
+      "what": "When the block step does not divide the grid, `_rects(ids[::step, ::step], ..., cell_w*step, cell_h*step)` emits edge rects wider or taller than the grid. For example, 5 columns at step 2 gives a 6-cell-wide extent.",
+      "why": "The extra area lies outside the viewBox and is clipped by the viewport. Editors that show an object's bounding box (Inkscape, Illustrator) will show rects that overflow the canvas.",
+      "fix": "Clamp the width and height of the last rect in each row and column to the grid extent."
+    },
+    {
+      "severity": "minor",
+      "file": "lattice_core/textout.py",
+      "line": 0,
+      "what": "The `·` substitute for a blank glyph is also applied to ansi and html, where cells are not space-separated. A literal space would not shift columns there.",
+      "why": "Deviation 1 is justified for txt only. In ansi and html the dot adds visible ink that the raster render does not have.",
+      "fix": "Keep the dot in txt. In ansi and html use a plain space, or a non-breaking space for the html span. Accepting the dot everywhere is also tolerable, but document it."
+    },
+    {
+      "severity": "minor",
+      "file": "lattice_core/textout.py",
+      "line": 0,
+      "what": "`_token` only collapses `\\t\\r\\n`. A glyph that contains an inner space (for example 'a b') would split into two tokens in txt.",
+      "why": "This breaks the cols*rows token invariant for a hypothetical multi-character glyph. The built-in renderers do not place such glyphs.",
+      "fix": "Collapse all whitespace in the token (`\\s+` replaced by the dot, or by a single NBSP)."
+    },
+    {
+      "severity": "minor",
+      "file": "tests/test_svg.py",
+      "line": 0,
+      "what": "`test_the_budget_warning_names_the_merge_that_was_applied` is named for an assertion it does not make. It only checks that the warning contains 'budget'. `test_a_budget_too_small_for_anything_is_reported_not_crashed` only checks that a warning exists and the root tag parses.",
+      "why": "Both would pass with a wrong warning text or a wrong degradation step.",
+      "fix": "Assert the specific degradation in the warning (`blocks` for pixel, `glyphs merged into cell rectangles` for glyphs), and for the tiny budget the 'still does not fit' message."
+    }
+  ],
+  "regression": "none. All four files are new. Nothing in lattice_core is modified, and the orchestrator reports suite 2055 passed, G1 and G3 green. I ran nothing myself; this review is read-only against the diff.",
+  "renderer_invariants": "all six hold. The exporters only read `grid` and `palette` and build strings, with no module-level state. The test `test_render_svg_does_not_mutate_its_inputs` checks purity and non-mutation. G8 is unaffected because no renderer is changed.",
+  "tests_that_cannot_fail": [
+    "test_the_budget_warning_names_the_merge_that_was_applied (only asserts 'budget' in the warning)",
+    "test_a_budget_too_small_for_anything_is_reported_not_crashed (only asserts a warning exists and the root tag parses)",
+    "test_the_export_modules_import_no_application_and_no_qt (an AST check for forbidden names, mostly vacuous but cheap and useful as a guard)"
+  ],
+  "notes": "Arbitration of the three E1 deviations:\n1. The `·` token in txt is accepted. The space-split argument holds. Findings 3 and 4 only ask to scope or harden it.\n2. Degrading glyph exports to coverage-opacity rects, then to coalesced blocks, is accepted. It matches §11 \"merge cells into rectangles and record a warning\" and every step is reported.\n3. Refusing txt/ansi/html for `text` is accepted. §11 lists only glyph_ramp, glyph_shape and bitmask for text export, so this is the correct refusal. The SVG path for `text` is also right.\nThere is no abstraction leak or host coupling. The tests depend on no external artifact; the font path in the tests is only a string. Maths and namespace conformance look correct on reading, and the orchestrator's measurements agree."
+}
