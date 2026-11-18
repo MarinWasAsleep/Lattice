@@ -1,0 +1,68 @@
+{
+  "verdict": "PASS",
+  "findings": [
+    {
+      "severity": "minor",
+      "file": "tests/test_glyph_app.py",
+      "line": 0,
+      "what": "monkeypatch.setattr('lattice_glyph.hosts.discover', ...) has no effect on the GUI path.",
+      "why": "bridge_actions does `from lattice_glyph.hosts import discover`, so the name is already bound in bridge_actions. The send_to_host test therefore calls the real discovery. It passes only because no host runs on the machine, and it would push a layer into a real PhotoCraft if one were running. No test exercises a bridge exception (BridgeError or OSError mid-call).",
+      "fix": "Patch `lattice_glyph.bridge_actions.discover`. Add a case where the fake client raises BridgeError in place_as_layer and assert the outcome (a status line, or a modal on `failed` if that is intended)."
+    },
+    {
+      "severity": "minor",
+      "file": "lattice_glyph/bridge_actions.py",
+      "line": 0,
+      "what": "push() discovers and connects before the render, so the authenticated connection sits idle during a full-resolution render.",
+      "why": "A long render can outlive the host's idle or timeout window. place_as_layer then fails with a `failed` signal, which is a modal dialog (report), for a host that was reachable.",
+      "fix": "Render rgb8 first, then discover and place. Or check for the host with a cheap discover first, render, then place."
+    },
+    {
+      "severity": "minor",
+      "file": "lattice_glyph/window.py",
+      "line": 0,
+      "what": "`failed` is still connected to the modal `report`. A host that disappears between discovery and the call produces a dialog.",
+      "why": "The absent case is now a status line, which satisfies E9. A host that vanishes mid-call is still a modal. A non-bridge exception in push (for example a RuntimeError from a renderer) is not caught in the worker slot and leaves the status stuck on 'Placing…'.",
+      "fix": "Route bridge failures to the status bar as well. Catch Exception in the worker's push and emit `failed`."
+    },
+    {
+      "severity": "minor",
+      "file": "lattice_glyph/cli.py",
+      "line": 102,
+      "what": "An unknown output suffix (`--out a.jpg`) returns exit 2 (render error). It is an invalid argument, which §8 maps to exit 1.",
+      "why": "The coder's choice is defensible but diverges from the §8 split between usage errors and render errors. format_of raises DocumentError and cli maps that to EXIT_RENDER.",
+      "fix": "Raise UsageError for the suffix case, or document the choice in the contract. Also, an explicit `--format svg --out a.png` still writes SVG bytes into a.png, because target_path keeps an existing suffix. That is the same lie format_of now refuses."
+    },
+    {
+      "severity": "minor",
+      "file": "lattice_glyph/renderer_panel.py",
+      "line": 128,
+      "what": "Loading a preset while a field is red leaves the stale red border and tooltip.",
+      "why": "_on_text_edited returns early when _loading is set, before it clears the stylesheet, so a valid loaded value keeps the 'invalid' look.",
+      "fix": "Clear the style sheet and tooltip in _load for each text widget."
+    },
+    {
+      "severity": "minor",
+      "file": "tests/test_glyph_app.py",
+      "line": 0,
+      "what": "Assertions dropped in the merge: connection_label 'photocraft: …' after check_bridge, indicator.preset_name() after load_selected, stack.currentWidget() is canvas after open, and render_full == render_rgb8.",
+      "why": "Each is small, and the accept items stay covered: G9 by CLI-versus-GUI bytes, preview by canvas.qimage, bridge status by the CLI verb. The −4 is mostly 9 functions merged into 5. The lost checks include the GUI-only assertions on connection state and indicator.",
+      "fix": "Restore the connection_label and indicator assertions (two lines)."
+    },
+    {
+      "severity": "minor",
+      "file": "lattice_glyph/options.py",
+      "line": 0,
+      "what": "The hint on glyph_ramp's fg and bg is the static COLOUR_HINT '#rrggbb or transparent', while invalid_hint says '#rrggbbaa or transparent'.",
+      "why": "Two sources of truth for the same hint, and the wording differs.",
+      "fix": "Derive both from one place."
+    }
+  ],
+  "regression": "none. The spec_from_panels deepcopy keeps every field, including a null palette and a None algorithm_id. Before, `algorithm_id or 'floyd_steinberg'` forced an algorithm onto a continuous spec; the new behaviour is the correct one and is tested. Removed dead helpers (pull_image, fetch_image, read_text, default_preset…) are not referenced elsewhere, as ruff and the green suite confirm.",
+  "renderer_invariants": "all six hold. The diff touches no renderer. The G9 test still checks every registered renderer through the shared grid_bundle and _render_frame path.",
+  "tests_that_cannot_fail": [
+    "the `lattice_glyph.hosts.discover` monkeypatch in test_shell_opens_previews_saves_and_refuses is a no-op, because bridge_actions binds the name at import. The absent-host assertion therefore depends on the real environment.",
+    "the `'lattice-glyph = ...' in pyproject.toml` text check proves the string exists, not that the entry dispatches. __main__.main does dispatch verb versus window, which I read in the source, but no test runs it."
+  ],
+  "notes": "I confirmed these without running the suite: hosts.py is the single discovery, and cli.discover_host is a pure import alias. The cli.discover_host patch works because cli looks the name up in its own globals. __main__.main dispatches to the CLI when arguments exist and to the window otherwise. The G9 parity test is non-trivial: pre and post effects, seed 42, oklab, a panel edit, and a byte comparison against the CLI on the saved preset.\nAbsent hosts are handled as status lines, with no modal. Only real bridge failures stay modal."
+}
