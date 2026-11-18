@@ -13,6 +13,7 @@ export dialog, preset indicator, empty state, bridge dot and the glyph browser.
 
 from __future__ import annotations
 
+import copy
 import logging
 from pathlib import Path
 
@@ -107,6 +108,7 @@ class MainWindow(QMainWindow):
         self.bridge.pulled.connect(self._on_pulled)
         self.bridge.pushed.connect(self._on_pushed)
         self.bridge.failed.connect(self.report)
+        self.bridge.absent.connect(self.status)
         self.bridge.progress.connect(self.status)
         self.apply_spec(preset_tools.default_spec(), announce=False)
 
@@ -204,18 +206,12 @@ class MainWindow(QMainWindow):
         return self._settings
 
     def spec_from_panels(self) -> PipelineSpec:
-        """Return the spec the panels describe, keeping the pipeline settings not shown."""
-        current = self.spec
-        spec = PipelineSpec(algorithm_id=current.algorithm_id or "floyd_steinberg",
-                            pixel_size=current.pixel_size,
-                            renderer=self.renderer_panel.current())
-        spec.algorithm_params = dict(current.algorithm_params)
+        """Return the spec the panels describe, keeping every field they do not show."""
+        spec = copy.deepcopy(self.spec)
+        spec.renderer = self.renderer_panel.current()
         spec.renderer_style = self.renderer_panel.style_options()
-        spec.palette = self.palette_panel.spec()
-        spec.color_metric = current.color_metric
-        spec.seed = current.seed
-        spec.pre_effects = list(current.pre_effects)
-        spec.post_effects = list(current.post_effects)
+        if spec.palette is not None:  # a continuous spec keeps its null palette (§3)
+            spec.palette = self.palette_panel.spec()
         return spec
 
     def on_panels_changed(self) -> None:
@@ -330,16 +326,16 @@ class MainWindow(QMainWindow):
         self.bridge.pull()
 
     def send_to_host(self) -> None:
-        """Place the current full-resolution render in the bridge host."""
+        """Place the current render in the bridge host; an absent host is a status line.
+
+        The render runs on the bridge worker through the CLI's own function (G9), so a
+        full-resolution send never freezes the window and a missing host is ``absent`` —
+        one status-bar message, never a modal dialog (§7, E9).
+        """
         if self.source is None:
             self.report(NO_SOURCE)
             return
-        try:
-            rgb8 = self.render_full(self.source, self.spec)
-        except DocumentError as exc:
-            self.report(str(exc))
-            return
-        self.bridge.push(np.ascontiguousarray(rgb8, dtype=np.uint8))
+        self.bridge.push(self.source, self.spec)
 
     def _on_pulled(self, image: object, host: str) -> None:
         """Adopt a document pulled from a host, which has no source path."""

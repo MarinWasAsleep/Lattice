@@ -19,6 +19,7 @@ dependencies = [
 ui = ["lattice-core[ui]"]
 
 [project.scripts]
+lattice-glyph = "lattice_glyph.__main__:main"
 lattice-glyph-cli = "lattice_glyph.cli:main"
 
 # The distribution lives beside the application directory, as lattice-dither does. The

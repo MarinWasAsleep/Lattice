@@ -4,11 +4,13 @@ The selector's list is ``lattice_core.cell.list_renderers()``, never a table, so
 added to the core becomes selectable here without touching this module (L12 accept). The
 option form is built from ``lattice_glyph.options``: one widget per declared option, at its
 default; a renderer this table does not name shows an honest "no option" line.
+
+A text option is committed only when its value is usable (``options.valid``): a half-typed
+colour or an empty ramp never reaches the spec nor the render worker, the previous valid
+value stays, and the field shows the hint as a tooltip and a red border (L12 FIX).
 """
 
 from __future__ import annotations
-
-from collections.abc import Callable
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
@@ -26,6 +28,8 @@ from PySide6.QtWidgets import (
 from lattice_core.cell import list_renderers
 from lattice_glyph import options as option_tools
 
+BAD_EDIT_STYLE = "QLineEdit { border: 1px solid #ff5555; }"
+
 
 class RendererPanel(QWidget):
     """Renderer selector plus the option widgets of the selected renderer."""
@@ -39,6 +43,7 @@ class RendererPanel(QWidget):
         self._loading = False
         self._renderer = ""
         self._widgets: dict[str, QWidget] = {}
+        self._values: dict[str, object] = {}
         self.selector = QComboBox(self)
         self.selector.setObjectName("renderer_selector")
         for name in list_renderers():
@@ -69,16 +74,12 @@ class RendererPanel(QWidget):
         return self._widgets.get(key)
 
     def style_options(self) -> dict:
-        """Return the style options the widgets hold, defaults already dropped."""
-        values: dict = {}
-        for key, widget in self._widgets.items():
-            if isinstance(widget, QLineEdit):
-                values[key] = widget.text()
-            elif isinstance(widget, QCheckBox):
-                values[key] = widget.isChecked()
-            elif isinstance(widget, (QSpinBox, QDoubleSpinBox)):
-                values[key] = widget.value()
-        return option_tools.clean(self._renderer, values)
+        """Return the committed style options, defaults already dropped.
+
+        Only values that were actually committed count: an invalid text still sitting in
+        its field is not in ``_values``, so the previous spec keeps rendering.
+        """
+        return option_tools.clean(self._renderer, self._values)
 
     def set_renderer(self, name: str, style: dict | None = None) -> None:
         """Select name without emitting, then load style into its widgets."""
@@ -103,6 +104,7 @@ class RendererPanel(QWidget):
     def _show(self, name: str) -> None:
         """Rebuild the option form for name, every widget at its default."""
         self._renderer = name
+        self._values = {}
         while self.form.count():
             item = self.form.takeAt(0)
             widget = item.widget() if item is not None else None
@@ -116,10 +118,30 @@ class RendererPanel(QWidget):
             if spec.hint:
                 label.setToolTip(spec.hint)
             self.form.addRow(label, widget)
-        for widget in self._widgets.values():
-            _connect(widget, self._emit_changed)
+            _connect(spec, widget, self)
         if not self._widgets:
             self.form.addRow(QLabel("This renderer has no option.", self.host))
+
+    def _on_text_edited(self, spec: option_tools.OptionSpec, widget: QLineEdit,
+                        text: str) -> None:
+        """Commit one text edit only when it is usable; otherwise show the hint."""
+        if self._loading:
+            return
+        if not option_tools.valid(self._renderer, spec, text):
+            widget.setStyleSheet(BAD_EDIT_STYLE)
+            widget.setToolTip(option_tools.invalid_hint(self._renderer, spec))
+            return
+        widget.setStyleSheet("")
+        widget.setToolTip("")
+        self._values[spec.key] = text
+        self._emit_changed()
+
+    def _on_edit(self, key: str, value: object) -> None:
+        """Record one valid edit of a non-text widget and announce it."""
+        if self._loading:
+            return
+        self._values[key] = value
+        self._emit_changed()
 
     def _emit_changed(self) -> None:
         """Announce one user edit of an option, unless the panel is being loaded."""
@@ -128,6 +150,7 @@ class RendererPanel(QWidget):
 
     def _load(self, style: dict) -> None:
         """Write style into the widgets, leaving every absent key at its default."""
+        self._values = dict(style)
         for spec in option_tools.specs_for(self._renderer):
             widget = self._widgets.get(spec.key)
             if widget is None:
@@ -179,13 +202,17 @@ def _widget_for(spec: option_tools.OptionSpec, parent: QWidget) -> QWidget:
     return edit
 
 
-def _connect(widget: QWidget, slot: Callable[[], None]) -> None:
-    """Connect the change signal the widget actually has to slot."""
+def _connect(spec: option_tools.OptionSpec, widget: QWidget, panel: RendererPanel) -> None:
+    """Connect the change signal of widget so every valid edit is committed."""
     if isinstance(widget, QLineEdit):
-        widget.textChanged.connect(lambda _text: slot())
+        widget.textChanged.connect(
+            lambda text, w=widget: panel._on_text_edited(spec, w, text)
+        )
     elif isinstance(widget, QCheckBox):
-        widget.toggled.connect(lambda _state: slot())
+        widget.toggled.connect(lambda checked: panel._on_edit(spec.key, bool(checked)))
     elif isinstance(widget, QComboBox):
-        widget.currentIndexChanged.connect(lambda _index: slot())
+        widget.currentIndexChanged.connect(
+            lambda: panel._on_edit(spec.key, widget.currentData())
+        )
     elif isinstance(widget, (QSpinBox, QDoubleSpinBox)):
-        widget.valueChanged.connect(lambda _value: slot())
+        widget.valueChanged.connect(lambda value: panel._on_edit(spec.key, value))

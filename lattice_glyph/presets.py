@@ -22,7 +22,6 @@ from lattice_core.preset import (
     to_json,
     to_pipeline_spec,
 )
-from lattice_core.preset import from_json as preset_from_json
 from lattice_core.presets import list_presets
 from lattice_core.renderers import list_renderers
 
@@ -105,11 +104,6 @@ def default_spec() -> PipelineSpec:
     return spec
 
 
-def default_preset() -> Preset:
-    """Return the v3 preset of a fresh document, tagged with this application's context."""
-    return to_preset(default_spec())
-
-
 def to_preset(spec: PipelineSpec, name: str = "") -> Preset:
     """Return the v3 preset of spec, its renderer kept, tagged ``app: glyph``."""
     preset = from_pipeline_spec(spec)
@@ -127,16 +121,6 @@ def spec_of(preset: Preset) -> PipelineSpec:
 def read_preset(path: str | Path) -> Preset:
     """Read and parse one preset in this application's context."""
     return load_preset(path, app=APP_CONTEXT)
-
-
-def read_text(text: str) -> Preset:
-    """Parse one preset document in this application's context."""
-    return preset_from_json(text, app=APP_CONTEXT)
-
-
-def spec_from_text(text: str) -> PipelineSpec:
-    """Parse a preset document straight into its pipeline spec."""
-    return spec_of(read_text(text))
 
 
 def describe(preset: Preset) -> dict:
@@ -212,15 +196,12 @@ __all__ = [
     "SHIPPED_PRESET_DIR",
     "app_data_dir",
     "available",
-    "default_preset",
     "default_spec",
     "describe",
     "read_preset",
-    "read_text",
     "save_preset",
     "save_spec",
     "search_dirs",
-    "spec_from_text",
     "spec_of",
     "to_preset",
     "user_preset_dir",

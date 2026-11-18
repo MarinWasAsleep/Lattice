@@ -17,7 +17,6 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QToolBar
 if TYPE_CHECKING:
     from lattice_glyph.window import MainWindow
 
-Action = tuple[str, str, Callable[..., None]]
 MODES: tuple[tuple[str, str, str], ...] = (
     ("mode_before", "Before", "before"),
     ("mode_after", "After", "after"),

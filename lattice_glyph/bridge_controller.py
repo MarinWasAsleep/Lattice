@@ -1,8 +1,8 @@
 """Bridge controller of the Glyph shell: host work on its own thread (§7, E9).
 
 The window never talks to a host on the GUI thread, and a host that is not running is a
-normal answer reported through ``failed``, never an exception. The controller is opt-in:
-without it, the shell is a complete standalone application.
+normal answer reported through ``absent`` (a status-bar line), never a dialog. The
+controller is opt-in: without it, the shell is a complete standalone application.
 """
 
 from __future__ import annotations
@@ -11,9 +11,8 @@ import logging
 
 from PySide6.QtCore import QObject, QThread, Signal
 
-from lattice_core import color
-from lattice_core.bridge import ArtCraftClient, BridgeError
-from lattice_core.types import RGB8
+from lattice_core.pipeline import PipelineSpec
+from lattice_core.types import Image
 from lattice_glyph.bridge_actions import DEFAULT_HOST, BridgeWorker
 
 LOGGER = logging.getLogger(__name__)
@@ -28,9 +27,10 @@ class BridgeController(QObject):
     pulled = Signal(object, str)
     pushed = Signal(int)
     failed = Signal(str)
+    absent = Signal(str)
     progress = Signal(str)
     pull_request = Signal(str)
-    push_request = Signal(str, object, str)
+    push_request = Signal(str, object, object, str)
 
     def __init__(self, parent: QObject | None = None, host: str = DEFAULT_HOST) -> None:
         """Create the helper thread and its worker, then start it."""
@@ -46,6 +46,7 @@ class BridgeController(QObject):
         worker.pulled.connect(self.pulled)
         worker.pushed.connect(self.pushed)
         worker.failed.connect(self.failed)
+        worker.absent.connect(self.absent)
         worker.progress.connect(self.progress)
         thread.start()
 
@@ -53,9 +54,9 @@ class BridgeController(QObject):
         """Ask the worker to read the active document of the host."""
         self.pull_request.emit(self.host)
 
-    def push(self, rgb8: RGB8, name: str = LAYER_NAME) -> None:
-        """Ask the worker to place rgb8 in the host as a layer called name."""
-        self.push_request.emit(self.host, rgb8, name)
+    def push(self, image: Image, spec: PipelineSpec, name: str = LAYER_NAME) -> None:
+        """Ask the worker to render image with spec and place it in the host as a layer."""
+        self.push_request.emit(self.host, image, spec, name)
 
     def stop(self) -> None:
         """Stop the helper thread; safe to call more than once.
@@ -73,20 +74,4 @@ class BridgeController(QObject):
         self.thread = self.worker = None
 
 
-def fetch_image(host: str = DEFAULT_HOST):
-    """Synchronously read a host document, returning None when the host is absent."""
-    try:
-        client = ArtCraftClient.discover(host)  # type: ignore[arg-type]
-    except (BridgeError, OSError, ValueError):
-        return None
-    if client is None:
-        return None
-    try:
-        return color.to_float(client.render_document())
-    except (BridgeError, OSError, ValueError):
-        return None
-    finally:
-        client.disconnect()
-
-
-__all__ = ["BridgeController", "LAYER_NAME", "fetch_image"]
+__all__ = ["BridgeController", "LAYER_NAME"]

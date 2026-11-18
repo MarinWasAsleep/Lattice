@@ -19,7 +19,7 @@ import lattice_core.dither  # noqa: F401  (importing the package registers every
 import lattice_core.effects  # noqa: F401  (importing the package registers every effect)
 import lattice_core.renderers  # noqa: F401  (importing the package registers every renderer)
 from lattice_core import color
-from lattice_core.bridge import HOSTS, ArtCraftClient, BridgeError
+from lattice_core.bridge import HOSTS, BridgeError
 from lattice_core.pipeline import PipelineSpec
 from lattice_glyph import presets as preset_tools
 from lattice_glyph.document import (
@@ -32,6 +32,7 @@ from lattice_glyph.document import (
     target_path,
     write_render,
 )
+from lattice_glyph.hosts import discover as discover_host
 
 EXIT_OK = 0
 EXIT_USAGE = 1
@@ -49,9 +50,18 @@ class UsageError(Exception):
 class _Parser(argparse.ArgumentParser):
     """Argument parser reporting usage errors with exit code 1, not argparse's 2."""
 
+    _argv: list[str] | None = None
+
     def error(self, message: str) -> NoReturn:
-        """Print the usage line and exit with the §8 usage code."""
+        """Print the usage line and exit with the §8 usage code.
+
+        With ``--json`` on the command line the machine result is still printed on
+        stdout, so a machine caller never receives an empty answer (§8).
+        """
         self.print_usage(sys.stderr)
+        if self._argv is not None and "--json" in self._argv:
+            print(json.dumps({"ok": False, "errors": [message]},
+                             indent=2, ensure_ascii=False, sort_keys=True))
         self.exit(EXIT_USAGE, f"{self.prog}: error: {message}\n")
 
 
@@ -138,9 +148,7 @@ def _cmd_batch(args: argparse.Namespace) -> int:
         source = Path(args.source)
         files = _batch_inputs(source, _extensions(args.ext), args.recursive)
     except UsageError as exc:
-        _note(str(exc))
-        _emit(args, {"ok": False, "files": [], "errors": [str(exc)]})
-        return EXIT_USAGE
+        return _failure(args, str(exc), EXIT_USAGE)
     fmt = args.format or "png"
     written: list[str] = []
     errors: list[str] = []
@@ -208,14 +216,6 @@ def _cmd_presets_validate(args: argparse.Namespace) -> int:
     return EXIT_OK if payload["ok"] else EXIT_USAGE
 
 
-def discover_host(host: str) -> ArtCraftClient | None:
-    """Return a live client for host, or None for any host that is not running (§7)."""
-    try:
-        return ArtCraftClient.discover(host)  # type: ignore[arg-type]
-    except (BridgeError, OSError, ValueError):
-        return None
-
-
 def host_report(hosts: tuple[str, ...] | list[str]) -> list[dict]:
     """Probe every host and return one {host, connected} record per host."""
     report: list[dict] = []
@@ -253,6 +253,8 @@ def _cmd_bridge_pull(args: argparse.Namespace) -> int:
         return _failure(args, str(exc), EXIT_RENDER)
     except (BridgeError, OSError) as exc:
         return _failure(args, f"{args.host}: {exc}", EXIT_BRIDGE)
+    finally:
+        client.disconnect()
     _note(f"wrote {export.path} ({export.size} bytes)")
     _emit(args, _export_payload(export))
     return EXIT_OK
@@ -272,6 +274,8 @@ def _cmd_bridge_push(args: argparse.Namespace) -> int:
         return _failure(args, str(exc), EXIT_RENDER)
     except (BridgeError, OSError) as exc:
         return _failure(args, f"{args.host}: {exc}", EXIT_BRIDGE)
+    finally:
+        client.disconnect()
     _note(f"placed object {object_id} in {args.host}")
     _emit(args, {"ok": True, "host": args.host, "object_id": object_id, "errors": []})
     return EXIT_OK
@@ -344,6 +348,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     """Run the command line and return its exit code; no traceback ever escapes."""
+    _Parser._argv = list(argv) if argv is not None else sys.argv[1:]
     parser = _build_parser()
     try:
         args = parser.parse_args(argv)
@@ -352,17 +357,13 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return int(args.handler(args))
     except UsageError as exc:
-        _note(str(exc))
-        return EXIT_USAGE
+        return _failure(args, str(exc), EXIT_USAGE)
     except DocumentError as exc:
-        _note(str(exc))
-        return EXIT_RENDER
+        return _failure(args, str(exc), EXIT_RENDER)
     except (BridgeError, OSError) as exc:
-        _note(f"{args.command} failed: {exc}")
-        return EXIT_BRIDGE
+        return _failure(args, f"{args.command} failed: {exc}", EXIT_BRIDGE)
     except Exception as exc:  # noqa: BLE001 - §8 forbids a traceback on stderr
-        _note(f"{args.command} failed: {exc}")
-        return EXIT_RENDER
+        return _failure(args, f"{args.command} failed: {exc}", EXIT_RENDER)
 
 
 if __name__ == "__main__":

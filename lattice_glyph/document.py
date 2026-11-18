@@ -186,8 +186,18 @@ def write_render(image: Image, spec: PipelineSpec, path: str | Path, fmt: str = 
 
 
 def format_of(path: str | Path) -> str:
-    """Return the export format named by path's suffix, png when the suffix is unknown."""
+    """Return the export format named by path's suffix; a suffix outside FORMATS raises.
+
+    A bare path (no suffix) still defaults to png, but a named suffix is a contract:
+    writing PNG bytes into ``photo.jpg`` would lie about the file, so the caller hears
+    a ``DocumentError`` naming the suffix instead of a silent fallback (L12 FIX).
+    """
     suffix = Path(path).suffix.lower().lstrip(".")
+    if suffix and suffix not in FORMATS:
+        raise DocumentError(
+            f"cannot infer the format of {Path(path).name!r}: suffix '.{suffix}' is not"
+            f" one of {', '.join(FORMATS)}"
+        )
     return suffix if suffix in FORMATS else "png"
 
 

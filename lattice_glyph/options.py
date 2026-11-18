@@ -8,8 +8,10 @@ preset stays minimal. ``defaults_for()`` must render exactly like ``{}`` — a t
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 Kind = Literal["text", "colour", "float", "int", "bool", "choice"]
@@ -17,6 +19,11 @@ Kind = Literal["text", "colour", "float", "int", "bool", "choice"]
 TRANSPARENT = "transparent"
 RAMP_HINT = "darkest character first"
 COLOUR_HINT = "#rrggbb or transparent"
+_HEX6 = re.compile(r"#[0-9a-fA-F]{6}\Z")
+_HEX8 = re.compile(r"#[0-9a-fA-F]{8}\Z")
+# glyph_ramp also accepts #rrggbbaa and 'transparent' (§9); the other renderers
+# parse exactly six hex digits — the validator mirrors the renderers' own parsers.
+_ALPHA_COLOURS = frozenset({"glyph_ramp"})
 
 
 @dataclass(frozen=True)
@@ -143,4 +150,39 @@ def _coerce(spec: OptionSpec, value: object) -> object | None:
     return None if spec.nullable and not text.strip() else text
 
 
-__all__ = ["OptionSpec", "OPTIONS", "clean", "defaults_for", "specs_for"]
+def valid(renderer: str, spec: OptionSpec, text: str) -> bool:
+    """Return True when text is a usable value of one option of renderer.
+
+    The rules mirror what the renderers themselves accept (§9, §10): a colour must
+    parse (plus 'transparent' and #rrggbbaa for glyph_ramp), a ramp must not be
+    empty, and a font path must name an existing file. Every other option is
+    accepted verbatim.
+    """
+    if spec.kind == "colour":
+        cleaned = text.strip().lower()
+        if _HEX6.fullmatch(cleaned) is not None:
+            return True
+        return renderer in _ALPHA_COLOURS and (
+            cleaned == TRANSPARENT or _HEX8.fullmatch(cleaned) is not None
+        )
+    if spec.key == "ramp":
+        return bool(text)
+    if spec.key == "font":
+        return not text or Path(text).is_file()
+    return True
+
+
+def invalid_hint(renderer: str, spec: OptionSpec) -> str:
+    """Return the one-line hint to show while one option value is not usable."""
+    if spec.kind == "colour":
+        allowed = "#rrggbbaa or transparent" if renderer in _ALPHA_COLOURS else "#rrggbb"
+        return f"{spec.key} must be {allowed}"
+    if spec.key == "ramp":
+        return "the ramp must not be empty"
+    if spec.key == "font":
+        return "the font path must name an existing file"
+    return ""
+
+
+__all__ = ["OptionSpec", "OPTIONS", "clean", "defaults_for", "invalid_hint", "specs_for",
+           "valid"]
