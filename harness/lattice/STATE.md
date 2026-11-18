@@ -152,6 +152,8 @@ last_update: 2026-11-18
 | L17 | 2 | done | 2 | 2 | 87b3a5d | NTSC / VHS — PASS Sonnet pass 3 (50 tests owned) ; 4 minors : labels i18n (carte catalogue future), LABEL_NOTES mort, constant_k = brick-wall, tracking_noise jusqu'à 25 % de largeur |
 | L18 | 2 | done | 0 | 1 | (commit L18) | CRT / scanlines — PASS mistral-large-4 : pixels d'appareil vérifiés en direct, DEV-214 exact, 35 tests |
 | L19 | 2 | done | 0 | 2 | 75a083d | seed + masks — pass 1 FIX (5 majors d'intégration) → retry (32 tests) → **PASS** Sonnet pass 2 ; DEV-216 verrous session-only ; 4 minors (render_effects non appelé par pipeline.render, resolve_masks muet sur une entrée vide, PNG P+tRNS, test seed hérité de 4 lignes) |
+| L9b | 2 | todo | 0 | 0 | | renderer `text` : répéter le paragraphe pour remplir la toile (H12, DEV-218) — 3 % → >90 % |
+| L9c | 2 | todo | 0 | 0 | | `glyph_ramp` : fond respecté, encre relative ±2 crans, rampe bornée en bg_colour (H12) |
 | L-UI2 | 2 | todo | 0 | 0 | | recâblage de Lattice Dither sur `lattice_core/ui` (décision humaine 18/11) — déps L-UI+L11 done, débloquée ; prérequis : généraliser le worker (verbes pont, PaletteExtraction) et le dialogue d'export du core |
 | L20 | 2 | todo | 0 | 0 | | Lattice Glitch shell |
 | L21 | 3 | todo | 0 | 0 | | preset interchange + gallery |
@@ -166,7 +168,7 @@ last_update: 2026-11-18
 |---|---|---|
 | H10 | after L1 | ✅ done 2026-11-16 — app lancée par l'humain (`.venv/bin/python -m lattice_dither`, intacte) ; `lattice_core` s'installe seul en venv vierge (sans PySide6) |
 | H11 | after L2 | ✅ done 2026-11-16 — analyse Opus (H11-analyse-result.json), décisions B/A/A/A/A, amendements AMD-008 appliqués puis **contrat gelé en 0.1.0** |
-| H12 | after wave 1 | **analyse livrée 2026-11-18** (Sonnet thinking high) — verdict SOUS CONDITIONS : 1 bloquant (mode `palette` ignore `bg`), 3 majeurs (plafond d'encre 15 %, `text` jamais montré, `glyph_shape` pauvre sur A/B), 5 questions à trancher → **toi** |
+| H12 | after wave 1 | ✅ **done 2026-11-18** — analyses Sonnet + Opus high (4 passes) ; **4 décisions humaines** : (1) mode `palette` respecte `bg`, (2) plafond corrigé par le fond de case portant le ton, (3) renderer `text` répète son paragraphe, (4) corriger les deux puis vitrine = `text`. Cartes **L9b** et **L9c** créées. AMD-010 ratifié, AMD-011 sous réserve de test |
 | H13 | after wave 2 | pending — analyse Sonnet (thinking high) (Lattice Glitch vivant, pas un filtre ?) → toi : trancher |
 | H14 | L22 | pending — acceptance in PhotoCraft then DesignCraft |
 
@@ -223,6 +225,19 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
   secours** ; reviews lourdes = Sonnet CLI par défaut, mistral-large-4 en secours.
 - **En vol** : L9 text-halftone (mistral), L17 attempt 3 (mistral), L10 glyph browser (mistral),
   L19 review (mistral-large-4). Prochaines implémentations → hy4/opencode-go.
+- 2026-11-18: **H12 DONE — 4 décisions humaines prises** (analyse Sonnet + 4 passes Opus high, toutes
+  sur pièces). (1) Le mode `palette` de `glyph_ramp` **respecte `bg`** : la palette ne colore que
+  l'encre, le plus sombre de la palette devient `bg: "auto"` explicite et jamais le défaut. (2) Le
+  plafond d'encre de 15 % se corrige par **la case qui prend la couleur du fond et la lettre qui
+  apporte la texture** — décision d'Opus, confirmée par mesure (contraste 0,055 → 0,31). (3) Le
+  renderer `text` **répète son paragraphe** jusqu'à remplir la toile (DEV-218 : aujourd'hui 3 % de
+  la hauteur, 496 caractères sur 12 960 cellules). (4) Corriger les deux défauts, puis **`text` en
+  vitrine** ; `bg_colour` corrigé devient la deuxième image couleur. Cartes **L9b** (text, réplétion,
+  capable/strict/M) et **L9c** (`glyph_ramp`, fond + encre relative ±2 crans + rampe bornée,
+  deep/strict/L) créées avec leurs accept chiffrés. **AMD-010 ratifié** ; **AMD-011 sous réserve**
+  d'un test sur dégradé et capture de texte. Ce que les analyses ont établi au passage :
+  `glyph_shape` reste pauvre sur portrait et capture (F4, hypothèse AMD-011 non prouvée) et le
+  braille est le seul renderer lisible en l'état.
 - 2026-11-18: **L12 done — commit `a86ae86`, PASS Sonnet pass 2. LA VAGUE 1 EST CLOSE** (L6, L7, L8,
   L9, L10, L11, L12 tous done). La coquille `lattice-glyph` : 18 fichiers, 390 l pour `window.py`,
   consomme `lattice_core/ui` sans réimplémenter un canvas ni un dialogue d'export (défaut S5 évité),

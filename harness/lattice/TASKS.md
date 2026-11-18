@@ -499,6 +499,53 @@ l'orchestrateur ne code jamais.
     couverts par des tests, et `lattice_core` n'importe toujours aucune application (E8).
   - `lattice_core/ui` s'installe et s'importe sans Dither : `pip install -e .[ui]` seul suffit.
 
+### L9b · Renderer `text` : répétition du paragraphe pour remplir la toile (H12)
+- wave: 2 · deps: L9 | executor: OMH capable · review: strict · size: M
+- owns: `lattice_core/renderers/text.py`, `tests/test_text.py`
+- context: §10
+- origin: décision humaine H12 du 2026-11-18 (DEV-218). Le renderer pose son paragraphe UNE fois
+  (`_flow` boucle sur `while idx < len(chars)`) : mesuré 496 caractères sur 12 960 cellules
+  disponibles, soit 3 % de la hauteur de la toile à `pixel_size 10`. §10 exige que les cellules
+  « must still fill the output rectangle exactly ».
+- spec: boucler le texte jusqu'à ce que toutes les cellules soient couvertes. Option `repeat`
+  (`fill` | `once`), défaut `fill` ; `once` conserve le comportement actuel pour qui veut un
+  paragraphe unique. Ne change pas la modulation par `luma`, ni la césure, ni `size_mode`.
+- accept:
+  - sur un paragraphe court (une phrase) et un canevas large, la fraction de cellules portant de
+    l'encre dépasse 90 % en mode `fill`.
+  - `repeat: once` reproduit exactement le comportement d'avant (test de non-régression).
+  - le texte bouclé respecte la césure et ne produit aucun glyphe hors du canevas (les tests de L9
+    restent verts).
+  - la luma du rendu d'un portrait sur fond neutre passe sous 0,90 et son contraste dépasse 0,20
+    (aujourd'hui : 0,995 / 0,011).
+
+### L9c · `glyph_ramp` en mode `palette`/`bg_colour` : fond respecté, encre relative, rampe bornée (H12)
+- wave: 2 · deps: L6 | executor: OMH deep · review: strict · size: L
+- owns: `lattice_core/renderers/glyph_ramp.py`, `tests/test_glyph_ramp.py`
+- context: §9
+- origin: décisions humaines H12 du 2026-11-18 (3 questions sur 4). Trois défauts prouvés :
+  (a) en mode `palette`, le papier vient du ton le plus sombre de la palette et le `bg` déclaré est
+  ignoré — un preset qui demande `#ffffff` rend 80 % de noir ; (b) en mode `bg_colour`, une encre
+  fixe ne peut pas fonctionner : le fond porte le ton, donc la rampe double l'information et le
+  glyphe se bat contre le fond ou s'efface ; (c) les ombres restent muettes parce que la rampe
+  envoie l'espace (densité nulle) dans les zones sombres.
+- spec:
+  1. **Fond respecté** : en mode `palette`, le papier est `bg` du style. Le ton le plus sombre de
+     la palette devient le comportement de `bg: "auto"` (valeur explicite), jamais le défaut.
+  2. **Encre relative** (modes `palette` et `bg_colour`) : trier la palette par luma une fois, prendre
+     le rang du fond de la cellule, et choisir l'encre 2 crans au-dessus si le fond est sombre,
+     2 crans en dessous s'il est clair. L'encre n'est plus une couleur fixe dans ces deux modes.
+  3. **Rampe bornée en `bg_colour`** : le glyphe ne suit plus la luma absolue mais l'écart entre le
+     ton de la cellule et le fond ; espace et `@` exclus de la rampe dans ce mode (densité moyenne).
+- accept:
+  - un preset `mode: palette` avec `bg: #ffffff` produit un rendu dont la luma dépasse 0,60
+    (aujourd'hui 0,036).
+  - en `bg_colour` sur un portrait, le contraste dépasse 0,30 ET les ombres portent des glyphes
+    visibles (assertion : au moins 5 glyphes distincts dans les 20 % de cellules les plus sombres).
+  - `bg: "auto"` reproduit exactement l'ancien comportement du mode `palette` (non-régression).
+  - les six invariants §3 tiennent et G8 reste vert sur tout le registre.
+  - la taille de cellule n'est pas modifiée comme correctif : à 12 px le rendu doit déjà tenir.
+
 ## Wave 3 — integration
 
 ### L21 · Preset interchange and gallery
