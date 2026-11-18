@@ -368,6 +368,54 @@ their own files. Nothing is carried over.
   cycle de revue (la carte n'a pas encore été relue).
 - impact: un seul fichier (`glyph_ramp.py`) et son test ; les 2077 tests restent verts entre-temps.
 
+### DEV-220 — L9c attempt 4 : normalisation linéaire vs seuil « ≥ 5 glyphes d'ombre » (arbitrage humain)
+- class: E2 (résolu par décision humaine) + E1 ×2 + E3 | task: L9c | contract: 0.1.0 | status: applied
+- raised by: codeur attempt 4 (xfail strict) — vérifié par l'orchestrateur (mesures + gates) | date: 2026-11-18
+- facts: la relecture attempt 3 a rejeté le `span³` de l'attempt 3 (exposant calibré sur une image,
+  dégénéré sur palettes sombres : ×37 à luma max 0,3, ×1000 à 0,1) et imposé la plage linéaire
+  `gap / (max−min)`. Avec la plage linéaire, sur A_portrait (pico8, floyd_steinberg) à 12 px
+  (taille de référence H12) : contraste sRGB 0,3259 > 0,30 ✓ mais **4 glyphes distincts dans les
+  20 % les plus sombres (`- . : =`) < 5** ; à 8 px : 0,3269 et 5 ✓. Le cube (×1,37 sur pico8) était
+  la seule voie vers 5 à 12 px ; la plage linéaire (×1,11) ne la franchit pas.
+- decision (HUMAIN, 2026-11-18, H12 bis) : le contraste > 0,30 est le critère produit (tenu à 0,33) ;
+  le seuil de comptage s'assouplit à **≥ 4 glyphes à 12 px**, le pin **≥ 5 reste à 8 px**. Accept de
+  la carte amendé dans TASKS.md ; test désxfailé avec seuils paramétrés par cas ; aucun exposant,
+  aucun seuil baissé en silence (le xfail strict avait porté les mesures avant l'arbitrage).
+- E1 (ÉCART 1, formalisé) : `bg:"auto"` sélectionne le papier (ton le plus sombre) et conserve les
+  glyphes absolus ; l'encre relative (±2 crans) est mandatée par spec 2 dans les DEUX modes, donc
+  les pixels changent légitimement — la non-régression compare papier + glyphes, pas les pixels entiers.
+- E1 (plafond 400 l) : tests/test_glyph_ramp.py à 463 l (restaurations mandatées du finding 6 —
+  14 docstrings + commentaires de justification — + 2 nouveaux tests + pins littéraux). Convention
+  du dépôt : les fichiers de test ne sont plafonnés que de fait (948 l au HEAD pour test_text.py).
+- E3 (fixture hors owns) : tests/data/A_portrait.jpg (140 Ko, sha256 f57037fdb035…, identique à la
+  source H12) — pré-autorisé par la disposition 5 du retry ; photo réelle, remplaçable par l'humain
+  par une image sous licence. Les générations déterministes honnêtes mesuraient 0,22/0,25 de contraste
+  (< 0,30) : les accorder pour passer aurait reproduit le gaming de span³ — rejetées.
+- impact: glyph_ramp.py (400 l) + tests (463 l) + TASKS.md (accept) ; suite 66 cas verts sur la carte.
+
+### DEV-221 — L-UI2 attempt 2 : pin Ctrl+E recâblé (test périmé par la carte)
+- class: E1 | task: L-UI2 | contract: 0.1.0 | status: applied
+- raised by: relecture attempt 1 (blocker export ; test_ui_commands.py:554 pinnait le handoff preview)
+- decision: la carte recâble Ctrl+E sur le dialogue du core en PLEINE résolution (bloquant REVUE n°1, résolu).
+  Le test périmé est adapté (il épingle source+spec+injections et refuse `_last_image`), précédent DEV-209.
+  Aucun contournement silencieux ; vérifié en E2E : Ctrl+E → SVG 1400×900.
+
+### DEV-222 — Dépassements de plafond 400 l (L9b et L20, tests et source)
+- class: E1 | task: L9b, L20 | contract: 0.1.0 | status: applied
+- facts: text.py 419 l (restauration de style ordonnée par le relecteur + ajouts L9b — aucun périmètre de
+  restauration ne tient sous 400) ; tests/test_glitch_app.py 459 l (5 accepts + 6 findings demandés, sans
+  assertions tautologiques) ; precedent DEV-202 (E1 acceptés) et convention tests non plafonnés (948 l au HEAD).
+- decision: waivers enregistrés ; source des paquets respecte ≤ 400 (window.py 392, max), fonctions ≤ 60.
+
+### DEV-223 — L20 attempt 2 : sérialisation des streams verrouillés (G9) + format de preset du shell
+- class: E1 ×2 | task: L20 | contract: 0.1.0 | status: applied
+- facts: §8 exige CLI/GUI octets identiques pour le même preset ; §18 core = verrous session-only (DEV-216,
+  seed seul sérialisé). Le shell Glitch étend SON format de preset : chaque slot verrouillé écrit son stream
+  (module_seed_for(i)) dans effects[].seed, relu au chargement vers RenderContext.streams ; unlock purge.
+- decision: pas de changement du contrat core (SeedController inchangé, session-only conservé) ; l'extension
+  est au format du shell, enregistrée pour ré-examen au gel (§18) — test verrou → reroll → sauvegarde →
+  parité CLI/GUI puis rechargement → parité + stream figé conservé.
+
 ## Amendments (registre)
 
 Facts discovered during a task that the contract could not have known, recorded here rather than

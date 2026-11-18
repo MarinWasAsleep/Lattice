@@ -541,7 +541,8 @@ l'orchestrateur ne code jamais.
   - un preset `mode: palette` avec `bg: #ffffff` produit un rendu dont la luma dépasse 0,60
     (aujourd'hui 0,036).
   - en `bg_colour` sur un portrait, le contraste dépasse 0,30 ET les ombres portent des glyphes
-    visibles (assertion : au moins 5 glyphes distincts dans les 20 % de cellules les plus sombres).
+    visibles — décision humaine 18/11/2026 (E2 amendé, suite au rejet du span³) : ≥ 5 glyphes distincts
+    dans les 20 % de cellules les plus sombres à 8 px, ≥ 4 à 12 px (taille de référence H12).
   - `bg: "auto"` reproduit exactement l'ancien comportement du mode `palette` (non-régression).
   - les six invariants §3 tiennent et G8 reste vert sur tout le registre.
   - la taille de cellule n'est pas modifiée comme correctif : à 12 px le rendu doit déjà tenir.

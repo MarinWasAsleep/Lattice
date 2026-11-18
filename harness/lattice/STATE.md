@@ -152,10 +152,10 @@ last_update: 2026-11-18
 | L17 | 2 | done | 2 | 2 | 87b3a5d | NTSC / VHS — PASS Sonnet pass 3 (50 tests owned) ; 4 minors : labels i18n (carte catalogue future), LABEL_NOTES mort, constant_k = brick-wall, tracking_noise jusqu'à 25 % de largeur |
 | L18 | 2 | done | 0 | 1 | (commit L18) | CRT / scanlines — PASS mistral-large-4 : pixels d'appareil vérifiés en direct, DEV-214 exact, 35 tests |
 | L19 | 2 | done | 0 | 2 | 75a083d | seed + masks — pass 1 FIX (5 majors d'intégration) → retry (32 tests) → **PASS** Sonnet pass 2 ; DEV-216 verrous session-only ; 4 minors (render_effects non appelé par pipeline.render, resolve_masks muet sur une entrée vide, PNG P+tRNS, test seed hérité de 4 lignes) |
-| L9b | 2 | todo | 0 | 0 | | renderer `text` : répéter le paragraphe pour remplir la toile (H12, DEV-218) — 3 % → >90 % |
-| L9c | 2 | todo | 0 | 0 | | `glyph_ramp` : fond respecté, encre relative ±2 crans, rampe bornée en bg_colour (H12) |
-| L-UI2 | 2 | todo | 0 | 0 | | recâblage de Lattice Dither sur `lattice_core/ui` (décision humaine 18/11) — déps L-UI+L11 done, débloquée ; prérequis : généraliser le worker (verbes pont, PaletteExtraction) et le dialogue d'export du core |
-| L20 | 2 | todo | 0 | 0 | | Lattice Glitch shell |
+| L9b | 2 | done | 0 | 2 | fadb506 | renderer `text` : répétition fill/once (H12, DEV-218) — 89 tests, PASS 2e cycle, DEV-222 |
+| L9c | 2 | done | 0 | 4 | cb3154c | `glyph_ramp` fond+encre relative+rampe bornée (plage linéaire) — accept amendé (E2 humain), 66 tests, PASS 4e cycle, DEV-220/222 |
+| L-UI2 | 2 | done | 0 | 2 | a384f06 | Dither recâblé sur l'UI du core — ExportDialog 4 formats + Ctrl+E pleine résolution (REVUE bloquant 1), doublons supprimés ; 285 tests, PASS 2e cycle, DEV-221/222 |
+| L20 | 2 | done | 0 | 2 | fdc07d3 | coquille lattice-glitch (21 modules, pyproject, CLI sans Qt) — G9 prouvé, crash export corrigé, NTSC simple+presets ; 8 tests, PASS 2e cycle, DEV-222/223 |
 | L21 | 3 | todo | 0 | 0 | | preset interchange + gallery |
 | L22 | 3 | todo | 0 | 0 | | acceptance in PhotoCraft and DesignCraft |
 | L23 | 3 | todo | 0 | 0 | | packaging multi-plateforme + installation |
@@ -214,17 +214,13 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
 
 ## Next
 
-- **Épreuve masse CONCLUE** : hy4-flash-free acté sur le tier masse (L4 PASS après 4 cycles
-  avec code final jugé correct ; L13 PASS strict au 1er essai, vérifié par exécution). Les
-  cartes opencode-go tournent désormais sur hy4 en routine (L16 = 3e).
-- **Rotation relectures (décision 17/11)** : Sonnet thinking high (×3) → mistral-large-4 ;
-  **deepseek-v4-pro SORTI** (trop cher, pas plus capable que v4.1-flash) ; kimi sorti.
-  ≠ plus rien sur nous si le compte est au bord du plafond — capable → mistral/opencode-go.
-- **NOUS HORS BOUCLE jusqu'au 18/11 14:33** (limite quotidienne atteinte le 17/11).
-  **Implémentations : opencode-go (hy4 masse / deepseek-v4.1-flash standard) + mistral en
-  secours** ; reviews lourdes = Sonnet CLI par défaut, mistral-large-4 en secours.
-- **En vol** : L9 text-halftone (mistral), L17 attempt 3 (mistral), L10 glyph browser (mistral),
-  L19 review (mistral-large-4). Prochaines implémentations → hy4/opencode-go.
+- **Vague 1 CLOSE (18/11 au soir, swarm qwen4-max:free — décision utilisateur)** : L9b, L9c, L-UI2, L20
+  done (commits fadb506/cb3154c/a384f06/fdc07d3), reviews PASS, **2124 passed / 1 skipped**, ruff 0,
+  contract OK. Table de routage actée : **hy4-flash-free = masse ; qwen4:free = édition/refactoring +
+  reviews de routine ; Sonnet CLI = goût seulement**.
+- **Vague 2 à lancer (épreuve A/B)** : **L21 (gallery/interchange, qwen4)** et **L-LOOP (animation→core,
+  hy4-flash-free)** — même protocole de relecture, compteurs comparés au passage (essais/findings/vitesse).
+  Ensuite L-UI2 minors → carte de suivi i18n (2 clés du dialogue core), puis L22 (acceptance, H14) et L23.
 - 2026-11-18: **H12 DONE — 4 décisions humaines prises** (analyse Sonnet + 4 passes Opus high, toutes
   sur pièces). (1) Le mode `palette` de `glyph_ramp` **respecte `bg`** : la palette ne colore que
   l'encre, le plus sombre de la palette devient `bg: "auto"` explicite et jamais le défaut. (2) Le
@@ -333,3 +329,18 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
   interrompus proprement (limite nous + arrêt demandé).
 - Ensuite : L11 (SVG/text export, débloqué par L9), L12 coquille Glyph, L20 coquille Glitch,
   vague 3 (L21-L23), checkpoints H12/H13 (arbitrages AMD-010/AMD-011).
+
+- 2026-11-19 (00h10, clôture de vague orchestrateur) : **VAGUE 1 CLOSE en swarm qwen4-max:free** — L9b
+  `fadb506`, L9c `cb3154c`, L-UI2 `a384f06`, L20 `fdc07d3`. 4 cartes livrées, 4 reviews PASS (2e cycle
+  sauf L9c 4e — le span³ avait été rejeté pour cause de knob, plage linéaire imposée). **E2 L9c tranché
+  par l'humain** : le contraste > 0,30 reste le critère, comptage ≥ 4 glyphes à 12 px / ≥ 5 à 8 px
+  (DEV-220) — la 5e nuance n'était atteinte que par le cube. DEV-221 (pin Ctrl+E recâblé), DEV-222
+  (waivers 400 l), DEV-223 (streams verrouillés sérialisés au format du shell, cœur session-only).
+  Batterie complète rejouée par l'orchestrateur : **2124 passed / 1 skipped** (2077 au HEAD → +47),
+  ruff global 0, check_contract OK, G7 témoins intacts (aucun code de rendu touché par la vague).
+  Minors consignés pour les cartes qui toucheront ces lignes : text.py:370 (encre des glyphes de queue du
+  dernier pass `_fit`, approximation bornée) ; test_glyph_ramp.py (compacité E302 délibérée) ; i18n
+  fr/en : 2 clés du dialogue core (rendu pleine résolution, no-video-writer) ; export_writers.py vs
+  `export/` app : motif S5 à faire déléguer par une carte de suivi ; glitch : docstring seed_panel périmé,
+  controller._fixed vs _fixed_streams (cycle déverrouiller/re-verrouiller), combo ntsc non resynchronisé.
+  **Prochaine vague : L21 (qwen4) + L-LOOP (hy4) en épreuve A/B.**
