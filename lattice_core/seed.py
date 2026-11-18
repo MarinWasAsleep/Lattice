@@ -1,4 +1,10 @@
-"""Deterministic per-module seeding for the random operators of a render (§18)."""
+"""Deterministic per-module seeding for the random operators of a render (§18).
+
+``render_effects`` is the effects-application path that honours per-module locks:
+each effect of the chain draws from its own stream, and a locked position keeps its
+stream across a reroll. ``pipeline.render`` keeps the 1.0 seeding rule
+``default_rng(seed + offset + i)`` untouched, so its output stays bit-exact (§5).
+"""
 
 from __future__ import annotations
 
@@ -32,6 +38,8 @@ class SeedController:
     ``rng(module)`` returns a deterministic generator for one module. A locked
     module keeps its stream when the seed is rerolled, so its output never
     changes with the global seed; every unlocked module follows the new seed.
+    Locks are session-only: the preset serialises ``seed`` only (§6), so a
+    reloaded preset rebuilds every stream, locks included, from that seed.
     """
 
     def __init__(self, seed: int = 0, locked: tuple[int, ...] = ()) -> None:
@@ -78,17 +86,19 @@ def render_effects(img: Image, effects: list[str], controller: SeedController,
     """Apply the named effects in order with per-module rngs, returning each stage.
 
     ``params`` optionally overrides an effect's parameters by effect id; every
-    stage is clipped to [0, 1] like the interactive renderer does.
+    stage is clipped to [0, 1] like the interactive renderer does. Lock keys are
+    positions: the i-th effect of the chain runs as module ``module_start + i``,
+    so reordering the chain moves which lock governs which effect.
     """
     overrides = params or {}
     out: Image = img
     stages: list[Image] = []
     for offset, effect_id in enumerate(effects, start=module_start):
         info = get_effect(effect_id)
-        params = resolve_params(info.params, overrides.get(effect_id, {}))
+        resolved = resolve_params(info.params, overrides.get(effect_id, {}))
         rng = controller.rng(offset)
         out = np.ascontiguousarray(
-            np.clip(info.fn(out, params, rng), 0.0, 1.0), np.float32
+            np.clip(info.fn(out, resolved, rng), 0.0, 1.0), np.float32
         )
         stages.append(out)
     return stages
