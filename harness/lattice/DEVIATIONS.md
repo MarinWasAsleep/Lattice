@@ -965,3 +965,54 @@ invented in code. The orchestrator folds them into the contract at the next chec
 - evidence: 2309 tests verts, ruff 0, contrat OK ; `python -m lattice_glitch.cli` et
   `python -m lattice_glyph.cli` répondent, verbes et verbes propres inclus.
 - status: applied
+
+### DEV-246 — 1.0.0 : les starters v3 que Dither ne pouvait pas ouvrir
+- classes: E3 | task: 1.0.0 | status: applied | date: 2026-11-19
+- facts: les douze starters livrés (`presets/starter/*.json`) sont en format **v3**. Le
+  chargeur de Dither, `lattice_core/presets.py`, déclarait `SUPPORTED_VERSIONS = (1, 2)`.
+  Conséquence mesurée : `lattice-dither-cli render --preset presets/starter/dither_01_…`
+  répondait `cannot read preset …: unsupported preset version: 3`, et
+  `preset_browser.load_dialog` — le même `load_preset` — refusait les quatre starters Dither.
+  L'application ne pouvait pas ouvrir les fichiers qu'elle livre.
+- second défaut trouvé en chemin : `to_pipeline_spec` ne copiait que `meta.name` et
+  `meta.author` ; `description`, `tags` et `thumbnail` étaient jetés. Un preset relu perdait
+  sa description et ses étiquettes, donc l'indexation du navigateur.
+- decision: **aiguillage par version** dans `presets.load_preset`. v3 part vers
+  `lattice_core.preset` (le lecteur que Glitch et Glyph utilisent déjà), v1 et v2 gardent le
+  chemin historique **inchangé** — les presets témoins sont épinglés à v1 et à leurs défauts
+  v2, et leurs baselines ont été rendues à travers ces défauts. Unifier sur le seul lecteur v3
+  aurait changé le rendu des témoins.
+- alternative écartée: convertir les starters en v2. Un aller-retour v3→v2 mesure une perte de
+  six clés (`app`, `effects`, `fonts`, `masks`, `output`, `pipeline`) ; la palette et le
+  renderer survivent, mais le format de référence des trois apps est v3 et Dither serait resté
+  le seul à écrire un format que plus personne n'utilise.
+- evidence: les quatre starters s'ouvrent et rendent (`wrote /tmp/x_dither_0N….json`) ; 2319
+  tests, ruff 0, contrat OK ; cinq tests neufs (quatre starters + métadonnée complète).
+- status: applied
+
+### DEV-247 — `grey16_atkinson` : un sharpen après le tramage multipliait les niveaux
+- classes: E3 | task: 1.0.0 | status: applied | date: 2026-11-19
+- facts: le starter `dither_04_grey16_atkinson` porte la palette intégrée `grey_16` (seize gris
+  exacts) et un post-effet `sharpen` (amount 0.6, radius 1.5). Mesure : le rendu sort **243
+  gris uniques**, tous neutres (aucune couleur parasite), au lieu de seize. Mise en cause : le
+  seul `sharpen` — sans lui, le rendu sort exactement 16. Les trois autres starters Dither
+  respectent leur palette (4, 13 et 16 couleurs).
+- verdict Opus: **défaut, pas un choix.** « Un sharpen appliqué après le tramage ne rend pas
+  l'image plus nette : le tramage est déjà la texture la plus fine possible, chaque pixel
+  diffère de son voisin. Il renforce le grain du tramage lui-même, d'où les valeurs inventées
+  entre deux niveaux. » Et l'usage réel casse : qui choisit « 16 niveaux » veut un export
+  indexé (GIF, PNG en palette, pixel art, impression limitée) ; 243 gris le lui refusent. À
+  l'œil, « je ne vois quasiment aucune différence » entre les deux versions.
+- decision: le `sharpen` passe en **pré-effet** — il renforce la source que le tramage traduit
+  ensuite avec ses seize gris. Mesuré : 16 couleurs, image lisible et purement grise. Retirer
+  le sharpen était l'alternative ; le déplacer garde l'intention de la recette.
+- garde-fou ajouté: `test_a_dithered_starter_never_escapes_its_palette` rend chaque starter
+  Dither et fait échouer tout preset qui produit une couleur hors de sa palette. Vérifié qu'il
+  attrape bien la régression (message : « announced a 16-colour palette but rendered 243
+  colours; first strays: [(1,1,1), (3,3,3)…] »).
+- correction d'un de mes propres constats: j'avais montré à Opus `docs/starters-source.png`
+  comme source des rendus ; il a relevé que ce n'était pas la bonne image. Les starters sont
+  rendus depuis `tests/data/A_portrait.jpg`. Le diagnostic n'en dépendait pas, mais le test,
+  lui, charge la bonne source.
+- evidence: 2323 tests, ruff 0 ; un test de non-régression prouvé par réintroduction du défaut.
+- status: applied

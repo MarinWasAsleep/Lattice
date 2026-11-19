@@ -9,7 +9,7 @@
         "amount": 0.6,
         "radius": 1.5
       },
-      "stage": "post"
+      "stage": "pre"
     }
   ],
   "fonts": {},

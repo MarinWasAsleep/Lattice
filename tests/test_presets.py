@@ -12,9 +12,9 @@ import pytest
 from lattice_core import presets, registry
 from lattice_core.pipeline import EffectInstance, PaletteSpec, PipelineSpec, PresetMeta
 from lattice_core.presets import from_json, load_preset, save_preset, to_json
+from lattice_core.registry import AlgorithmInfo, EffectInfo
 
 ROOT = Path(__file__).resolve().parents[1]
-from lattice_core.registry import AlgorithmInfo, EffectInfo
 
 
 def _nearest(img, palette, params):
@@ -386,3 +386,41 @@ def test_a_v3_preset_keeps_its_full_metadata() -> None:
     assert spec.meta.name == raw["meta"]["name"]
     assert spec.meta.description == raw["meta"].get("description", "")
     assert spec.meta.tags == list(raw["meta"].get("tags", []))
+
+
+def _starter_source() -> np.ndarray:
+    """Load the image the starter plates were rendered from, as float32 in [0, 1]."""
+    from PIL import Image as PILImage
+
+    from lattice_core.color import to_float
+
+    return to_float(PILImage.open(ROOT / "tests" / "data" / "A_portrait.jpg"))
+
+
+@pytest.mark.parametrize("path", sorted((ROOT / "presets" / "starter").glob("dither_*.json")),
+                         ids=lambda p: p.stem)
+def test_a_dithered_starter_never_escapes_its_palette(path: Path) -> None:
+    """A starter with a palette renders only colours from that palette.
+
+    A post-effect that runs after the dithering multiplies the grey levels: the dither is
+    already the finest texture available, so sharpening it only amplifies its own grain and
+    invents values between two palette entries. Measured on ``grey16_atkinson``: 16 greys
+    became 243, while the preset still announced sixteen. A sharpen that belongs in the recipe
+    goes *before* the dithering, where it strengthens the source the dither will translate.
+    """
+    import lattice_core.dither  # noqa: F401  (registers the algorithms the starters name)
+    import lattice_core.effects  # noqa: F401  (registers the effects they name, e.g. sharpen)
+    from lattice_core.pipeline import render, resolve_palette
+
+    spec = load_preset(path)
+    if spec.palette is None:
+        pytest.skip(f"{path.name} carries no palette")
+    source = _starter_source()
+    palette = resolve_palette(spec.palette, source)
+    produced = np.unique(np.asarray(render(source, spec)).reshape(-1, 3), axis=0)
+    allowed = {tuple(int(round(channel * 255)) for channel in row) for row in palette}
+    rendered = [tuple(int(v) for v in row) for row in produced]
+    strays = [entry for entry in rendered if entry not in allowed]
+    assert not strays, (
+        f"{path.name} announced a {len(palette)}-colour palette but rendered "
+        f"{len(produced)} colours; first strays: {strays[:4]}")
