@@ -15,12 +15,14 @@ import lattice_core.dither  # noqa: F401  (registers the algorithms)
 import lattice_core.effects  # noqa: F401  (registers the effects)
 from lattice_core.animation import (
     AXES,
+    StreamedSpec,
     export_apng,
     export_gif,
     render_loop,
     render_sequence,
 )
 from lattice_core.pipeline import EffectInstance, PaletteSpec, PipelineSpec, render
+from lattice_core.seed import module_seed
 from lattice_core.types import RGB8, Image
 
 BW = ["#000000", "#FFFFFF"]
@@ -361,3 +363,37 @@ def test_writers_keep_unchanged_regions_across_frames(tmp_path: Path, writer) ->
         for index in range(4):
             written.seek(index)
             assert np.array_equal(np.asarray(written.convert("RGB")), frames[index])
+
+
+def _module_renderer(module: int):
+    def render_fn(image, spec):
+        streams = getattr(spec, "streams", None)
+        seed = streams[module] if streams else module_seed(int(spec.seed), module)
+        return np.random.default_rng(seed).integers(0, 256, (8, 8, 3), dtype=np.uint8)
+    return render_fn
+
+def test_locked_module_bit_identical_unlocked_varies() -> None:
+    spec = _spec(seed=7, post_effects=[EffectInstance("a", {}), EffectInstance("b", {})])
+    fixed = render_loop(_src(), spec, count=2, axis="seed",
+                        render_fn=_module_renderer(0), locked_streams={0: 12345})
+    free = render_loop(_src(), spec, count=2, axis="seed",
+                       render_fn=_module_renderer(1), locked_streams={0: 12345})
+    assert np.array_equal(fixed[0], fixed[1])
+    assert not np.array_equal(free[0], free[1])
+def test_no_locks_keeps_the_current_seed_rule() -> None:
+    spec = _spec(seed=7, post_effects=[EffectInstance("a", {})])
+    frames = render_loop(_src(), spec, count=2, axis="seed", render_fn=_module_renderer(0))
+    assert not np.array_equal(frames[0], frames[1])
+def test_streams_travel_on_the_spec_without_touching_the_preset() -> None:
+    spec = _spec(seed=7, post_effects=[EffectInstance("a", {}), EffectInstance("b", {})])
+    seen = []
+    def render_fn(image, varied):
+        seen.append(varied)
+        return np.zeros((8, 8, 3), dtype=np.uint8)
+
+    render_loop(_src(), spec, count=2, axis="seed", render_fn=render_fn, locked_streams={0: 9})
+    assert all(isinstance(s, StreamedSpec) for s in seen)
+    assert [s.seed for s in seen] == [7, 8]
+    assert [getattr(s, "streams", None) for s in seen] == [
+        (9, module_seed(7, 1)), (9, module_seed(8, 1))]
+    assert not hasattr(spec, "streams") and spec.seed == 7

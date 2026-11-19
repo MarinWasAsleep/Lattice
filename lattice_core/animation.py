@@ -6,13 +6,15 @@ varying only the declared axis — ``seed``, ``offset`` (a horizontal pixel shif
 ``iterations`` (the feedback buffer iteration count) — and keeps everything else fixed.
 Stable mode resolves the palette once, on the first frame, so colours cannot flicker.
 An injectable ``render_fn`` lets an application render every varied pair on its own
-path (masks, streams, locks) instead of the pipeline's (L25).
+path (masks, streams, locks) instead of the pipeline's (L25). On the seed axis an
+optional ``locked_streams`` mapping freezes the named modules while the others follow
+the varied seed; it rides on a spec subclass so the caller's render path is unchanged.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import replace
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, fields, replace
 from pathlib import Path
 
 import numpy as np
@@ -24,10 +26,22 @@ from lattice_core.pipeline import (
     render_with_palette,
     resolve_palette,
 )
+from lattice_core.seed import module_seed
 from lattice_core.types import RGB8, Image
 
 AXES = ("seed", "offset", "iterations")
 MAX_ITERATIONS = 8
+
+
+@dataclass
+class StreamedSpec(PipelineSpec):
+    """A PipelineSpec carrying the session-only streams of one loop frame.
+
+    The streams travel on the spec the caller's ``render_fn`` already receives, so
+    locks never become a second render path and are never written into a preset.
+    """
+
+    streams: tuple[int, ...] = ()
 
 
 def render_sequence(
@@ -46,11 +60,14 @@ def render_loop(
     stable: bool = True,
     step: int = 1,
     render_fn: Callable[[Image, PipelineSpec], RGB8] | None = None,
+    locked_streams: Mapping[int, int] | None = None,
 ) -> list[RGB8]:
     """Render count frames from src, varying only axis; other spec fields stay fixed.
 
     render_fn, when given, renders each varied (image, spec) pair itself, so the
     caller's own path (masks, streams, locks) applies and stable is ignored.
+    On the seed axis, locked_streams maps module indices to frozen stream seeds:
+    those modules keep their stream on every frame, unlocked ones follow the seed.
     """
     if axis not in AXES:
         raise ValueError(f"unknown animation axis: {axis!r}, expected one of {AXES}")
@@ -61,6 +78,19 @@ def render_loop(
     pairs = [
         _varied(src, spec, axis, index, shift, base) for index in range(count)
     ]
+    if axis == "seed" and spec.post_effects:
+        module_count = len(spec.post_effects)
+        pairs = [
+            (
+                image,
+                _with_streams(
+                    varied,
+                    _frame_streams(int(spec.seed) + shift * index, module_count,
+                                   locked_streams or {}),
+                ),
+            )
+            for index, (image, varied) in enumerate(pairs)
+        ]
     if render_fn is not None:
         return [render_fn(image, varied) for image, varied in pairs]
     return _render([pair[0] for pair in pairs], [pair[1] for pair in pairs], stable)
@@ -98,6 +128,19 @@ def export_apng(frames: list[RGB8], path: Path, *, fps: int = 12, loop: int = 0)
         loop=int(loop),
         disposal=0,
     )
+
+
+def _frame_streams(
+    seed: int, module_count: int, locked: Mapping[int, int]
+) -> tuple[int, ...]:
+    """Return one frame's streams: frozen where locked, seed-derived otherwise."""
+    return tuple(locked.get(module, module_seed(seed, module)) for module in range(module_count))
+
+
+def _with_streams(spec: PipelineSpec, streams: tuple[int, ...]) -> StreamedSpec:
+    """Copy spec into a StreamedSpec carrying streams, preserving every spec field."""
+    data = {field.name: getattr(spec, field.name) for field in fields(spec)}
+    return StreamedSpec(**data, streams=streams)
 
 
 def _render(frames: list[Image], specs: list[PipelineSpec], stable: bool) -> list[RGB8]:

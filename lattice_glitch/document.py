@@ -85,8 +85,20 @@ def fit_mask(plane: Image, shape: tuple[int, int]) -> Image:
 
 
 def _module_rng(position: int, context: RenderContext,
-                controller: SeedController) -> np.random.Generator:
-    """Return the generator of one stack position: snapshot stream first, controller next."""
+                controller: SeedController, spec: PipelineSpec | None = None,
+                ) -> np.random.Generator:
+    """Return the generator of one stack position: frame streams, snapshot, controller.
+
+    A loop frame arrives as a ``StreamedSpec`` carrying its own streams (L26): those
+    win, which is how unlocked modules vary from frame to frame while a locked one
+    keeps the stream the caller pinned for it. Without them the session snapshot
+    (``context.streams``) applies, so every existing path is unchanged.
+    """
+    frame_streams = tuple(getattr(spec, "streams", ()) or ())
+    if frame_streams:
+        # A loop frame owns its streams for the whole stack: that is what makes the
+        # seed axis vary every unlocked module while a locked one keeps its stream.
+        return np.random.default_rng(frame_streams[position % len(frame_streams)])
     if position < len(context.streams):
         return np.random.default_rng(context.streams[position])
     return controller.rng(position)
@@ -106,7 +118,7 @@ def _render(image: Image, spec: PipelineSpec, context: RenderContext,
             continue
         info = get_effect(instance.effect_id)
         params = resolve_params(info.params, instance.params)
-        rng = _module_rng(position, context, controller)
+        rng = _module_rng(position, context, controller, spec)
         before = work
         out = np.ascontiguousarray(
             np.clip(info.fn(work, params, rng), 0.0, 1.0), dtype=np.float32

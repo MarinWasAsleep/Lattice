@@ -178,6 +178,9 @@ class ExportController:
             raise ExportError(NO_SOURCE)
         animation = importlib.import_module("lattice_core.animation")
         context, controller = window.render_context(), window.controller
+        locked = {index: context.streams[index]
+                  for index in sorted(controller.locked())
+                  if index < len(context.streams)}
 
         def render_fn(image: Image, spec: PipelineSpec) -> RGB8:
             try:
@@ -187,7 +190,8 @@ class ExportController:
 
         try:
             return animation.render_loop(window.source, window.spec, count=count,
-                                         axis=axis, step=step, render_fn=render_fn)
+                                         axis=axis, step=step, locked_streams=locked,
+                                         render_fn=render_fn)
         except ValueError as exc:
             raise ExportError(str(exc)) from exc
 
