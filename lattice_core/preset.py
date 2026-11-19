@@ -40,7 +40,7 @@ _V3_SOURCE: dict[str, Literal["builtin", "extracted", "custom"]] = {
 # Partial bridge by design: PipelineSpec has no max_side, effect mask, masks,
 # fonts or output field (§5/§6); those remain in the Preset and round-trip there.
 _PIPELINE_KEYS = ("color_metric", "pixel_size", "brightness", "contrast", "gamma",
-                  "saturation", "pre_blur", "auto_levels")
+                  "saturation", "pre_blur", "auto_levels", "fit_palette")
 
 
 def _default_meta() -> dict[str, Any]:
@@ -78,6 +78,7 @@ def _default_pipeline() -> dict[str, Any]:
         "saturation": 0.0,
         "pre_blur": 0.0,
         "auto_levels": False,
+        "fit_palette": False,
     }
 
 

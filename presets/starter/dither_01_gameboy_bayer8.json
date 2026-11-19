@@ -7,7 +7,7 @@
     "author": "Lattice",
     "created": "2026-11-19",
     "description": "Floyd-Steinberg on the Game Boy palette, 2 px cells.",
-    "name": "dither_01_gameboy_fs",
+    "name": "dither_01_gameboy_bayer8",
     "tags": [
       "dither",
       "gameboy",
@@ -34,11 +34,12 @@
     "source": "custom"
   },
   "pipeline": {
-    "algorithm": "floyd_steinberg",
-    "auto_levels": true,
+    "algorithm": "bayer_8",
+    "auto_levels": false,
     "brightness": 0.0,
     "color_metric": "srgb",
-    "contrast": 0.35,
+    "contrast": 0.0,
+    "fit_palette": true,
     "gamma": 1.0,
     "max_side": null,
     "params": {},

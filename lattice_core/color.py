@@ -305,6 +305,29 @@ def _saturate(img: Image, saturation: float) -> Image:
     return linear_to_srgb(scaled)
 
 
+def fit_to_palette(img: Image, palette: Image) -> Image:
+    """Map the image's tonal range onto the palette's, so every palette colour can be used.
+
+    A palette is a *gamut*, and many real ones do not reach black or white: the Game Boy's
+    brightest green sits at a luma of 0.661. Quantising a normal photograph to it clipped
+    40.8% of the pixels onto that one colour, so the palette's two mid greens were never
+    selected and the subject vanished. Mapping the source's own [min, max] onto the
+    palette's [min, max] makes every colour reachable again.
+    """
+    out = np.array(img, dtype=np.float32, copy=True)
+    source = np.clip(out, 0.0, 1.0)
+    bottom = float(source.min())
+    top = float(source.max())
+    if top <= bottom:
+        return np.ascontiguousarray(source, dtype=np.float32)
+    target = np.clip(np.asarray(palette, dtype=np.float32), 0.0, 1.0)
+    low, high = float(target.min()), float(target.max())
+    if high <= low:
+        return np.ascontiguousarray(source, dtype=np.float32)
+    out = (source - bottom) / (top - bottom) * (high - low) + low
+    return np.ascontiguousarray(np.clip(out, 0.0, 1.0), dtype=np.float32)
+
+
 def auto_levels(img: Image, low: float = 0.5, high: float = 99.5) -> Image:
     """Stretch each channel between its low and high percentiles, clipping to [0, 1]."""
     out = np.array(img, dtype=np.float32, copy=True)

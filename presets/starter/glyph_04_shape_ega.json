@@ -24,7 +24,7 @@
     "colors": [],
     "extract": {
       "from": "image",
-      "n_colors": 8,
+      "n_colors": 16,
       "rows": null
     },
     "locked": false,
@@ -33,23 +33,27 @@
     "source": "integrated"
   },
   "pipeline": {
-    "algorithm": "floyd_steinberg",
+    "algorithm": "threshold",
     "auto_levels": true,
     "brightness": 0.0,
     "color_metric": "srgb",
-    "contrast": 0.25,
+    "contrast": 0.35,
+    "fit_palette": false,
     "gamma": 1.0,
     "max_side": null,
+    "name": "glyph_04_block_ega",
     "params": {},
-    "pixel_size": 10,
+    "pixel_size": 6,
     "pre_blur": 0.0,
     "saturation": 0.0
   },
   "renderer": {
     "name": "glyph_shape",
     "style": {
-      "bg": "#aaaaaa",
-      "fg": "#000000"
+      "alphabet": " ░▒▓█",
+      "bg": "#ffffff",
+      "fg": "#000000",
+      "font": "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
     }
   },
   "seed": 5,

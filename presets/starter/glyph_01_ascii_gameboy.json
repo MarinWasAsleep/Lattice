@@ -41,11 +41,12 @@
     "source": "integrated"
   },
   "pipeline": {
-    "algorithm": "floyd_steinberg",
-    "auto_levels": false,
+    "algorithm": "threshold",
+    "auto_levels": true,
     "brightness": 0.0,
     "color_metric": "srgb",
-    "contrast": 0.0,
+    "contrast": 0.35,
+    "fit_palette": true,
     "gamma": 1.0,
     "max_side": null,
     "params": {},
@@ -56,10 +57,10 @@
   "renderer": {
     "name": "glyph_ramp",
     "style": {
-      "bg": "#9bbc0f",
+      "bg": "#ffffff",
       "fg": "#0f380f",
       "mode": "mono",
-      "ramp": "@%#*+=-:. "
+      "ramp": "█@#*+=:. "
     }
   },
   "seed": 0,

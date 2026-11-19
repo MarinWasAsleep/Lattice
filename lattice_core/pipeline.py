@@ -71,6 +71,10 @@ class PipelineSpec:
     saturation: float = 0.0
     pre_blur: float = 0.0
     auto_levels: bool = False
+    # Map the source's own tonal range onto the palette's, so a palette that does not reach
+    # 0 or 1 (Game Boy tops out at 0.661) can still use all of its colours. Without it,
+    # 40.8% of a normal image clipped onto the brightest colour and that colour was lost.
+    fit_palette: bool = False
     color_metric: str = "srgb"
     pixel_size: int = 1
     algorithm_id: str | None = "floyd_steinberg"
@@ -213,6 +217,10 @@ def _quantise(work: Image, spec: PipelineSpec, palette: Palette | None,
     cells = _to_cells(work, cell_w, cell_h)
     if palette is None:
         palette = resolve_palette(spec.palette, cells)
+    if spec.fit_palette and palette is not None:
+        # Before dithering, so the quantiser sees tones the palette can actually reach.
+        work = color.fit_to_palette(work, palette)
+        cells = _to_cells(work, cell_w, cell_h)
     info = get_algorithm(spec.algorithm_id)
     params = resolve_params(info.params, spec.algorithm_params)
     params[RESERVED_METRIC] = color.metric_code(spec.color_metric)
