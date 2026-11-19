@@ -873,3 +873,35 @@ invented in code. The orchestrator folds them into the contract at the next chec
   (avis du juge) ; `glyph_02` bon mais pas démonstratif ; **3 bloquants** : `dither_01`
   (remapper la plage), `glyph_01` (même cause, même palette), `glyph_04` (défaut de fond).
 - status: applied — correctifs sûrs appliqués, défauts de fond documentés en cartes.
+
+### DEV-243 — L35 · Vague 1 d'unification : 5 fichiers partagés Glitch ↔ Glyph
+- classes: E3 (refactor sans changement de comportement) | task: L35 | status: applied | date: 2026-11-19
+- context: pour finir Lattice 1.0, Glitch et Glyph portaient 10 fichiers au même nom. Mesure
+  avant : preset_panel 94 %, bridge_controller 88 %, hosts 86 %, bridge_actions 85 %,
+  __main__ 84 % de similarité ; document 15 %, export_actions 16 %, presets 48 %, cli 70 %,
+  actions 79 % avaient réellement divergé.
+- decision: les cinq fichiers >84 % passent dans le cœur comme classes ou fonctions
+  paramétrées, chaque app ne gardant qu'un binding de ~30 lignes :
+  - `lattice_core.bridge_hosts.discover` (hors du paquet `ui`, voir ci-dessous)
+  - `lattice_core.ui.bridge_controller.BridgeController` : le contexte de rendu devient un
+    paramètre optionnel, ce qui sert Glitch (masques + flux) et Glyph (aucun) d'une seule classe
+  - `lattice_core.ui.bridge_worker.BridgeWorker` : `render`, `app_name`, `document_error`,
+    `discover` et `default_name` injectés au constructeur
+  - `lattice_core.ui.preset_panel.PresetPanel` : `convert` (Glyph émet le spec, Glitch le
+    Preset complet) et `tools` (les deux apps valident différemment) injectés
+  - `lattice_core.entry.entry_point(package)` : routage CLI/GUI, écrit une fois
+- gain: **514 lignes supprimées, 116 ajoutées** ; les quatre fichiers concernés passent de
+  ~200 lignes chacun à ~30.
+- piège trouvé et corrigé: `hosts.py` était placé dans `lattice_core/ui/`, dont l'`__init__`
+  importe tous les widgets. Résultat : le CLI chargeait toute l'interface Qt (3 tests
+  `test_*_no_qt` sont tombés). Déplacé en `lattice_core/bridge_hosts.py` ; vérifié :
+  `import lattice_glitch.hosts` charge 0 module PySide6.
+- second piège: deux tests exigent que `bridge_controller.py` et `bridge_actions.py`
+  importent PySide6 explicitement (ce sont des modules GUI). Un réexport pur ne le fait pas ;
+  un import explicite avec `noqa: F401` rétablit la propriété que le test protège.
+- evidence: 2315 tests verts, ruff 0, contrat OK, `python -m lattice_glitch --help` et
+  `python -m lattice_glyph --help` fonctionnent, 0 module Qt chargé par un import de CLI.
+- reste pour la suite de 1.0: les 5 fichiers divergés (document, export_actions, presets,
+  cli, actions), le doublon `gallery.py` de Dither (440 l. contre 300 dans le cœur), puis
+  la montée en 1.0.0.
+- status: applied

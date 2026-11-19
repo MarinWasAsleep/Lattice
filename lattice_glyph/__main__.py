@@ -2,24 +2,16 @@
 
 With a verb on the command line it runs the CLI instead, so ``python -m lattice_glyph
 render …`` works before the distribution is installed; without one it opens the window.
+The routing rule itself is shared: ``lattice_core.entry``.
 """
 
 from __future__ import annotations
 
 import sys
 
+from lattice_core.entry import entry_point
 
-def main(argv: list[str] | None = None) -> int:
-    """Run the CLI when a verb is given, the GUI otherwise, and return the exit code."""
-    arguments = list(sys.argv[1:] if argv is None else argv)
-    if arguments:
-        from lattice_glyph.cli import main as cli_main
-
-        return cli_main(arguments)
-    from lattice_glyph.app import main as app_main
-
-    return app_main([])
-
+main = entry_point("lattice_glyph")
 
 if __name__ == "__main__":
     sys.exit(main())

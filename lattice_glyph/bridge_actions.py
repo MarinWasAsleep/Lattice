@@ -1,78 +1,35 @@
-"""Bridge work of the Glyph shell, run on a helper thread (§7, E9).
+"""Bridge work of the Lattice Glyph shell, from the shared worker.
 
-The window never talks to a host on the GUI thread: a slow connection would freeze the
-preview. ``BridgeWorker`` does exactly three things — pull the active document, render
-and place a render as a layer, or explain why neither was possible. A host that is not
-running is the normal ``absent`` answer, shown in the status bar; only a real bridge
-failure is ``failed``. The push render runs here, in the worker thread, through the
-CLI's own function, so a full-resolution send never freezes the window (G9, L12 FIX).
+The pull/push logic, the absent answer and the disconnect discipline live in
+``lattice_core.ui.bridge_worker``. Glyph has no masks or per-slot streams, so it ignores the
+render context the shared signal carries and renders straight from the spec.
 """
 
 from __future__ import annotations
 
-import logging
+from PySide6.QtCore import Slot  # noqa: F401  (GUI module: the worker runs on its thread)
 
-from PySide6.QtCore import QObject, Signal, Slot
-
-from lattice_core import color
-from lattice_core.bridge import BridgeError
-from lattice_core.pipeline import PipelineSpec
-from lattice_core.types import Image
+from lattice_core.ui.bridge_worker import BridgeWorker as _BridgeWorker
 from lattice_glyph.document import DocumentError, render_rgb8
 from lattice_glyph.hosts import discover
-
-LOGGER = logging.getLogger(__name__)
 
 DEFAULT_HOST = "photocraft"
 DEFAULT_NAME = "Lattice Glyph"
 NOT_RUNNING = "{host} is not running: Lattice Glyph works standalone"
 
 
-class BridgeWorker(QObject):
-    """Pulls documents from a host and pushes renders to it, off the GUI thread."""
+class BridgeWorker(_BridgeWorker):
+    """The shared worker bound to the Glyph render function."""
 
-    pulled = Signal(object, str)
-    pushed = Signal(int)
-    failed = Signal(str)
-    absent = Signal(str)
-    progress = Signal(str)
-
-    @Slot(str)
-    def pull(self, host: str) -> None:
-        """Read the active document of host and emit it as a float32 image."""
-        self.progress.emit(f"Reading the {host} document…")
-        client = discover(host)
-        if client is None:
-            self.absent.emit(NOT_RUNNING.format(host=host))
-            return
-        try:
-            image = color.to_float(client.render_document())
-        except (BridgeError, OSError, ValueError) as exc:
-            LOGGER.debug("bridge pull failed", exc_info=True)
-            self.failed.emit(f"{host}: {exc}")
-            return
-        finally:
-            client.disconnect()
-        self.pulled.emit(image, host)
-
-    @Slot(str, object, object, str)
-    def push(self, host: str, image: Image, spec: PipelineSpec, name: str) -> None:
-        """Render image with spec, then place the result in host as a layer."""
-        self.progress.emit(f"Placing the render in {host}…")
-        client = discover(host)
-        if client is None:
-            self.absent.emit(NOT_RUNNING.format(host=host))
-            return
-        try:
-            rgb8 = render_rgb8(image, spec)
-            object_id = client.place_as_layer(color.to_pil(rgb8), name or DEFAULT_NAME)
-        except (BridgeError, OSError, ValueError, DocumentError) as exc:
-            LOGGER.debug("bridge push failed", exc_info=True)
-            self.failed.emit(f"{host}: {exc}")
-            return
-        finally:
-            client.disconnect()
-        self.pushed.emit(int(object_id))
+    def __init__(self) -> None:
+        """Bind Glyph's render path, which takes no render context."""
+        super().__init__(
+            render=lambda image, spec, context: render_rgb8(image, spec),
+            app_name="Lattice Glyph",
+            document_error=DocumentError,
+            default_name=DEFAULT_NAME,
+            discover=discover,
+        )
 
 
 __all__ = ["BridgeWorker", "DEFAULT_HOST", "NOT_RUNNING"]

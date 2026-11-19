@@ -1,22 +1,11 @@
-"""Host discovery of Lattice Glitch: the single §7 probe, CLI and GUI share it.
+"""Host discovery of Lattice Glitch, re-exported from the shared core module.
 
-The core's ``ArtCraftClient.discover`` already answers None for a host that is not
-running; this module adds the typed-error guard the callers need, so every user of the
-bridge resolves the host the same way and there is no second copy to drift.
+Glitch and Glyph carried identical copies; the single implementation now lives in
+``lattice_core.bridge_hosts``, so a fix applied for one app cannot drift from the other.
 """
 
 from __future__ import annotations
 
-from lattice_core.bridge import HOSTS, ArtCraftClient, BridgeError
+from lattice_core.bridge_hosts import HOSTS, discover
 
 __all__ = ["HOSTS", "discover"]
-
-
-def discover(host: str) -> ArtCraftClient | None:
-    """Return a live client for host, or None for every way a host can be absent (§7)."""
-    if host not in HOSTS:
-        return None
-    try:
-        return ArtCraftClient.discover(host)  # type: ignore[arg-type]
-    except (BridgeError, OSError, ValueError):
-        return None
