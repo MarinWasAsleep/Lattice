@@ -595,7 +595,12 @@ def test_the_gallery_is_wired_into_the_window(window: mw.MainWindow) -> None:
     # so the check is duck-typed on the API the window relies on.
     assert hasattr(window.gallery, "cells") and hasattr(window.gallery, "set_search")
     assert window.dockWidgetArea(window.gallery_dock) == Qt.DockWidgetArea.LeftDockWidgetArea
-    assert window.gallery_dock.widget() is window.gallery
+    # The gallery sits inside a scrolling viewport, not directly in the dock: 33 cells otherwise
+    # claim their full height and drag the window past 1600 pixels. What must hold is that the
+    # dock shows the gallery, one container deep.
+    view = window.gallery_dock.widget()
+    assert view is not None
+    assert view.widget() is window.gallery, "the dock does not show the gallery"
     assert len(window.gallery.cells()) == len(list_algorithms())
 
 

@@ -58,6 +58,7 @@ from lattice.ui import (
     oversize_message,
     preview_proxy,
 )
+from lattice.ui.geometry import PANEL_WIDTH
 
 LOGGER = logging.getLogger(__name__)
 SETTINGS_NAME = "LatticeGlitch"
@@ -140,7 +141,7 @@ class MainWindow(BridgeMixin, QMainWindow):
         for name, panel in self.panels.items():
             self.tabs.addTab(panel, name)
         self.dock.setWidget(self.tabs)
-        self.dock.setMinimumWidth(360)
+        self.dock.setMinimumWidth(PANEL_WIDTH)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.dock)
         self.effects_panel.changed.connect(self.on_panels_changed)
         self.seed_panel.seed_changed.connect(self.set_seed)

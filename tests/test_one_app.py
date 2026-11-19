@@ -218,3 +218,58 @@ def test_switching_renderer_leaves_no_ghost_widgets(qapp: QApplication) -> None:
     labels = [panel.form.itemAt(i, panel.form.ItemRole.LabelRole).widget().text()
               for i in range(rows)]
     assert len(labels) == len(set(labels)), f"duplicate labels in the form: {labels}"
+
+
+def test_the_three_modes_share_one_panel_width(window: MainWindow) -> None:
+    """Switching tab must not move the canvas edge.
+
+    Each mode used to carry its own dock width — 418, 340 and 360 pixels — so the image jumped
+    sideways every time you changed tab. The value now lives once, in ``lattice.ui.geometry``.
+    """
+    from PySide6.QtWidgets import QDockWidget
+
+    from lattice.ui.geometry import PANEL_WIDTH
+
+    widths = {}
+    for mode in MODES:
+        window.show_mode(mode)
+        QApplication.processEvents()
+        panels = [d for d in window.windows[mode].findChildren(QDockWidget)
+                  if d.windowTitle() in {"Panels", "Panel"}]
+        assert panels, f"{mode} has no settings dock"
+        widths[mode] = panels[0].minimumWidth()
+        assert widths[mode] >= PANEL_WIDTH, f"{mode} allows a panel narrower than {PANEL_WIDTH}"
+    assert len(set(widths.values())) == 1, f"panel widths differ across modes: {widths}"
+
+
+def test_the_gallery_scrolls_instead_of_stretching_the_window(window: MainWindow) -> None:
+    """The 33-cell gallery must not dictate the window height.
+
+    Unscrolled it claimed 1443 pixels of height and dragged the window to 1613, squeezing the
+    canvas to 134 pixels wide. Inside a scrolling viewport it takes what it is given.
+    """
+    window.show_mode("dither")
+    QApplication.processEvents()
+    dither = window.windows["dither"]
+    assert getattr(dither, "gallery_view", None) is not None, "the gallery is not in a scroll area"
+    assert dither.gallery_view.widgetResizable()
+    # The window keeps the size the user asked for rather than the gallery's natural height.
+    assert window.height() <= 1000, f"the window grew to {window.height()} pixels tall"
+
+
+def test_the_canvas_keeps_the_largest_share_of_the_window(window: MainWindow) -> None:
+    """The image is the subject: the canvas must be wider than either side panel.
+
+    This is the claim the layout exists to serve, and it was false before: a 469-pixel gallery
+    and a 418-pixel panel left the canvas 134 pixels wide in a 1440-pixel window.
+    """
+    window.show_mode("dither")
+    QApplication.processEvents()
+    dither = window.windows["dither"]
+    canvas = dither.canvas.width()
+    assert canvas > dither.gallery_dock.width(), (
+        f"canvas {canvas} is not wider than the gallery {dither.gallery_dock.width()}")
+    assert canvas > dither.dock.width(), (
+        f"canvas {canvas} is not wider than the panel {dither.dock.width()}")
+    assert canvas > window.width() // 2, (
+        f"canvas {canvas} holds less than half of a {window.width()}-pixel window")

@@ -52,7 +52,9 @@ SOURCE_LABELS: dict[str, str] = {
 METHODS: tuple[str, ...] = ("kmeans", "median_cut")
 PALETTE_FILTER = "Palettes (*.hex *.gpl);;All files (*)"
 DEFAULT_BUILTIN, DEFAULT_K, NEW_COLOR = "bw", 8, "#000000"
-SWATCH_SIZE, GRID_COLUMNS, ICON_WIDTH, ICON_HEIGHT = 22, 8, 64, 16
+# Six swatches per row rather than eight: eight forced a 375-pixel minimum on the whole
+# settings panel, which no other mode needed, and the canvas paid for it.
+SWATCH_SIZE, GRID_COLUMNS, ICON_WIDTH, ICON_HEIGHT = 22, 6, 64, 16
 SWATCH_MIME = "application/x-lattice-swatch"
 LOCK_BORDER = "3px solid #FFD166"
 PLAIN_BORDER = "1px solid #141414"
@@ -353,7 +355,11 @@ class PalettePanel(QWidget):
     def _build_extract_box(self) -> QGroupBox:
         """Create the k spinbox, the method combo and the Extract button."""
         box = QGroupBox(tr("Extract from image"), self)
-        row = QHBoxLayout(box)
+        # Two rows instead of one: four controls side by side forced this group to 363 pixels,
+        # the widest thing in the settings panel, and that width was charged to the canvas in
+        # every mode. Stacked, the same controls fit a 320-pixel panel without squeezing.
+        column = QVBoxLayout(box)
+        first = QHBoxLayout()
         self.extract_k = QSpinBox(box)
         self.extract_k.setObjectName("extract_k")
         self.extract_k.setRange(MIN_K, MAX_K)
@@ -366,10 +372,12 @@ class PalettePanel(QWidget):
         self.extract_button = QPushButton(tr("Extract"), box)
         self.extract_button.setObjectName("extract_button")
         self.extract_button.clicked.connect(self.extract_now)
-        row.addWidget(QLabel(tr("Colours"), box))
-        row.addWidget(self.extract_k)
-        row.addWidget(self.extract_method)
-        row.addWidget(self.extract_button)
+        first.addWidget(QLabel(tr("Colours"), box))
+        first.addWidget(self.extract_k)
+        first.addWidget(self.extract_method)
+        first.addStretch(1)
+        column.addLayout(first)
+        column.addWidget(self.extract_button)
         return box
 
     def _build_custom_box(self) -> QGroupBox:

@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
     QFileDialog,
-    QHBoxLayout,
+    QGridLayout,
     QLabel,
     QListWidget,
     QPushButton,
@@ -56,10 +56,15 @@ class MaskPanel(QWidget):
         self.import_button = QPushButton("Import…", self)
         self.export_button = QPushButton("Export…", self)
         self.delete_button = QPushButton("Delete", self)
-        list_row = QHBoxLayout()
-        for button in (self.new_button, self.import_button,
-                       self.export_button, self.delete_button):
-            list_row.addWidget(button)
+        # Two by two instead of one row of four: "New, Import…, Export…, Delete" side by side
+        # forced this panel to 356 pixels, and the glitch tab's settings panel was the only one
+        # wider than the shared 320 — the canvas moved when switching to it. Delete also stays
+        # visually apart from the three benign buttons.
+        list_row = QGridLayout()
+        list_row.addWidget(self.new_button, 0, 0)
+        list_row.addWidget(self.import_button, 0, 1)
+        list_row.addWidget(self.export_button, 1, 0)
+        list_row.addWidget(self.delete_button, 1, 1)
         self.painter = MaskPainter(self)
         self.tool_box = QComboBox(self)
         self.tool_box.setObjectName("mask_tool")
@@ -69,11 +74,14 @@ class MaskPanel(QWidget):
         self.radius_spin.setObjectName("mask_radius")
         self.radius_spin.setRange(1, 256)
         self.radius_spin.setValue(DEFAULT_RADIUS)
-        tool_row = QHBoxLayout()
-        tool_row.addWidget(QLabel("Tool", self))
-        tool_row.addWidget(self.tool_box)
-        tool_row.addWidget(QLabel("Radius", self))
-        tool_row.addWidget(self.radius_spin)
+        # Two pairs instead of one row of four: "Tool [combo] Radius [spin]" side by side made
+        # this panel 356 pixels wide, the only settings panel wider than the shared 320, so the
+        # canvas moved when switching to the glitch tab.
+        tool_row = QGridLayout()
+        tool_row.addWidget(QLabel("Tool", self), 0, 0)
+        tool_row.addWidget(self.tool_box, 0, 1)
+        tool_row.addWidget(QLabel("Radius", self), 1, 0)
+        tool_row.addWidget(self.radius_spin, 1, 1)
         self.clear_button = QPushButton("Clear", self)
         self.fill_button = QPushButton("Fill", self)
         self.gradient_box = QComboBox(self)
@@ -100,18 +108,19 @@ class MaskPanel(QWidget):
         layout.addLayout(luma_row)
         self._connect()
 
-    def _build_generators(self) -> tuple[QHBoxLayout, QHBoxLayout]:
+    def _build_generators(self) -> tuple[QGridLayout, QGridLayout]:
         """Lay out the clear/fill/gradient row and the luminance-range row."""
-        gen_row = QHBoxLayout()
-        for widget in (self.clear_button, self.fill_button,
-                       self.gradient_box, self.gradient_button):
-            gen_row.addWidget(widget)
-        luma_row = QHBoxLayout()
-        luma_row.addWidget(QLabel("Lo", self))
-        luma_row.addWidget(self.lo_spin)
-        luma_row.addWidget(QLabel("Hi", self))
-        luma_row.addWidget(self.hi_spin)
-        luma_row.addWidget(self.luma_button)
+        gen_row = QGridLayout()
+        gen_row.addWidget(self.clear_button, 0, 0)
+        gen_row.addWidget(self.fill_button, 0, 1)
+        gen_row.addWidget(self.gradient_box, 1, 0)
+        gen_row.addWidget(self.gradient_button, 1, 1)
+        luma_row = QGridLayout()
+        luma_row.addWidget(QLabel("Lo", self), 0, 0)
+        luma_row.addWidget(self.lo_spin, 0, 1)
+        luma_row.addWidget(QLabel("Hi", self), 0, 2)
+        luma_row.addWidget(self.hi_spin, 0, 3)
+        luma_row.addWidget(self.luma_button, 1, 0, 1, 4)
         return gen_row, luma_row
 
     def _connect(self) -> None:

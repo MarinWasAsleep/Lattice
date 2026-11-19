@@ -55,6 +55,7 @@ from lattice.ui import (
     oversize_message,
     preview_proxy,
 )
+from lattice.ui.geometry import PANEL_WIDTH
 from lattice.ui.glyph_browser import GlyphBrowser
 
 LOGGER = logging.getLogger(__name__)
@@ -135,7 +136,7 @@ class MainWindow(QMainWindow):
         for name, panel in self.panels.items():
             self.tabs.addTab(panel, name)
         self.dock.setWidget(self.tabs)
-        self.dock.setMinimumWidth(340)
+        self.dock.setMinimumWidth(PANEL_WIDTH)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.dock)
         self.renderer_panel.changed.connect(self.on_panels_changed)
         self.palette_panel.changed.connect(self.on_panels_changed)

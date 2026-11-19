@@ -9,7 +9,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QSettings, Qt, QThread, Signal, SignalInstance
+from PySide6.QtCore import QSettings, Qt, QThread, QTimer, Signal, SignalInstance
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
@@ -22,9 +22,11 @@ from PySide6.QtWidgets import (
     QApplication,
     QDockWidget,
     QFileDialog,
+    QFrame,
     QLabel,
     QMainWindow,
     QMessageBox,
+    QScrollArea,
     QTabWidget,
     QToolBar,
     QWidget,
@@ -46,13 +48,15 @@ from lattice.pipeline import PipelineSpec
 from lattice.presets import is_within, shipped_preset_dir, user_preset_dir
 from lattice.types import RGB8, Image
 from lattice.ui.canvas import PreviewCanvas
+from lattice.ui.geometry import GALLERY_COLUMNS, GALLERY_WIDTH, PANEL_WIDTH
 from lattice.ui.worker import PreviewResult, RenderResult, RenderWorker
 
 LOGGER = logging.getLogger(__name__)
 
 PANEL_TABS: tuple[str, ...] = ("Algorithm", "Palette", "Effects")
-DOCK_MIN_WIDTH = 320
-GALLERY_MIN_WIDTH = 240
+# Widths come from one shared decision so the canvas does not jump between tabs.
+DOCK_MIN_WIDTH = PANEL_WIDTH
+GALLERY_MIN_WIDTH = GALLERY_WIDTH
 SETTINGS_NAME = "LatticeDither"
 GEOMETRY_KEY = "geometry"
 PRESET_DIR = shipped_preset_dir()
@@ -118,6 +122,12 @@ class MainWindow(QMainWindow):
         geometry = self._settings.value(GEOMETRY_KEY)
         if geometry:
             self.restoreGeometry(geometry)
+        # Docks are set last, after the restored geometry: a saved layout would otherwise bring
+        # back whatever dock widths the user had in the three-window era and reopen the canvas
+        # squeezed between a 469-pixel gallery and a 418-pixel panel, when the shared geometry
+        # asks for 268 and 320.
+        self.resizeDocks([self.gallery_dock], [GALLERY_WIDTH], Qt.Orientation.Horizontal)
+        self.resizeDocks([self.dock], [PANEL_WIDTH], Qt.Orientation.Horizontal)
         self._start_worker()
         self._load_spec(self.spec)
 
@@ -207,10 +217,20 @@ class MainWindow(QMainWindow):
 
     def _build_gallery(self) -> None:
         """Create the algorithm gallery in its own dock and connect its choice signal."""
-        self.gallery = AlgorithmGallery(self)
+        self.gallery = AlgorithmGallery(self, columns=GALLERY_COLUMNS)
+        # The gallery holds 33 cells; without a scrolling viewport it claims the height of all of
+        # them (1443 px measured) and drags the whole window with it — the window opened at 1613
+        # pixels tall and the canvas was squeezed to 134 pixels wide. Scrolled, it takes the space
+        # it is given and the canvas stays the largest thing on screen.
+        self.gallery_view = QScrollArea(self)
+        self.gallery_view.setObjectName("gallery_scroll")
+        self.gallery_view.setWidgetResizable(True)
+        self.gallery_view.setFrameShape(QFrame.Shape.NoFrame)
+        self.gallery_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.gallery_view.setWidget(self.gallery)
         self.gallery_dock = QDockWidget(tr("Gallery"), self)
         self.gallery_dock.setObjectName("gallery_dock")
-        self.gallery_dock.setWidget(self.gallery)
+        self.gallery_dock.setWidget(self.gallery_view)
         self.gallery_dock.setMinimumWidth(GALLERY_MIN_WIDTH)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.gallery_dock)
         self.gallery.algorithm_chosen.connect(self._on_algorithm_chosen)
@@ -235,6 +255,21 @@ class MainWindow(QMainWindow):
         for label in (*labels, self.version_label):
             bar.addPermanentWidget(label)
         bar.showMessage(tr("Ready"))
+
+    def _apply_shared_geometry(self) -> None:
+        """Give the two docks the widths every mode shares.
+
+        `resizeDocks` only takes effect once the window has a real size, so it is deferred to the
+        first show: applied in the constructor, the saved layout won and the gallery reopened at
+        469 pixels while the panel took 418, squeezing the canvas between them.
+        """
+        def apply() -> None:
+            self.resizeDocks([self.gallery_dock], [GALLERY_WIDTH], Qt.Orientation.Horizontal)
+            self.resizeDocks([self.dock], [PANEL_WIDTH], Qt.Orientation.Horizontal)
+            self._geometry_applied = True
+
+        self._geometry_applied = False
+        QTimer.singleShot(0, apply)
 
     def _start_worker(self) -> None:
         """Create the render worker in its own thread and connect every signal."""
