@@ -143,3 +143,46 @@ def test_the_engine_renders_without_a_display() -> None:
     # The pipeline quantises to 8-bit on the way out: that is the contract the exporters and
     # the CLI both rely on, so the assertion pins uint8 rather than the input dtype.
     assert out.dtype == np.uint8
+
+
+def test_the_theme_resources_ship_with_the_package() -> None:
+    """The stylesheet and the four icons are part of the package, not a developer's folder.
+
+    ``lattice.app`` reads them by path: a missing stylesheet silently degrades to a plain
+    palette, and a missing icon leaves a blank tab. Both would pass every render test, so the
+    files are asserted where they live.
+    """
+    from lattice.app import RESOURCES, STYLESHEET, stylesheet
+
+    assert STYLESHEET.is_file(), f"stylesheet missing at {STYLESHEET}"
+    assert stylesheet().strip(), "the stylesheet is empty"
+    for name in ("logo.svg", "icon-app.svg", "icon-dither.svg", "icon-glyph.svg",
+                 "icon-glitch.svg"):
+        assert (RESOURCES / name).is_file(), f"lattice/resources/{name} is missing"
+
+
+def test_the_stylesheet_names_every_mode_colour() -> None:
+    """Each mode has its own accent in the stylesheet, so the tab bar says where you are."""
+    from lattice.app import stylesheet
+
+    sheet = stylesheet()
+    for mode, colour in (("dither", "#2EC4B6"), ("glyph", "#9BE15D"), ("glitch", "#E36BFF")):
+        assert colour.lower() in sheet.lower(), f"{mode}: {colour} absent du thème"
+
+
+def test_the_canvas_background_is_a_neutral_grey() -> None:
+    """The canvas must not tint the image: R, G and B have to be equal.
+
+    A tinted canvas sits behind every pixel the user judges, so a "warm" grey would make them
+    compensate without knowing why. This pins the neutrality of the colour itself.
+    """
+    import inspect
+
+    from PySide6.QtGui import QColor
+
+    from lattice.ui import canvas
+
+    source = inspect.getsource(canvas)
+    assert "setBackgroundBrush(QColor(28, 28, 28))" in source
+    colour = QColor(28, 28, 28)
+    assert colour.red() == colour.green() == colour.blue()

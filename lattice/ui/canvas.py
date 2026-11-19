@@ -72,7 +72,9 @@ class PreviewCanvas(QGraphicsView):
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
-        self.setBackgroundBrush(QColor(32, 32, 34))
+        # Strictly neutral grey: any tint in the canvas would sit behind the user's image and
+        # shift their judgement of its colours.
+        self.setBackgroundBrush(QColor(28, 28, 28))
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setFrameShape(QGraphicsView.Shape.NoFrame)
 

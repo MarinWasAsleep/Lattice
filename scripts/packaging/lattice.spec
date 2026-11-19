@@ -47,6 +47,9 @@ DATA = [
     (os.path.join(ROOT, "data"), "data"),
     (os.path.join(ROOT, "presets"), "presets"),
     (os.path.join(ROOT, "assets"), "assets"),
+    # The stylesheet and the mode icons: `lattice.app` reads them by path at startup, so
+    # PyInstaller cannot see them. Without this the frozen window comes up unstyled.
+    (os.path.join(ROOT, "lattice", "resources"), os.path.join("lattice", "resources")),
     (os.path.join(ROOT, "lattice", "data"), os.path.join("lattice", "data")),
     (os.path.join(ROOT, "lattice", "palettes", "data"),
      os.path.join("lattice", "palettes", "data")),

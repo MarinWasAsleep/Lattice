@@ -20,10 +20,12 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import QSettings, Qt
+from PySide6.QtCore import QSettings, QSize, Qt
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMainWindow, QTabWidget, QWidget
 
 from lattice import APP_NAME, __version__
+from lattice.app import RESOURCES
 
 LOGGER = logging.getLogger(__name__)
 
@@ -70,10 +72,18 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.tabs)
 
         self.windows: dict[str, QMainWindow] = {}
+        self.tabs.setObjectName("mode_tabs")
+        self.tabs.tabBar().setObjectName("mode_tabbar")
+        self.tabs.setIconSize(QSize(20, 20))
         for index, mode in enumerate(MODES):
             window = build_mode_window(mode, self.tabs)
             self.windows[mode] = window
-            self.tabs.addTab(window, mode_title(mode))
+            # The stylesheet colours each tab through this property, so the mode you are in is
+            # readable from the tab bar alone.
+            window.setProperty("mode", mode)
+            icon = RESOURCES / f"icon-{mode}.svg"
+            self.tabs.addTab(window, QIcon(str(icon)) if icon.is_file() else QIcon(),
+                             mode_title(mode))
             self.tabs.setTabToolTip(index, f"{mode_title(mode)} — {mode}")
             # A QMainWindow used as tab content keeps its own Window flag, so QTabWidget adds
             # it but never shows it (the tab comes up blank) and never hides it either when

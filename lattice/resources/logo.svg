@@ -1,0 +1,24 @@
+<!-- logo.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Lattice</title>
+  <g fill="#3A3A3A">
+    <rect x="1"  y="1"  width="14" height="14"/>
+    <rect x="17" y="1"  width="14" height="14"/>
+    <rect x="33" y="1"  width="14" height="14"/>
+    <rect x="49" y="1"  width="14" height="14"/>
+    <rect x="17" y="17" width="14" height="14"/>
+    <rect x="49" y="17" width="14" height="14"/>
+    <rect x="33" y="33" width="14" height="14"/>
+    <rect x="49" y="33" width="14" height="14"/>
+    <rect x="49" y="49" width="14" height="14"/>
+  </g>
+  <g fill="#FFB000">
+    <rect x="1"  y="17" width="14" height="14"/>
+    <rect x="33" y="17" width="14" height="14"/>
+    <rect x="1"  y="33" width="14" height="14"/>
+    <rect x="17" y="33" width="14" height="14"/>
+    <rect x="1"  y="49" width="14" height="14"/>
+    <rect x="17" y="49" width="14" height="14"/>
+    <rect x="33" y="49" width="14" height="14"/>
+  </g>
+</svg>
