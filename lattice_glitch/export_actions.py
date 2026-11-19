@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, cast
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QComboBox, QFileDialog, QFormLayout, QSpinBox, QWidget
 
+from lattice_core import axes
 from lattice_core.pipeline import PipelineSpec
 from lattice_core.types import RGB8, Image
 from lattice_core.ui import ExportDialog, ExportError
@@ -43,7 +44,7 @@ LOOP_FILTER = {
     "gif": "Animated GIF (*.gif);;All files (*)",
     "apng": "Animated PNG (*.png *.apng);;All files (*)",
 }
-LOOP_AXES = ("seed", "offset", "iterations")  # mirrors lattice_core.animation.AXES
+LOOP_AXES = axes.AXES  # single source of truth, and it imports without Qt or the renderer
 DEFAULT_FRAMES = 8
 MAX_FRAMES = 240
 LOOP_RENDER = Callable[[int, str, int], list[RGB8]]

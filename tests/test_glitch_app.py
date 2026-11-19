@@ -563,7 +563,7 @@ def test_export_dialog_writes_gif_and_apng(make_window, tmp_path: Path,
     assert [box.itemData(i) for i in range(box.count())] == ["png", "gif", "apng"]
     assert dialog.stack.count() == 2
     assert [dialog.loop_axis.itemData(i) for i in range(dialog.loop_axis.count())] == [
-        "seed", "offset", "iterations"]
+        "seed", "offset", "iterations", "param"]
     box.setCurrentIndex(box.findData("gif"))
     assert dialog.stack.currentIndex() == 1
     assert dialog.path_edit.text().endswith(".gif")
@@ -640,3 +640,34 @@ def test_loop_cli_is_qt_free_and_reports_errors(capsys: pytest.CaptureFixture[st
                             text=True, timeout=300, check=False)
     assert result.returncode == 0, result.stderr
     assert (T / "bare.gif").read_bytes()[:6] in (b"GIF87a", b"GIF89a")
+
+
+def test_cli_loop_exposes_every_axis_the_core_accepts() -> None:
+    """The CLI and the export dialog must advertise exactly the core's axes.
+
+    A hard-coded tuple hid ``param`` from the command line while the core had supported it
+    since L27: only the tests could animate an effect. This pins the two lists together.
+    """
+    from lattice_core import animation, axes
+    from lattice_glitch.cli import _build_parser
+
+    assert axes.AXES == animation.AXES
+    loop = _build_parser()._subparsers._group_actions[0].choices["loop"]
+    axis_action = next(a for a in loop._actions if a.dest == "axis")
+    assert tuple(axis_action.choices) == animation.AXES
+    assert "param" in axis_action.choices
+
+
+def test_cli_loop_rejects_param_without_the_parameter_name(tmp_path: Path) -> None:
+    """`--axis param` alone is a usage error, not a crash inside the renderer."""
+    from lattice_glitch.cli import EXIT_USAGE, main
+
+    preset = tmp_path / "bare.json"
+    preset.write_text(json.dumps({
+        "version": 3, "app": "glitch", "seed": 7,
+        "pipeline": {"algorithm": None, "palette": None, "pixel_size": 1},
+        "palette": None, "effects": []}))
+    image = _png(tmp_path / "src.png", np.full((16, 16, 3), 128, dtype=np.uint8))
+    code = main(["loop", "--preset", str(preset), "--in", str(image),
+                 "--out", str(tmp_path / "o.gif"), "--frames", "4", "--axis", "param"])
+    assert code == EXIT_USAGE

@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import NoReturn
 
 import lattice_core.effects  # noqa: F401  (importing the package registers every effect)
-from lattice_core import color
+from lattice_core import axes, color
 from lattice_core.bridge import HOSTS, BridgeError
 from lattice_core.preset import Preset, to_pipeline_spec
 from lattice_glitch import presets as preset_tools
@@ -42,7 +42,7 @@ EXIT_RENDER = 2
 EXIT_BRIDGE = 3
 DEFAULT_EXTENSIONS = "png,jpg,jpeg,bmp,tif,tiff,webp"
 PROG = "lattice-glitch"
-LOOP_AXES = ("seed", "offset", "iterations")  # mirrors lattice_core.animation.AXES
+LOOP_AXES = axes.AXES  # single source of truth, and it imports without Qt or the renderer
 LOOP_WRITERS = {"gif": "gif", "png": "apng", "apng": "apng"}
 
 
@@ -131,8 +131,12 @@ def _cmd_loop(args: argparse.Namespace) -> int:
             raise UsageError(f"--frames must be >= 1, got {args.frames}")
         fmt = LOOP_WRITERS[suffix]
         animation = importlib.import_module("lattice_core.animation")
+        if args.axis == "param" and not args.param:
+            raise UsageError("--axis param needs --param <effect>.<key>")
         frames = animation.render_loop(
             image, to_pipeline_spec(preset), count=args.frames, axis=args.axis,
+            param=args.param, from_value=args.from_value, to_value=args.to_value,
+            curve=args.curve,
             render_fn=partial(render_rgb8, context=context_of_preset(preset)))
         target = Path(args.output)
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -319,6 +323,14 @@ def _add_loop_verb(verbs: argparse._SubParsersAction) -> None:
     loop.add_argument("--out", dest="output", required=True, help="output .gif, .png or .apng")
     loop.add_argument("--frames", type=int, required=True, help="number of frames (>= 1)")
     loop.add_argument("--axis", default="seed", choices=LOOP_AXES, help="the axis that varies")
+    loop.add_argument("--param", dest="param",
+                      help="with --axis param: the effect parameter, '<effect>.<key>'")
+    loop.add_argument("--from", dest="from_value", type=float, default=0.0,
+                      help="with --axis param: the A value")
+    loop.add_argument("--to", dest="to_value", type=float, default=1.0,
+                      help="with --axis param: the B value")
+    loop.add_argument("--curve", default="sin", choices=("sin", "linear"),
+                      help="with --axis param: the A->B->A curve")
     loop.add_argument("--json", action="store_true", help="print a JSON result")
     loop.set_defaults(handler=_cmd_loop)
 

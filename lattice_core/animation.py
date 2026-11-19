@@ -22,6 +22,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image as PILImage
 
+from lattice_core import axes
 from lattice_core.pipeline import (
     EffectInstance,
     PipelineSpec,
@@ -32,7 +33,7 @@ from lattice_core.pipeline import (
 from lattice_core.seed import module_seed
 from lattice_core.types import RGB8, Image
 
-AXES = ("seed", "offset", "iterations", "param")
+AXES = axes.AXES  # the tuple lives in lattice_core.axes, importable without this module
 MAX_ITERATIONS = 8
 CURVES = ("sin", "linear")
 

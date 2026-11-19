@@ -639,3 +639,21 @@ invented in code. The orchestrator folds them into the contract at the next chec
   authenticated connection » ne s'applique qu'à PhotoCraft ; DesignCraft = connexion directe
   sans auth, surface documentée ci-dessus.
 - status: applied (orchestrateur — résolution de la major de la relecture L5)
+
+### DEV-235 — L29 · le CLI n'exposait pas l'axe `param` (E3, orchestrateur)
+- classes: E3
+- context: rédaction de la doc publique de `bytemosh`. La recette `loop --axis param` écrite
+  dans le README a été EXÉCUTÉE avant publication : `invalid choice: 'param'`.
+- facts: `lattice_core.animation.AXES` contenait `param` depuis L27, mais `lattice_glitch/cli.py`
+  et `lattice_glitch/export_actions.py` portaient chacun un tuple en dur `("seed", "offset",
+  "iterations")` avec le commentaire « mirrors lattice_core.animation.AXES ». L'axe était donc
+  atteignable seulement depuis les tests. Le CLI n'avait pas non plus `--param/--from/--to/--curve`.
+- decision: la liste vit dans `lattice_core/axes.py` (module sans Qt ni image), importée par les
+  trois appelants ; le CLI gagne `--param`, `--from`, `--to`, `--curve`, et refuse
+  `--axis param` sans `--param` en erreur d'usage (exit 1).
+- evidence: `loop --axis param --param bytemosh.amount --from 0 --to 1 --frames 8` écrit un GIF
+  de 8 frames, écarts consécutifs 252-255/255, frame[0] != frame[7]. Deux tests neufs :
+  `test_cli_loop_exposes_every_axis_the_core_accepts`, `test_cli_loop_rejects_param_without_the_parameter_name`.
+- lesson: un commentaire « mirrors X » est un aveu de duplication, pas une garantie. Quand deux
+  listes doivent rester égales, la seconde doit LIRE la première.
+- status: applied
