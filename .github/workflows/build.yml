@@ -163,15 +163,49 @@ jobs:
           Write-Host "the window opened"
           Stop-Process -Id $window.Id
 
-      - name: Attach the binaries to the release
+      - name: Keep the binaries as workflow artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.platform }}
+          path: |
+            dist/Lattice
+            dist/lattice
+            dist/Lattice.exe
+            dist/lattice.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: release
+    # One job publishes, with every binary already built: two jobs uploading to the same
+    # release race each other — the second one hits the asset it did not create and the API
+    # answers 404, which is exactly what happened when each platform published on its own.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect the binaries of both platforms
+        uses: actions/download-artifact@v4
+        with:
+          pattern: binaries-*
+          path: dist
+          merge-multiple: true
+
+      - name: List what will be published
+        run: ls -la dist/
+
+      # upload-artifact stores no permission bits, so the two Linux binaries come back without
+      # their executable flag and a user downloading them would get "permission denied".
+      - name: Restore the executable bit on the Linux binaries
+        run: chmod +x dist/Lattice dist/lattice
+
+      - name: Publish
         uses: softprops/action-gh-release@v2
         with:
-          # Each job uploads only what it built: Linux ships its two binaries, Windows its two
-          # .exe. `files` listing all four means every job warns about the two it never made.
           files: |
             dist/Lattice
             dist/lattice
             dist/Lattice.exe
             dist/lattice.exe
-          fail_on_unmatched_files: false
-          generate_release_notes: ${{ runner.os == 'Linux' }}
+          fail_on_unmatched_files: true
+          generate_release_notes: true
