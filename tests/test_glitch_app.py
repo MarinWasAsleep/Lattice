@@ -162,13 +162,12 @@ def test_shell_opens_stacks_reorders_saves(make_window, tmp_path: Path, image_fi
     window = make_window()
     assert window.windowTitle() == lattice.modes.glitch.APP_NAME
     assert window.tabs.count() == 4 and "reroll" in window.action_map
-    # The bridge probe shells out to the host, so how fast it settles is a property of the
-    # machine, not of the window: on a Windows runner it can still be "unknown" after the
-    # settle window. What must hold everywhere is that the probe does not block and that the
-    # label reflects whatever state it reached.
+    # The dot and the status label must agree: `set_state` emits `state_changed`, which is what
+    # updates the label. They disagreed for real — the label read "unknown" forever while the
+    # dot had already settled — and this assertion is what caught it.
     _settle(lambda: window.bridge_dot.state() != "unknown")
     state = window.bridge_dot.state()
-    assert state in {"disconnected", "unknown"}, state
+    assert state == "disconnected", state
     assert state in window.connection_label.text()
     assert window.open_path(tmp_path / "nope.png") is False
     window.export_dialog()

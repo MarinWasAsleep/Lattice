@@ -69,5 +69,12 @@ for mode in $MODES; do
     log "$mode -> $output"
 done
 
-"$PYTHON" "$CHECKER" || die "release" "les binaires ne partagent pas la meme version de code"
+# The cross-check only makes sense when both binaries were built by this run: a partial build
+# (MODES=gui for a quick iteration) legitimately leaves the other one absent, and failing there
+# would make the script unusable for what it is most often used for.
+if [[ "$MODES" == *gui* && "$MODES" == *cli* ]]; then
+    "$PYTHON" "$CHECKER" || die "release" "les binaires ne partagent pas la meme version de code"
+else
+    log "build partiel ($MODES) : verification croisee ignoree"
+fi
 log "termine : binaires dans $DIST_DIR"

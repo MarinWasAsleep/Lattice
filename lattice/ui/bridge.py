@@ -140,12 +140,20 @@ class BridgeStatusDot(QWidget):
         return self._state
 
     def set_state(self, state: str) -> None:
-        """Set the displayed state and repaint the dot."""
+        """Set the displayed state, repaint the dot and tell whoever listens.
+
+        The signal is what keeps a window's status label in step with the dot: without it the
+        dot changes colour while the label still reads "unknown" forever, which is exactly what
+        happened until the Windows CI made it visible.
+        """
         if state not in STATES:
             raise ValueError(f"unknown bridge state {state!r}")
+        changed = state != self._state
         self._state = state
         self._update_tip()
         self.update()
+        if changed:
+            self.state_changed.emit(state)
 
     @Slot()
     def check(self) -> None:
