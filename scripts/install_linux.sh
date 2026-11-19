@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
-# Installe les lanceurs Lattice dans ~/.local/bin et les entrees de menu dans
-# ~/.local/share/applications. Jamais de raccourci sur le Bureau (regle utilisateur).
+# Installe Lattice sur cette machine : le binaire de la fenetre et celui de la ligne de commande
+# dans ~/.local/bin, une entree de menu dans ~/.local/share/applications. Jamais de raccourci sur
+# le Bureau (regle utilisateur).
+#
+# Lattice 1.0 est un seul programme : deux fichiers a installer au lieu de six, et une seule
+# entree de menu. Les anciennes entrees et lanceurs des trois applications separees sont retires
+# par ce script, sinon le menu proposerait des programmes qui n'existent plus.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -10,126 +15,115 @@ DIST_DIR="${DIST_DIR:-$ROOT/dist}"
 DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 DESKTOP_DIR="${DESKTOP_DIR:-$DATA_HOME/applications}"
 BIN_DIR="${BIN_DIR:-${XDG_BIN_HOME:-$HOME/.local/bin}}"
-ENTRY_DIR="$SCRIPT_DIR/packaging/entry"
-APPS="dither glyph glitch"
 UNINSTALL=0
+
+GUI_BINARY="Lattice"
+CLI_BINARY="lattice-cli"
+GUI_LINK="lattice"
+CLI_LINK="lattice-cli"
+DESKTOP_FILE="lattice.desktop"
+
+# Everything the three-application era installed, removed on sight so a menu never offers a
+# launcher for a program that is no longer built.
+LEGACY_LINKS=(lattice-dither lattice-dither-cli lattice-glyph lattice-glyph-cli
+              lattice-glitch lattice-glitch-cli LatticeDither-linux)
+LEGACY_DESKTOPS=(lattice-dither.desktop lattice-glyph.desktop lattice-glitch.desktop
+                 LatticeDither.desktop)
 
 log() { printf '[Lattice install] %s\n' "$1"; }
 die() {
     printf 'LATTICE INSTALL ERROR: %s: %s\n' "$1" "$2" >&2
     exit 1
 }
+
 [[ $# -gt 0 && "$1" == "--uninstall" ]] && UNINSTALL=1
 
-app_title() {
-    case "$1" in
-        dither) printf 'Lattice Dither' ;;
-        glyph)  printf 'Lattice Glyph' ;;
-        glitch) printf 'Lattice Glitch' ;;
-        *) return 1 ;;
-    esac
-}
-app_comment() {
-    case "$1" in
-        dither) printf 'Dithering studio for PhotoCraft' ;;
-        glyph)  printf 'Glyph, bitmask and text rendering' ;;
-        glitch) printf 'Feedback, displacement and signal degradation' ;;
-        *) return 1 ;;
-    esac
-}
-app_binary() {
-    case "$1" in
-        dither) printf 'LatticeDither' ;;
-        glyph)  printf 'LatticeGlyph' ;;
-        glitch) printf 'LatticeGlitch' ;;
-        *) return 1 ;;
-    esac
-}
-app_icon() {
-    case "$1" in
-        dither) printf '%s/assets/lattice_dither.png' "$ROOT" ;;
-        *) printf 'applications-graphics' ;;
-    esac
-}
+[[ "$DESKTOP_DIR" != "$HOME/Desktop" ]] ||
+    die "desktop" "refus d'ecrire sur le Bureau (regle utilisateur non negociable)"
 
-install_one() {
-    local app="$1" mode src dest suffix built=0 wrapper
-    for mode in gui cli; do
-        if [ "$mode" = cli ]; then suffix="-cli"; else suffix=""; fi
-        dest="$BIN_DIR/lattice-${app}${suffix}"
-        if [ "$mode" = gui ]; then
-            src="$DIST_DIR/$(app_binary "$app")"
-        else
-            src="$DIST_DIR/lattice-${app}-cli"
+purge_legacy() {
+    local name
+    for name in "${LEGACY_LINKS[@]}"; do
+        if [[ -e "$BIN_DIR/$name" ]]; then
+            rm -f "$BIN_DIR/$name"
+            log "ancien lanceur retire : $name"
         fi
-        if [[ -f "$src" ]]; then
-            install -m 0755 "$src" "$dest" || die "$app/$mode" "copie impossible vers $dest"
-            built=1
-        else
-            [[ -f "$PYTHON" ]] || die "$app/$mode" "ni binaire ($src) ni python ($PYTHON)"
-            [[ -f "$ENTRY_DIR/${app}_${mode}.py" ]] ||
-                die "$app/$mode" "point d'entree absent: $ENTRY_DIR/${app}_${mode}.py"
-            wrapper="$(mktemp)"
-            {
-                printf '#!/usr/bin/env bash\n'
-                printf '# Lanceur Lattice %s (%s) installe dans ~/.local/bin\n' "$app" "$mode"
-                printf 'exec "%s" "%s" "$@"\n' "$PYTHON" "$ENTRY_DIR/${app}_${mode}.py"
-            } >"$wrapper"
-            install -m 0755 "$wrapper" "$dest" || die "$app/$mode" "installation de $dest impossible"
-            rm -f "$wrapper"
-        fi
-        [[ -x "$dest" ]] || die "$app/$mode" "lanceur non executable: $dest"
-        log "$app/$mode -> $dest"
     done
-    if [ "$built" = 0 ]; then
-        log "$app: lanceurs Python (aucun binaire PyInstaller trouve dans $DIST_DIR)"
-    fi
+    for name in "${LEGACY_DESKTOPS[@]}"; do
+        if [[ -e "$DESKTOP_DIR/$name" ]]; then
+            rm -f "$DESKTOP_DIR/$name"
+            log "ancienne entree retiree : $name"
+        fi
+    done
 }
 
-write_desktop_one() {
-    local app="$1" dest="$DESKTOP_DIR/lattice-${app}.desktop"
+if [[ $UNINSTALL -eq 1 ]]; then
+    rm -f "$BIN_DIR/$GUI_LINK" "$BIN_DIR/$CLI_LINK" "$DESKTOP_DIR/$DESKTOP_FILE"
+    purge_legacy
+    log "desinstallation terminee"
+    exit 0
+fi
+
+write_gui() {
+    local src="$DIST_DIR/$GUI_BINARY"
+    if [[ -f "$src" ]]; then
+        install -m 0755 "$src" "$BIN_DIR/$GUI_LINK" || die "fenetre" "copie impossible"
+        log "fenetre -> $BIN_DIR/$GUI_LINK"
+        return
+    fi
+    # No frozen binary: run from source, which is what a developer wants anyway.
+    [[ -f "$PYTHON" ]] || die "fenetre" "ni binaire ($src) ni python ($PYTHON)"
+    printf '#!/usr/bin/env bash\nexec "%s" -m lattice.app "$@"\n' "$PYTHON" >"$BIN_DIR/$GUI_LINK"
+    chmod 0755 "$BIN_DIR/$GUI_LINK"
+    log "fenetre -> $BIN_DIR/$GUI_LINK (depuis les sources)"
+}
+
+write_cli() {
+    local src="$DIST_DIR/$CLI_BINARY"
+    if [[ -f "$src" ]]; then
+        install -m 0755 "$src" "$BIN_DIR/$CLI_LINK" || die "console" "copie impossible"
+        log "console -> $BIN_DIR/$CLI_LINK"
+        return
+    fi
+    [[ -f "$PYTHON" ]] || die "console" "ni binaire ($src) ni python ($PYTHON)"
+    printf '#!/usr/bin/env bash\nexec "%s" -m lattice "$@"\n' "$PYTHON" >"$BIN_DIR/$CLI_LINK"
+    chmod 0755 "$BIN_DIR/$CLI_LINK"
+    log "console -> $BIN_DIR/$CLI_LINK (depuis les sources)"
+}
+
+write_desktop() {
+    local dest="$DESKTOP_DIR/$DESKTOP_FILE" icon="$ROOT/lattice/resources/icon-app.svg"
+    [[ -f "$icon" ]] || icon="applications-graphics"
     cat >"$dest" <<EOF
 [Desktop Entry]
 Type=Application
 Version=1.0
-Name=$(app_title "$app")
-GenericName=$(app_title "$app")
-Comment=$(app_comment "$app")
-Exec=$BIN_DIR/lattice-${app} %f
-Icon=$(app_icon "$app")
+Name=Lattice
+GenericName=Image Studio
+Comment=Dithering, glyph and glitch studio for raster images
+Exec=$BIN_DIR/$GUI_LINK %f
+Icon=$icon
 Terminal=false
 Categories=Graphics;2DGraphics;RasterGraphics;
 MimeType=image/png;image/jpeg;image/bmp;image/tiff;image/webp;
 StartupNotify=true
 EOF
     if command -v desktop-file-validate >/dev/null 2>&1; then
-        desktop-file-validate "$dest" || die "desktop:$app" "fichier invalide: $dest"
+        desktop-file-validate "$dest" || die "desktop" "fichier invalide: $dest"
     fi
     log "entree de menu -> $dest"
 }
 
-remove_one() {
-    local app="$1"
-    rm -f "$DESKTOP_DIR/lattice-${app}.desktop" \
-          "$BIN_DIR/lattice-${app}" "$BIN_DIR/lattice-${app}-cli"
-    log "$app: lanceurs et entree de menu supprimes"
-}
-
-[[ "$DESKTOP_DIR" != "$HOME/Desktop" ]] ||
-    die "desktop" "refus d'ecrire sur le Bureau (regle utilisateur non negociable)"
-
-if [ "$UNINSTALL" = 1 ]; then
-    mkdir -p "$DESKTOP_DIR" "$BIN_DIR"
-    for app in $APPS; do remove_one "$app"; done
-    log "desinstallation terminee"
-    exit 0
-fi
-
 mkdir -p "$DESKTOP_DIR" "$BIN_DIR" ||
     die "repertoires" "creation impossible de $DESKTOP_DIR ou $BIN_DIR"
-for app in $APPS; do
-    app_title "$app" >/dev/null || die "$app" "application inconnue"
-    install_one "$app"
-    write_desktop_one "$app"
-done
+
+write_gui
+write_cli
+write_desktop
+purge_legacy
+
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
+fi
+
 log "termine : aucun raccourci cree sur le Bureau"
