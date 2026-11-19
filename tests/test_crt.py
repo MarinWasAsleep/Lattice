@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -221,3 +222,54 @@ def test_array_mask_in_params_channel_is_rejected() -> None:
     img = _image(8, 8)
     with pytest.raises(ValueError, match="unknown CRT mask"):
         info.fn(img, {**NEUTRAL, "mask": np.ones((8, 8))}, np.random.default_rng(0))
+
+
+def test_curvature_zero_with_mask_is_bit_identical() -> None:
+    """G7: with curvature and vignette off, the frozen masked path is bit-identical.
+
+    Digest captured from HEAD before the phosphor/curvature order change. This is the
+    frozen Dither 1.1 preset path: any drift in the neutral-curvature chain breaks it.
+    """
+    img = np.random.default_rng(7).random((32, 48, 3), dtype=np.float32)
+    settings = {
+        "bloom": 0.3,
+        "scanline_intensity": 0.45,
+        "mask": "aperture_grille",
+        "mask_scale": 6,
+        "curvature": 0.0,
+        "vignette": 0.0,
+    }
+    out = _apply(img, settings, seed=7)
+    assert out.dtype == np.float32
+    assert out.shape == img.shape
+    assert hashlib.sha256(out.tobytes()).hexdigest() == (
+        "521ebf6afedc51acc2d10a3d5ea8dea74409444a2600495a925337b3e92190a0"
+    )
+
+
+def test_phosphor_after_curvature_avoids_border_colour_bands() -> None:
+    """L24: curved screen edges must not clamp the mask into solid red/blue bands.
+
+    With the mask applied before curvature, clamping stretches mask column 0 (red)
+    and the last one (blue) into full-height colour casts. After the fix the stripes
+    follow screen space, so both edge strips stay near colour-neutral.
+    """
+    img = np.full((120, 160, 3), 0.9, dtype=np.float32)
+    settings = {
+        "bloom": 0.3,
+        "scanline_intensity": 0.45,
+        "mask": "aperture_grille",
+        "mask_scale": 6,
+        "curvature": 0.2,
+        "vignette": 0.35,
+    }
+    out = _apply(img, settings)
+    span = float(out.max() - out.min())
+    assert span > 0.0
+    for strip in (out[:, :8, :], out[:, -8:, :]):
+        mean = strip.mean(axis=(0, 1))
+        # A solid red/blue band has a large spread between channel means.
+        assert float(mean.max() - mean.min()) < 0.15 * span
+        # Edge columns must still carry spatial detail, not a flat fill.
+        for column in range(strip.shape[1]):
+            assert float(strip[:, column, :].var()) > 0.01 * span * span

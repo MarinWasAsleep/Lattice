@@ -176,13 +176,15 @@ def crt(
     if cfg["scanline"] > 0.0:
         period_rows = max(1, int(round(_SCANLINE_ROWS * ratio)))
         out = out * _beam(height, cfg["scanline"], period_rows)[:, :, None]
-    if cfg["mask"] != "none":
-        period = max(1, int(round(cfg["mask_scale"] * ratio)))
-        out = out * _phosphor(height, width, cfg["mask"], period)
     grid = _grid(height, width) if cfg["curvature"] > 0.0 or cfg["vignette"] > 0.0 else None
     if cfg["curvature"] > 0.0:
         assert grid is not None
         out = _curve(out, cfg["curvature"], grid)
+    # Phosphor stripes live in screen space: apply them after the geometric warp so
+    # out-of-bounds clamping cannot stretch the red/blue edge stripes into solid bands.
+    if cfg["mask"] != "none":
+        period = max(1, int(round(cfg["mask_scale"] * ratio)))
+        out = out * _phosphor(height, width, cfg["mask"], period)
     if cfg["vignette"] > 0.0:
         assert grid is not None
         nx, ny = grid[0], grid[1]
