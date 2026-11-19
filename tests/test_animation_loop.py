@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import math
 from dataclasses import replace
 from pathlib import Path
 
@@ -52,6 +53,11 @@ def _src(size: int = 16) -> Image:
     img = np.full((size, size, 3), 0.25, dtype=np.float32)
     img[:, :4] = 0.75
     return img
+
+
+def _channel(amount: float = 4.0) -> PipelineSpec:
+    """Return a deterministic channel-shift spec: the frozen-starter case of L27."""
+    return _spec(post_effects=[EffectInstance("channel_shift", {"amount": amount})])
 
 
 def _gradient(size: int = 16) -> Image:
@@ -177,9 +183,9 @@ def test_unknown_axis_and_negative_count_are_rejected() -> None:
     assert render_loop(_src(), _spec(), count=0) == []
 
 
-def test_axis_constants_are_the_three_declared_axes() -> None:
-    """Only seed, offset and feedback iterations are variation axes."""
-    assert AXES == ("seed", "offset", "iterations")
+def test_axis_constants_are_the_four_declared_axes() -> None:
+    """Seed, offset, feedback iterations and the param walk are the variation axes."""
+    assert AXES == ("seed", "offset", "iterations", "param")
 
 
 def test_gif_has_exactly_n_frames(tmp_path: Path) -> None:
@@ -295,7 +301,8 @@ def test_render_fn_frame_zero_gets_the_unvaried_inputs(axis: str) -> None:
         seen.append((image, spec))
         return np.zeros((16, 16, 3), dtype=np.uint8)
 
-    render_loop(src, _feedback(), count=3, axis=axis, render_fn=render_fn)
+    render_loop(src, _feedback(), count=3, axis=axis, render_fn=render_fn,
+                param="feedback.decay", from_value=0.5, to_value=0.9)
     image0, spec0 = seen[0]
     assert np.array_equal(image0, src)
     assert spec0.seed == 7
@@ -312,7 +319,8 @@ def test_render_fn_receives_only_the_varied_axis(axis: str) -> None:
         seen.append((image, spec))
         return np.zeros((16, 16, 3), dtype=np.uint8)
 
-    render_loop(src, _feedback(), count=4, axis=axis, step=2, render_fn=render_fn)
+    render_loop(src, _feedback(), count=4, axis=axis, step=2, render_fn=render_fn,
+                param="feedback.decay", from_value=0.5, to_value=0.9)
     assert len(seen) == 4
     for index, (image, spec) in enumerate(seen):
         if axis == "seed":
@@ -321,9 +329,13 @@ def test_render_fn_receives_only_the_varied_axis(axis: str) -> None:
         elif axis == "offset":
             assert np.array_equal(image, np.roll(src, 2 * index, axis=1))
             assert spec.seed == 7
-        else:
+        elif axis == "iterations":
             assert spec.post_effects[0].params["iterations"] == min(8, 1 + 2 * index)
             assert np.array_equal(image, src)
+        else:
+            expected = 0.5 + 0.4 * (1 - math.cos(2 * math.pi * index / 3)) / 2
+            assert spec.post_effects[0].params["decay"] == pytest.approx(expected)
+            assert spec.seed == 7 and np.array_equal(image, src)
 
 
 def test_render_fn_keeps_validation_and_the_empty_count() -> None:
@@ -397,3 +409,88 @@ def test_streams_travel_on_the_spec_without_touching_the_preset() -> None:
     assert [getattr(s, "streams", None) for s in seen] == [
         (9, module_seed(7, 1)), (9, module_seed(8, 1))]
     assert not hasattr(spec, "streams") and spec.seed == 7
+
+
+def test_param_sin_round_trip_on_channel_shift() -> None:
+    """Accept 1: frames move, each equals an amount-only render, last equals first."""
+    spec = _channel()
+    out = render_loop(_gradient(), spec, count=5, axis="param",
+                      param="channel_shift.amount", from_value=1.0, to_value=9.0)
+    assert np.array_equal(out[0], out[-1])
+    for index, frame in enumerate(out):
+        amount = 1.0 + 8.0 * (1 - math.cos(2 * math.pi * index / 4)) / 2
+        expected = render(_gradient(), replace(spec, post_effects=[
+            EffectInstance("channel_shift", {"amount": amount})]))
+        assert np.array_equal(frame, expected)
+    outward = out[:3]  # the A->B leg; the return leg mirrors it by construction
+    assert all(not np.array_equal(a, b)
+               for i, a in enumerate(outward) for b in outward[i + 1:])
+    assert all(not np.array_equal(out[i], out[i + 1]) for i in range(4))
+
+
+def test_param_linear_walks_strictly_from_a_to_b_and_back() -> None:
+    """Accept 2: the linear curve rises strictly A->B, then mirrors back to A."""
+    seen: list[PipelineSpec] = []
+
+    def render_fn(image: Image, spec: PipelineSpec) -> RGB8:
+        seen.append(spec)
+        return np.zeros((16, 16, 3), dtype=np.uint8)
+
+    render_loop(_src(), _channel(), count=5, axis="param", render_fn=render_fn,
+                param="channel_shift.amount", from_value=1.0, to_value=9.0, curve="linear")
+    values = [s.post_effects[0].params["amount"] for s in seen]
+    assert values == [1.0, 5.0, 9.0, 5.0, 1.0]
+    assert values[0] < values[1] < values[2]
+
+
+def test_param_axis_unfreezes_a_deterministic_preset() -> None:
+    """Accept 3: the seed axis freezes channel_shift; the param axis moves it."""
+    spec = _channel()
+    frozen = render_loop(_gradient(), spec, count=4, axis="seed")
+    assert all(np.array_equal(frozen[0], frame) for frame in frozen)
+    moving = render_loop(_gradient(), spec, count=4, axis="param",
+                         param="channel_shift.amount", from_value=2.0, to_value=10.0)
+    assert not np.array_equal(moving[0], moving[1])
+    assert np.array_equal(moving[0], moving[-1])
+
+
+@pytest.mark.parametrize("override", [
+    {"param": "amount"}, {"param": "a.b.c"}, {"param": ".amount"},
+    {"param": "nope.amount"}, {"param": "channel_shift.missing"},
+    {"param": "channel_shift.mode"}, {"curve": "ease"},
+    {"from_value": float("nan")}, {"to_value": float("inf")}, {"from_value": None},
+])
+def test_param_axis_rejects_bad_configuration(override: dict) -> None:
+    """A malformed target, curve or bound raises ValueError before any render."""
+    call: dict = {"param": "channel_shift.amount", "from_value": 1.0, "to_value": 9.0}
+    call.update(override)
+    with pytest.raises(ValueError):
+        render_loop(_src(), _channel(), count=3, axis="param", **call)
+
+
+def test_param_axis_single_frame_and_empty_count() -> None:
+    """count=1 renders from_value, count=0 stays empty, the spec is never mutated."""
+    spec = _channel()
+    one = render_loop(_gradient(), spec, count=1, axis="param",
+                      param="channel_shift.amount", from_value=3.0, to_value=9.0)
+    assert np.array_equal(one[0], render(_gradient(), replace(spec, post_effects=[
+        EffectInstance("channel_shift", {"amount": 3.0})])))
+    assert render_loop(_gradient(), spec, count=0, axis="param",
+                       param="channel_shift.amount", from_value=3.0, to_value=9.0) == []
+    assert spec.post_effects[0].params["amount"] == 4.0
+
+
+def test_param_axis_varies_only_the_first_matching_instance() -> None:
+    """One parameter per loop: a second instance of the effect stays untouched."""
+    spec = _spec(post_effects=[EffectInstance("channel_shift", {"amount": 4.0}),
+                               EffectInstance("channel_shift", {"amount": 6.0})])
+    seen: list[PipelineSpec] = []
+
+    def render_fn(image: Image, varied: PipelineSpec) -> RGB8:
+        seen.append(varied)
+        return np.zeros((16, 16, 3), dtype=np.uint8)
+
+    render_loop(_src(), spec, count=2, axis="param", render_fn=render_fn,
+                param="channel_shift.amount", from_value=1.0, to_value=9.0)
+    assert [s.post_effects[1].params["amount"] for s in seen] == [6.0, 6.0]
+    assert seen[0].post_effects[0].params["amount"] == 1.0

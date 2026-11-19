@@ -460,6 +460,91 @@ l'orchestrateur ne code jamais.
   - `animation.py` sits in lattice_core and imports no application module.
   - the Dither 1.1 exports (video path untouched) still pass their existing tests.
 
+## Wave 3 bis — décisions Opus du 19/11 (H13)
+
+### L24 · CRT : les colonnes de bord étirées en aplats par la courbure (H13, M1)
+- wave: 3 · deps: L18 | executor: OMH capable · review: light · size: S
+- owns: `lattice_core/effects/crt.py`, `tests/test_crt.py`
+- context: §17
+- origin: verdict Opus H13 du 2026-11-19 (constat M1, prouvé sur image réelle). La grille de phosphores
+  est appliquée AVANT la courbure (`crt.py:178-185`) ; la courbure échantillonne hors image et clampe au
+  bord (`_sample`, `crt.py:131-133`) ; or la colonne 0 du masque est rouge et la dernière bleue
+  (`crt.py:69-73`) — elles sont donc étirées en bandes pleines sur toute la hauteur. Visible sur le
+  preset livré `lattice_glitch/presets/08_crt_finish.json` (curvature 0.2).
+- spec: corriger l'ORDRE, pas le masque : appliquer le masque de phosphores APRÈS la courbure, de sorte
+  que le masque s'applique à l'écran courbé (physiquement juste) et qu'aucune colonne du masque ne soit
+  étirée. Le rendu sans courbure ni vignette doit rester BIT-À-BIT identique (G7 : c'est le chemin gelé
+  des presets existants). Si un échantillonnage hors bord doit changer, il retourne du noir, jamais la
+  couleur du bord.
+- accept:
+  - avec `curvature: 0.2` + le masque du preset 08, aucune colonne de bord n'est un aplat monochrome :
+    la variance par colonne sur les 8 premières et 8 dernières colonnes dépasse 1 % de la plage.
+  - `curvature: 0` + masque : sortie bit-à-bit identique à HEAD (test de non-régression G7).
+  - les 14 tests CRT existants restent verts.
+
+### L25 · Boucle animée branchée dans Lattice Glitch (H13, B1+B2)
+- wave: 3 · deps: L20, L-LOOP | executor: OMH deep · review: full · size: M
+- owns: `lattice_core/animation.py`, `lattice_glitch/cli.py`, `lattice_glitch/export_actions.py`,
+  `tests/test_animation_loop.py`, `tests/test_glitch_app.py`
+- context: §8 §20
+- origin: verdict Opus H13 du 2026-11-19 (B1, B2 ; question Q1 réponse 1). `render_loop` n'est appelé
+  nulle part dans `lattice_glitch/` ; l'export n'offre que PNG (`export_actions.py:61`) et le CLI que
+  `png` (`cli.py:286`). De plus `render_loop` passe par `pipeline.render_with_palette` (règle de seed
+  1.0, `seed + offset + i`) qui ignore masques et verrous : l'image 0 d'une boucle ne serait pas le PNG
+  affiché.
+- spec: `render_loop` accepte une fonction de rendu INJECTABLE (image → RGB8) ; Glitch lui passe
+  `document.render_rgb8` avec son RenderContext (masques, flux, verrous). Nouveau verbe CLI
+  `loop --preset P --in IMG --out F.gif|.png --frames N [--axis seed|offset|iterations]`, et entrée
+  GIF/APNG dans le dialogue d'export. `pipeline` n'est pas modifié (pas de régression G7).
+- accept:
+  - l'image 0 d'une boucle Glitch est OCTET-IDENTIQUE au PNG du même preset (preuve que le chemin est
+    le même).
+  - un GIF et un APNG s'ouvrent avec Pillow et comptent exactement N frames.
+  - un preset à masque : le masque reste appliqué sur les N frames.
+  - CLI sans Qt (import ininterrompu sous bloqueur PySide6).
+  - les 22 tests L-LOOP restent verts.
+
+### L26 · L'axe `seed` respecte les verrous (H13, B3)
+- wave: 3 · deps: L25 | executor: OMH deep · review: full · size: S
+- owns: `lattice_core/animation.py`, `tests/test_animation_loop.py`
+- context: §18 §8
+- origin: verdict Opus H13 du 2026-11-19 (B3, Q2 réponse 1). `replace(spec, seed=seed+step*i)`
+  (`animation.py:110`) change TOUS les modules : les verrous sont ignorés, on obtient un scintillement,
+  pas un mouvement.
+- spec: en mode seed, les modules VERROUILLÉS gardent leur stream (contribution identique sur toutes les
+  frames) ; seuls les modules libres varient. Le verrou reste session-only côté cœur (DEV-216) ; c'est
+  l'API de la boucle qui accepte un ensemble de flux figés par module.
+- accept:
+  - deux frames consécutives : la contribution d'un module verrouillé est identique (bit-à-bit sur le
+    rendu de ce module seul), celle d'un module libre diffère.
+  - sans verrou, comportement actuel inchangé (non-régression).
+  - les 22 tests L-LOOP + ceux de L25 restent verts.
+
+### L27 · Quatrième axe `param` (boucle paramétrique, H13, Q3)
+- wave: 3 · deps: L26 | executor: OMH deep · review: full · size: M
+- owns: `lattice_core/animation.py`, `tests/test_animation_loop.py`
+- context: §20 (amendement), §12-§17
+- origin: verdict Opus H13 du 2026-11-19 (Q3 réponse 1). Channel rift, Sort echo et CRT finish sont
+  DÉTERMINISTES : en mode seed, 3 starters sur 4 produisent N images identiques. Le seul moyen de les
+  animer sans timeline est de faire aller un paramètre numérique de A à B et retour.
+- spec: 4e axe `param` : `--param <effet>.<clé> --from A --to B --curve sin|linear`, une seule valeur par
+  boucle, ALLER-RETOUR (image N == image 0) pour que la boucle soit sans raccord. Amendement §20 :
+  la liste des axes gagne `param`, toujours sans timeline et sans vidéo.
+- accept:
+  - sur channel_shift, les N frames diffèrent deux à deux et la dernière égale la première.
+  - la courbe linéaire va strictement de A à B.
+  - un preset déterministe produit N images DIFFÉRENTES (aujourd'hui : identiques).
+  - les tests de L25/L26 restent verts.
+
+### DEV-229 — H13 : décisions Opus appliquées (Q1-Q5)
+- class: E7 (produit) + AMD §20 | status: applied | date: 2026-11-19
+- decision (Opus, délégué par l'humain) : Q1 = 1 (rendu injectable, verbe CLI loop, export GIF/APNG) ;
+  Q2 = 1 (les verrous figent le module sur toutes les frames) ; Q3 = 1 (4e axe `param`, aller-retour,
+  un seul paramètre) ; Q4 = 1 (le bug CRT passe AVANT le gel H13) ; Q5 = 1 (planche de 4 GIF sur source
+  nette, image 0 == PNG, vérifiée à l'œil).
+- verdict : OUI SOUS CONDITIONS — le moteur pour animer existe, il n'est pas raccordé. 3 cartes (L25-L27)
+  + le correctif CRT (L24).
+
 ---
 
 ### L-UI2 · Recâblage de Lattice Dither sur `lattice_core/ui` (doublons supprimés)

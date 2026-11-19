@@ -441,6 +441,86 @@ their own files. Nothing is carried over.
 - decision: 'animation' retiré de l'ensemble (précédents DEV-205/209 — test aligné au niveau gate) ;
   la copie app reste pour les exports 1.1 ; rejoué : batterie complète 2167 passed / 1 skipped.
 
+### DEV-227 — L22 : recette d'acceptance contre les hôtes Flatpak (vérifiée en réel)
+- class: E1 (procédure) | task: L22 | contract: 0.1.0 | status: applied | date: 2026-11-19
+- facts: les deux hôtes sont des Flatpak. PhotoCraft exige `--automation-read-root`/`--automation-write-root`
+  pointant un répertoire DU BAC À SABLE (`~/.var/app/ai.storyteller.photocraft/data/...`), un `XDG_DATA_HOME`
+  cohérent côté client, et son `control.token` recopié dans `<XDG_DATA_HOME>/LatticeDither/`. DesignCraft
+  n'ouvre son canal JSON que sur le drapeau **`--control 7979`** (absent de `--help` : documenté dans
+  `share/doc/designcraft/README.md` de l'app installée) et sans token. Un `export XDG_DATA_HOME` oublié dans
+  la session masque les apps Flatpak utilisateur (`flatpak list` vide) — `env -u XDG_DATA_HOME`.
+- decision: recette consignée dans `tools/acceptance.py` (docstring) et STATE ; l'hôte absent sort 3 et
+  nomme l'hôte. Vérifié : PhotoCraft 0.23.1 (3 apps, écart 0.000000), DesignCraft 0.20.1 (width 160).
+
+### DEV-228 — L23 : packaging prouvé sur Linux, Windows déclaré non exécuté (E1 ×2)
+- class: E1 ×2 | task: L23 | contract: 0.1.0 | status: applied | date: 2026-11-19
+- facts: Windows non testable sur cette machine (`pwsh` absent) ; aucun asset .ico pour Glyph/Glitch.
+- decision: scripts Windows adaptés/complétés mais NON exécutés (E1) — aucun .exe ni raccourci Windows produit.
+  Icônes : `applications-graphics` sur Linux, défaut sur Windows ; Dither garde la sienne.
+- preuves Linux (exécutées par le codeur puis REVÉRIFIÉES par l'orchestrateur) : 6 binaires PyInstaller onefile
+  dans `dist/` (156–231 Mo) ; `./dist/lattice-glyph-cli --help` exit 0 sans Python du venv ;
+  `QT_QPA_PLATFORM=offscreen ./dist/LatticeGlitch` affiche « window shown » exit 0 ; 3 `.desktop` validés par
+  `desktop-file-validate` ; 6 lanceurs dans ~/.local/bin ; **aucun raccourci sur le Bureau** (règle utilisateur) ;
+  `check_versions.py` → VERSION CHECK OK (4 × 0.1.0, empreinte c03cd3baf14d31a8) ; venv vierge uv --offline
+  9/9 smoke OK. Bug réel trouvé pendant la validation : le binaire Glyph plantait sans
+  `lattice_core/data/ramps.json` — les 3 specs embarquent désormais `lattice_core/data` et `palettes/data`.
+- correctif orchestrateur : B023 dans `tools/smoke_install.py` (fermeture de boucle) → ruff 0.
+
+### DEV-230 — L24 : le masque de phosphores passe après la courbure (H13/M1 corrigé)
+- class: E7 (produit) | task: L24 | contract: 0.1.0 | status: applied | date: 2026-11-19
+- facts: masque appliqué avant `_curve()` + `_sample()` clampant au bord -> colonne 0 (rouge) et dernière
+  (bleue) étirées en bandes pleines dès curvature > 0. Prouvé sur `/tmp/h13/glitch_04_crt_finish.png`.
+- fix: masque appliqué APRÈS la courbure (les rayures vivent en espace écran) ; couleurs du masque et
+  `_sample()` inchangés ; TDD (tests écrits avant, dont la non-régression bit-identique à curvature 0).
+- preuves orchestrateur : 46 passed (test_crt + témoins G7), ruff 0 ; mesure des bords sur le rendu réel —
+  écart R−B bord gauche +43,3 -> +15,3, bord droit −26,5 -> +1,3 ; std spatiale des colonnes de bord
+  24,1 -> 33,0 et 19,6 -> 31,0 (les aplats redeviennent des rayures).
+
+### DEV-231 — L25 : boucle branchée dans Glitch par injection (H13/B1+B2 résolu)
+- class: E7 (produit) | task: L25 | contract: 0.1.0 | status: applied | date: 2026-11-19
+- facts: `render_loop` acceptait seulement le chemin `pipeline.render_with_palette` (seed 1.0), qui ignore
+  masques et verrous : frame 0 d'une boucle Glitch != PNG affiché (B2). Aucune sortie animée dans l'app
+  (B1). Le codeur a été INTERROMPU par un timeout modèle (29 min) ; son travail était complet sur disque.
+- fix: `render_loop(..., render_fn)` injectable ; Glitch passe `document.render_rgb8` + RenderContext ;
+  verbe CLI `loop` (--preset --in --out --frames --axis) et entrées GIF/APNG au dialogue d'export.
+  `pipeline.py` NON modifié.
+- preuves orchestrateur (rejouées, pas sur parole) : frame 0 == PNG du preset, **écart 0** (identité
+  byte) ; APNG et GIF à 4 frames sur l'axe `offset` ; 91 tests verts (loop+glitch+crt+témoins G7), ruff 0.
+- constat mesuré au passage (confirmant Opus M2) : sur VHS soft, l'axe `seed` donne 4 frames IDENTIQUES
+  (`channel_shift`/`pixel_sort`/`crt` sont déterministes) ; Pillow fusionne alors les frames. C'est
+  exactement ce que L27 (axe `param`) doit lever.
+
+### DEV-232 — L26 : l'axe seed respecte les verrous + TROU corrigé (sans verrou, rien ne variait)
+- class: E7 (produit) | task: L26 | contract: 0.1.0 | status: applied | date: 2026-11-19
+- facts: le codeur a livré `locked_streams` + `StreamedSpec` (streams par frame), mais deux trous que la
+  MESURE a révélés (ses 36 tests étaient verts) : (1) `render_loop` n'attachait des streams QUE si
+  `locked_streams` était non vide -> le cas le plus courant (aucun verrou) rendait N frames IDENTIQUES,
+  le `context.streams` du preset écrasant tout ; (2) `lattice_glitch/document._module_rng` lisait
+  seulement `context.streams`, donc les streams de frame n'arrivaient jamais au rendu.
+- fix (orchestrateur, dans les owns de L26/L25) : streams de frame attachés dès que le spec a des effets
+  (`locked_streams or {}`) ; `_module_rng(position, context, controller, spec)` fait primer les streams du
+  spec quand ils existent ; le shell Glitch transmet désormais `locked_streams` depuis
+  `controller.locked()` (sinon les verrous de session étaient ignorés par la boucle).
+- preuve mesurée (noise ×2, portrait) : sans verrou 1/3 -> **3/3 frames distinctes** ; tout verrouillé
+  -> 1/3 (figé, voulu) ; un module verrouillé -> varie, ce module constant. APNG 4 frames réelles,
+  frame 0 == PNG (identité byte), 156 tests verts (loop+glitch+crt+témoins+effets), ruff 0.
+
+### DEV-233 — L27 : 4e axe `param` (faire bouger les effets déterministes) — DECISION AMD §20
+- class: AMD §20 (amendement de contrat) + E1 ×2 | task: L27 | contract: 0.1.0 | status: applied | date: 2026-11-19
+- facts: `channel_shift`, `rgb_shift`, `pixel_sort` et `crt` ne consomment pas le rng — mesuré : VHS soft en
+  axe `seed` = 1/5 frames distinctes. Sans un axe de paramètre, 3 starters sur 4 restent figés en boucle.
+- AMD §20 (validé par Opus, question Q3 = option 1) : la liste des axes gagne **`param`** — UN paramètre
+  numérique d'un effet, de A à B et retour, boucle sans raccord. Toujours SANS timeline et SANS vidéo.
+- implementation: `axis="param"` + `param="<effet>.<clé>"`, `from_value`, `to_value`, `curve="sin"|"linear"` ;
+  sin = période complète `A + (B-A)*(1-cos(2πi/(count-1)))/2` (frame[0] == frame[count-1] exact) ; linear =
+  triangle aller-retour. Keyword-only, ignorés sur les autres axes (callers inchangés).
+- preuve orchestrateur (mesurée, pas sur parole) : channel_shift.amount 0→40 sur le portrait — frame 0 vs
+  frame 1 **écart 236/255 sur 1,2 M pixels** ; frame[0] == frame[5] exactement (boucle sans raccord) ;
+  axe seed sur le même preset = 1/6, axe param = 3/6 distinctes (la symétrie aller-retour rend 1==4 et 2==3,
+  c'est l'attendu de la courbe). 65 tests verts (loop+glitch), ruff 0.
+- E1 : fichier de tests à 496 l (> 400, précédent DEV-222) ; formule de la courbe `linear` non spécifiée
+  par le contrat -> triangle aller-retour retenu, cohérent avec la boucle sans raccord.
+
 ## Amendments (registre)
 
 Facts discovered during a task that the contract could not have known, recorded here rather than

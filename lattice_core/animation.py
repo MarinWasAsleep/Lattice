@@ -2,8 +2,9 @@
 
 ``render_sequence`` is the 1.1 animation export moved into the core without behavioural
 change (§21). ``render_loop`` generalises it: it renders N frames from one source while
-varying only the declared axis — ``seed``, ``offset`` (a horizontal pixel shift) or
-``iterations`` (the feedback buffer iteration count) — and keeps everything else fixed.
+varying only the declared axis — ``seed``, ``offset`` (a horizontal pixel shift),
+``iterations`` (the feedback buffer iteration count) or ``param`` (one numeric effect
+parameter walked A->B->A) — and keeps everything else fixed.
 Stable mode resolves the palette once, on the first frame, so colours cannot flicker.
 An injectable ``render_fn`` lets an application render every varied pair on its own
 path (masks, streams, locks) instead of the pipeline's (L25). On the seed axis an
@@ -13,6 +14,7 @@ the varied seed; it rides on a spec subclass so the caller's render path is unch
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, fields, replace
 from pathlib import Path
@@ -21,6 +23,7 @@ import numpy as np
 from PIL import Image as PILImage
 
 from lattice_core.pipeline import (
+    EffectInstance,
     PipelineSpec,
     prepare_image,
     render_with_palette,
@@ -29,8 +32,9 @@ from lattice_core.pipeline import (
 from lattice_core.seed import module_seed
 from lattice_core.types import RGB8, Image
 
-AXES = ("seed", "offset", "iterations")
+AXES = ("seed", "offset", "iterations", "param")
 MAX_ITERATIONS = 8
+CURVES = ("sin", "linear")
 
 
 @dataclass
@@ -61,6 +65,10 @@ def render_loop(
     step: int = 1,
     render_fn: Callable[[Image, PipelineSpec], RGB8] | None = None,
     locked_streams: Mapping[int, int] | None = None,
+    param: str | None = None,
+    from_value: float | None = None,
+    to_value: float | None = None,
+    curve: str = "sin",
 ) -> list[RGB8]:
     """Render count frames from src, varying only axis; other spec fields stay fixed.
 
@@ -68,16 +76,22 @@ def render_loop(
     caller's own path (masks, streams, locks) applies and stable is ignored.
     On the seed axis, locked_streams maps module indices to frozen stream seeds:
     those modules keep their stream on every frame, unlocked ones follow the seed.
+    On the param axis, param="<effect>.<key>" walks one numeric parameter from
+    from_value to to_value and back (curve "sin" or "linear"), so frame[count-1]
+    equals frame[0]; the other axes ignore the four param keywords.
     """
     if axis not in AXES:
         raise ValueError(f"unknown animation axis: {axis!r}, expected one of {AXES}")
     if count < 0:
         raise ValueError(f"count must be >= 0, got {count}")
     shift = int(step)
-    base = _iterations_base(spec) if axis == "iterations" else 0
-    pairs = [
-        _varied(src, spec, axis, index, shift, base) for index in range(count)
-    ]
+    if axis == "param":
+        pairs = _param_pairs(src, spec, count, param, from_value, to_value, curve)
+    else:
+        base = _iterations_base(spec) if axis == "iterations" else 0
+        pairs = [
+            _varied(src, spec, axis, index, shift, base) for index in range(count)
+        ]
     if axis == "seed" and spec.post_effects:
         module_count = len(spec.post_effects)
         pairs = [
@@ -141,6 +155,75 @@ def _with_streams(spec: PipelineSpec, streams: tuple[int, ...]) -> StreamedSpec:
     """Copy spec into a StreamedSpec carrying streams, preserving every spec field."""
     data = {field.name: getattr(spec, field.name) for field in fields(spec)}
     return StreamedSpec(**data, streams=streams)
+
+
+def _param_pairs(
+    src: Image,
+    spec: PipelineSpec,
+    count: int,
+    param: str | None,
+    from_value: float | None,
+    to_value: float | None,
+    curve: str,
+) -> list[tuple[Image, PipelineSpec]]:
+    """Validate the param axis, then build one (src, varied spec) pair per frame."""
+    if curve not in CURVES:
+        raise ValueError(f"unknown param curve: {curve!r}, expected one of {CURVES}")
+    if not isinstance(param, str) or param.count(".") != 1 or not all(param.split(".")):
+        raise ValueError(f"param must be '<effect>.<key>', got {param!r}")
+    effect_id, key = param.split(".")
+    start = _finite("from_value", from_value)
+    end = _finite("to_value", to_value)
+    target = next(
+        (e for e in (*spec.pre_effects, *spec.post_effects) if e.effect_id == effect_id),
+        None,
+    )
+    if target is None:
+        raise ValueError(f"param effect {effect_id!r} is not in the spec")
+    current = target.params.get(key)
+    if isinstance(current, bool) or not isinstance(current, (int, float)):
+        raise ValueError(f"param {param!r} must hold a number in the spec, got {current!r}")
+    return [
+        (src, _with_param(spec, effect_id, key, _param_value(start, end, curve, i, count)))
+        for i in range(count)
+    ]
+
+
+def _finite(name: str, value: float | None) -> float:
+    """Return value as a float, rejecting non-numbers and non-finite bounds."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ValueError(f"{name} must be a finite number, got {value!r}")
+    return float(value)
+
+
+def _param_value(start: float, end: float, curve: str, index: int, count: int) -> float:
+    """Return frame index's A->B->A value: a full cosine period, or a triangle walk."""
+    if count <= 1:
+        return start
+    t = index / (count - 1)
+    if curve == "sin":
+        phase = (1.0 - math.cos(2.0 * math.pi * t)) / 2.0
+    else:
+        phase = 2.0 * t if t <= 0.5 else 2.0 * (1.0 - t)
+    return start + (end - start) * phase
+
+
+def _with_param(spec: PipelineSpec, effect_id: str, key: str, value: float) -> PipelineSpec:
+    """Return spec with key of the first effect_id instance set to value."""
+    def walk(effects: list[EffectInstance]) -> tuple[list[EffectInstance], bool]:
+        out: list[EffectInstance] = []
+        done = False
+        for effect in effects:
+            if not done and effect.effect_id == effect_id:
+                out.append(replace(effect, params={**effect.params, key: value}))
+                done = True
+            else:
+                out.append(effect)
+        return out, done
+
+    pre, done = walk(spec.pre_effects)
+    post = spec.post_effects if done else walk(spec.post_effects)[0]
+    return replace(spec, pre_effects=pre, post_effects=post)
 
 
 def _render(frames: list[Image], specs: list[PipelineSpec], stable: bool) -> list[RGB8]:
