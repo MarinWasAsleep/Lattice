@@ -139,14 +139,24 @@ def _sample(plane: np.ndarray, sx: np.ndarray, sy: np.ndarray) -> np.ndarray:
 
 
 def _curve(source: np.ndarray, amount: float, grid: tuple[np.ndarray, ...]) -> np.ndarray:
-    """Warp the image toward the edges and darken the corners under curvature."""
+    """Warp the image toward the edges, black outside the tube, darken the corners.
+
+    A curved tube shows nothing where the warped screen does not reach: samples that
+    land outside the source become black instead of clamping to the border pixel
+    (H13b, Q1). Without that validity mask the border row and column are smeared into
+    long streaks that read as artefacts, not as a CRT silhouette.
+    """
     nx, ny, xs, ys, cx, cy = grid
     r2 = nx * nx + ny * ny
     warp = 1.0 + np.float32(amount) * r2
     sx, sy = cx + (xs - cx) * warp, cy + (ys - cy) * warp
+    height, width = source.shape[:2]
+    inside = ((sx >= 0.0) & (sx <= np.float32(width - 1))
+              & (sy >= 0.0) & (sy <= np.float32(height - 1)))
     out = np.empty_like(source)
     for channel in range(3):
-        out[:, :, channel] = _sample(source[:, :, channel], sx, sy)
+        plane = _sample(source[:, :, channel], sx, sy)
+        out[:, :, channel] = np.where(inside, plane, np.float32(0.0))
     edge = np.clip(1.0 - np.float32(amount) * r2, 0.0, 1.0)
     return np.clip(out * edge[:, :, None], 0.0, 1.0).astype(np.float32)
 

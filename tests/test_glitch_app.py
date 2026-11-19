@@ -230,7 +230,7 @@ def test_cli_and_gui_write_identical_bytes(make_window, tmp_path: Path,
     expected = _cli(tmp_path, tmp_path / "user" / "masked.json", image_file, "masked")
     window.export_to(tmp_path / "gui.png")
     assert (tmp_path / "gui.png").read_bytes() == expected
-    assert window.effects_panel.effect_choices() == EFFECT_IDS and len(EFFECT_IDS) == 16
+    assert window.effects_panel.effect_choices() == EFFECT_IDS and len(EFFECT_IDS) == 17
     small = window.source[:48, :64]
     for effect_id in EFFECT_IDS:
         while len(window.effect_stack):

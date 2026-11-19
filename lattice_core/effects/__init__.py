@@ -1,6 +1,7 @@
 """Effect modules; importing this package registers every effect."""
 
 from lattice_core.effects import (  # noqa: F401
+    bytemosh,
     channel_shift,
     crt,
     displace,

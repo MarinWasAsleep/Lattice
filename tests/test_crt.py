@@ -270,6 +270,8 @@ def test_phosphor_after_curvature_avoids_border_colour_bands() -> None:
         mean = strip.mean(axis=(0, 1))
         # A solid red/blue band has a large spread between channel means.
         assert float(mean.max() - mean.min()) < 0.15 * span
-        # Edge columns must still carry spatial detail, not a flat fill.
+        # H13b: the border is now the BLACK tube surround (no clamped smear), so a
+        # column is either empty (the CRT silhouette) or still carrying detail.
         for column in range(strip.shape[1]):
-            assert float(strip[:, column, :].var()) > 0.01 * span * span
+            variance = float(strip[:, column, :].var())
+            assert variance > 0.01 * span * span or variance == 0.0

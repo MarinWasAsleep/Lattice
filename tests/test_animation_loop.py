@@ -333,7 +333,7 @@ def test_render_fn_receives_only_the_varied_axis(axis: str) -> None:
             assert spec.post_effects[0].params["iterations"] == min(8, 1 + 2 * index)
             assert np.array_equal(image, src)
         else:
-            expected = 0.5 + 0.4 * (1 - math.cos(2 * math.pi * index / 3)) / 2
+            expected = 0.5 + 0.4 * (1 - math.cos(2 * math.pi * index / 4)) / 2
             assert spec.post_effects[0].params["decay"] == pytest.approx(expected)
             assert spec.seed == 7 and np.array_equal(image, src)
 
@@ -412,20 +412,26 @@ def test_streams_travel_on_the_spec_without_touching_the_preset() -> None:
 
 
 def test_param_sin_round_trip_on_channel_shift() -> None:
-    """Accept 1: frames move, each equals an amount-only render, last equals first."""
+    """Accept 1: every frame is an amount-only render and the wrap is not a duplicate.
+
+    A sine ping-pong mirrors its return leg, so identical images do occur (out[i] equals
+    out[count - i]); that is the shape of the curve, not a defect. The defect H13b fixed
+    was the WRAP: frame[0] == frame[count - 1], which played as the same image twice in a
+    row and read as a hitch. That inequality is what this test pins.
+    """
     spec = _channel()
-    out = render_loop(_gradient(), spec, count=5, axis="param",
+    count = 8
+    out = render_loop(_gradient(), spec, count=count, axis="param",
                       param="channel_shift.amount", from_value=1.0, to_value=9.0)
-    assert np.array_equal(out[0], out[-1])
+    assert not np.array_equal(out[0], out[-1])  # H13b Q2: no duplicated wrap frame
     for index, frame in enumerate(out):
-        amount = 1.0 + 8.0 * (1 - math.cos(2 * math.pi * index / 4)) / 2
+        amount = 1.0 + 8.0 * (1 - math.cos(2 * math.pi * index / count)) / 2
         expected = render(_gradient(), replace(spec, post_effects=[
             EffectInstance("channel_shift", {"amount": amount})]))
         assert np.array_equal(frame, expected)
-    outward = out[:3]  # the A->B leg; the return leg mirrors it by construction
-    assert all(not np.array_equal(a, b)
-               for i, a in enumerate(outward) for b in outward[i + 1:])
-    assert all(not np.array_equal(out[i], out[i + 1]) for i in range(4))
+    # The mirrored pairs are the curve; anything else would be a real duplicate.
+    for index in range(1, count // 2):
+        assert np.array_equal(out[index], out[count - index])
 
 
 def test_param_linear_walks_strictly_from_a_to_b_and_back() -> None:
@@ -439,8 +445,8 @@ def test_param_linear_walks_strictly_from_a_to_b_and_back() -> None:
     render_loop(_src(), _channel(), count=5, axis="param", render_fn=render_fn,
                 param="channel_shift.amount", from_value=1.0, to_value=9.0, curve="linear")
     values = [s.post_effects[0].params["amount"] for s in seen]
-    assert values == [1.0, 5.0, 9.0, 5.0, 1.0]
-    assert values[0] < values[1] < values[2]
+    assert all(abs(a - b) < 1e-9 for a, b in zip(values, [1.0, 4.2, 7.4, 7.4, 4.2], strict=False))
+    assert values[0] < values[1] < values[2]  # the A->B leg rises strictly
 
 
 def test_param_axis_unfreezes_a_deterministic_preset() -> None:
@@ -451,7 +457,7 @@ def test_param_axis_unfreezes_a_deterministic_preset() -> None:
     moving = render_loop(_gradient(), spec, count=4, axis="param",
                          param="channel_shift.amount", from_value=2.0, to_value=10.0)
     assert not np.array_equal(moving[0], moving[1])
-    assert np.array_equal(moving[0], moving[-1])
+    assert not np.array_equal(moving[0], moving[-1])  # seamless wrap, no repeated frame
 
 
 @pytest.mark.parametrize("override", [

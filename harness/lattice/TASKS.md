@@ -460,6 +460,38 @@ l'orchestrateur ne code jamais.
   - `animation.py` sits in lattice_core and imports no application module.
   - the Dither 1.1 exports (video path untouched) still pass their existing tests.
 
+### L28 · Effet `bytemosh` : réinterprétation d'octets (data moshing)
+- wave: 3 · deps: L18 | executor: OMH deep · review: full · size: M
+- owns: `lattice_core/effects/bytemosh.py`, `lattice_core/effects/__init__.py`, `tests/test_bytemosh.py`
+- context: §15 §16 (registre des effets), §20 (non-objectifs)
+- origin: demande humaine du 2026-11-19. La suite couvre le displacement (map luma/canal, feedback) et le
+  pixel sort, mais PAS le data moshing au sens strict : lire les octets d'un tampon et les réinterpréter
+  comme des pixels. `/tmp/h13` (rendus H13) n'a rien de tel ; `jpeg_glitch` corrompt du DCT, ce n'est pas
+  la même chose.
+- spec: un effet qui traite la charge utile raster comme un FLUX D'OCTETS et la recolle ailleurs.
+  1. **Opération `swap`** : échanger deux fenêtres d'octets de même longueur, à des décalages donnés.
+  2. **Opération `shift`** : recaler un bloc d'octets d'un offset (le reste du tampon est décalé, pas
+     dupliqué) — c'est ce qui produit les bandes qui « glissent » dans l'image.
+  3. **Opération `interpret`** : lire une fenêtre d'octets comme une bande RGB et la poser à une autre
+     position (l'image réelle réapparaît décalée, le look « fichier cassé »).
+  Paramètres : `amount` (intensité 0..1), `operation` (`swap`|`shift`|`interpret`), `stride` (taille de
+  fenêtre en octets, multiple de 3 pour que les canaux restent alignés), `offset` (décalage en octets),
+  `seed` (choix des positions quand `amount` en tire au hasard).
+- contraintes : numpy uniquement (aucune dépendance nouvelle, pas de codec) ; l'effet ne doit jamais
+  lever sur une image de taille 1×1 ni sur `amount = 0` (identité exacte) ; sortie float32 dans [0,1],
+  même forme que l'entrée ; déterministe pour un `seed` donné (§3 invariant 2) ; enregistré par
+  `@register_effect("bytemosh", …)` avec ses `ParamSpec`.
+- accept:
+  - `amount = 0` rend l'image BIT-À-BIT identique (test).
+  - `operation = "swap"` échange réellement deux fenêtres : le test relit les octets avant/après et
+    vérifie la permutation exacte, sur une image où les fenêtres sont distinguables.
+  - `operation = "shift"` décale la charge utile d'un nombre d'octets exact et borne le bord (pas de
+    débordement d'index, pas de crash).
+  - avec un `seed` donné, deux exécutions sont identiques ; deux seeds différents changent le résultat.
+  - l'effet apparaît dans `list_effects()` et dans le formulaire généré (ParamSpec complets) ; il est
+    exécutable depuis le CLI Glitch par un preset v3 sans code spécial.
+  - une image 1×1 et une image dont la charge utile est plus courte que `stride` ne lèvent pas.
+
 ## Wave 3 bis — décisions Opus du 19/11 (H13)
 
 ### L24 · CRT : les colonnes de bord étirées en aplats par la courbure (H13, M1)

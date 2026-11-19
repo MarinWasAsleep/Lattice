@@ -164,6 +164,7 @@ last_update: 2026-11-18
 | L25 | 3 | done | 0 | 1 | b219d60 | boucle animée dans Glitch (render_fn injectable, CLI loop, GIF/APNG) — frame 0 == PNG ; DEV-231 |
 | L26 | 3 | done | 0 | 2 | 674a9e1 | axe seed respecte les verrous — trou corrigé : sans verrou 1/3 → 3/3 frames ; DEV-232 |
 | L27 | 3 | done | 0 | 1 | 6e488c5 | 4e axe `param` A→B→A (AMD §20) — anime les effets déterministes, écart 236/255 ; DEV-233 |
+| L28 | 3 | done | 0 | 2 | (à venir) | effet `bytemosh` (data moshing, 4 opérations swap/shift/interpret/drift) — bornes stride/offset relevées, jugé swap 7/10 interp 6/10 ; DEV-234 |
 
 `g` = gate retries used (max 3), `r` = review cycles used (max 2).
 

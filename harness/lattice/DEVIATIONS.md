@@ -505,6 +505,21 @@ their own files. Nothing is carried over.
   -> 1/3 (figé, voulu) ; un module verrouillé -> varie, ce module constant. APNG 4 frames réelles,
   frame 0 == PNG (identité byte), 156 tests verts (loop+glitch+crt+témoins+effets), ruff 0.
 
+### DEV-234 — L28 · `bytemosh` : bornes de `stride`/`offset` (E3, orchestrateur)
+- classes: E3
+- context: L28, effet `bytemosh` (data moshing). Le codeur a livré 62 tests verts.
+- facts: les `ParamSpec` d'origine bornaient `stride` à 3072 et `offset` à ±65536. Sur une
+  image de 720 px, une ligne fait 2160 octets : toute fenêtre « large » était ramenée par
+  `resolve_params` à 3072 octets, soit 1,4 ligne. Deux rendus avec `stride` 108000 et
+  324000 sortaient **identiques au MD5** — la preuve que le paramètre était neutralisé.
+- decision: plafonds relevés à 4 000 000 (stride et offset), sémantique inchangée.
+- evidence: après correction, les MD5 divergent (`e83d870a…` vs `a12f43c0…`) ; jugement
+  visuel indépendant (Claude Sonnet) : swap 7/10, interpret 6/10, blocs entiers échangés
+  lisibles et couleurs préservées (offset multiple de 3 = décalage en pixels).
+- lesson: une borne de `ParamSpec` est un plafond SILENCIEUX. Un paramètre qui « ne fait
+  rien » se diagnostique en comparant deux sorties au MD5, pas à l'œil.
+- status: applied
+
 ### DEV-233 — L27 : 4e axe `param` (faire bouger les effets déterministes) — DECISION AMD §20
 - class: AMD §20 (amendement de contrat) + E1 ×2 | task: L27 | contract: 0.1.0 | status: applied | date: 2026-11-19
 - facts: `channel_shift`, `rgb_shift`, `pixel_sort` et `crt` ne consomment pas le rng — mesuré : VHS soft en
@@ -512,10 +527,12 @@ their own files. Nothing is carried over.
 - AMD §20 (validé par Opus, question Q3 = option 1) : la liste des axes gagne **`param`** — UN paramètre
   numérique d'un effet, de A à B et retour, boucle sans raccord. Toujours SANS timeline et SANS vidéo.
 - implementation: `axis="param"` + `param="<effet>.<clé>"`, `from_value`, `to_value`, `curve="sin"|"linear"` ;
-  sin = période complète `A + (B-A)*(1-cos(2πi/(count-1)))/2` (frame[0] == frame[count-1] exact) ; linear =
+  sin = période complète `A + (B-A)*(1-cos(2πi/count))/2` (H13b Q2 : `count` pas, la dernière frame s'arrête
+  un pas avant le début, donc PAS de doublon `frame[0] == frame[count-1]`) ; linear =
   triangle aller-retour. Keyword-only, ignorés sur les autres axes (callers inchangés).
 - preuve orchestrateur (mesurée, pas sur parole) : channel_shift.amount 0→40 sur le portrait — frame 0 vs
-  frame 1 **écart 236/255 sur 1,2 M pixels** ; frame[0] == frame[5] exactement (boucle sans raccord) ;
+  frame 1 **écart 236/255 sur 1,2 M pixels** ; frame[0] == frame[5] était l'ancien critère, CORRIGÉ par
+  H13b Q2 (le doublon au raccord se voyait comme un à-coup) : 8 frames, frame[0] != frame[7] ;
   axe seed sur le même preset = 1/6, axe param = 3/6 distinctes (la symétrie aller-retour rend 1==4 et 2==3,
   c'est l'attendu de la courbe). 65 tests verts (loop+glitch), ruff 0.
 - E1 : fichier de tests à 496 l (> 400, précédent DEV-222) ; formule de la courbe `linear` non spécifiée
@@ -622,4 +639,3 @@ invented in code. The orchestrator folds them into the contract at the next chec
   authenticated connection » ne s'applique qu'à PhotoCraft ; DesignCraft = connexion directe
   sans auth, surface documentée ci-dessus.
 - status: applied (orchestrateur — résolution de la major de la relecture L5)
-

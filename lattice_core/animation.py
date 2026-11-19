@@ -197,10 +197,15 @@ def _finite(name: str, value: float | None) -> float:
 
 
 def _param_value(start: float, end: float, curve: str, index: int, count: int) -> float:
-    """Return frame index's A->B->A value: a full cosine period, or a triangle walk."""
+    """Return frame index's A->B->A value: a full period, no duplicate frame at the wrap.
+
+    ``t`` runs over ``count`` steps, not ``count - 1``: the last frame stops one step
+    short of the start, so playing the loop back-to-back never shows the same image
+    twice in a row (H13b, Q2 — the duplicate frame was an on-screen hiccup).
+    """
     if count <= 1:
         return start
-    t = index / (count - 1)
+    t = index / count
     if curve == "sin":
         phase = (1.0 - math.cos(2.0 * math.pi * t)) / 2.0
     else:
