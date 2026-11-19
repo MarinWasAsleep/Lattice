@@ -1039,3 +1039,22 @@ invented in code. The orchestrator folds them into the contract at the next chec
 - evidence: `lattice-dither 1.0.0`, `lattice-glyph 1.0.0`, `lattice-glitch 1.0.0` depuis les
   binaires installés ; 2324 tests, ruff 0 ; `VERSION CHECK OK`.
 - status: applied
+
+### DEV-249 — les fenêtres Glyph et Glitch ne s'ouvraient pas : `connect_shutdown` perdu
+- classes: E3 | task: 1.0.0 | status: applied | date: 2026-11-19
+- facts: en déplaçant `actions.py` dans le core (DEV-245), j'ai omis de réexporter
+  `connect_shutdown` depuis les deux modules d'app. `lattice_glyph/app.py:12` et
+  `lattice_glitch/app.py:12` font `from <app>.actions import connect_shutdown` : les deux
+  fenêtres mouraient en `ImportError` au démarrage du **binaire installé**. Dither était
+  indemne — il câble son arrêt dans la fenêtre, pas depuis `app.py`.
+- pourquoi la suite ne l'a pas vu: aucun test ne prenait le chemin de `app.py`. Toutes les
+  suites construisent `MainWindow` directement, ce qui saute l'import fautif. Le trou était donc
+  exactement entre « la fenêtre se construit » et « l'application démarre ».
+- decision: réexport rétabli dans les deux `actions.py`, et surtout **un test qui prend le
+  chemin réel du bootstrap** — `create_application`, `MainWindow`, `connect_shutdown`, `show()` —
+  sans entrer dans `app.exec()` qui bloquerait. Vérifié qu'il attrape la régression par
+  réintroduction du défaut (`ImportError: cannot import name 'connect_shutdown'`).
+- leçon: une suite qui ne teste que la construction d'objets ne prouve pas qu'une application
+  démarre. Les binaires livrés restent le seul juge du chemin d'entrée.
+- evidence: 2327 tests, ruff 0 ; les trois fenêtres ouvertes depuis `~/.local/bin`.
+- status: applied

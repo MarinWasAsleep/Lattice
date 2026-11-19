@@ -5,7 +5,7 @@ Card fields: `wave`, `deps` (must be done), `executor`, `review` (strict | full 
 `context` (CONTRACT sections to inject verbatim), `spec`, `accept` (each item becomes a test or a
 review check).
 
-Contract sections refer to `harness/lattice/CONTRACT.md` (0.1.0). Sections §1 to §11 of
+Contract sections refer to `harness/lattice/CONTRACT.md` (1.0.0). Sections §1 to §11 of
 `harness/v1.0/CONTRACT.md` and §12 to §25 of `harness/v1.1/CONTRACT.md` remain in force for the
 dithering application and are cited as `1.0 §n` and `1.1 §n`.
 
@@ -713,3 +713,76 @@ l'orchestrateur ne code jamais.
   - l'entrée de menu (`.desktop` / raccourcis) lance l'app ; un échec d'installation échoue avec une
     ligne nommée dans les logs.
   - la release d'une app embarque les deux binaires construits à partir de la même version de code.
+## Wave 4 — post-H13, données brutes et finition 1.0
+
+### L28 · `bytemosh` : corruption de données brutes
+- wave: 4 · deps: — · executor: qwen4 · review: Opus (visuelle) · size: M · **done**
+- owns: `lattice_core/effects/bytemosh.py`, `tests/test_bytemosh.py`, `docs/bytemosh/**`
+- context: demande humaine (« un truc pour faire du pixel displacement ou du data moshing ? »)
+- spec: quatre opérations — `swap`, `shift` (indel), `interpret`, `drift` — pilotées par
+  `amount`/`operation`/`stride`/`offset`/`seed`. `amount=0` bit-identique, déterministe par seed.
+- accept: notes Opus finales — shift 8,5/10, interpret 8/10, swap 7/10, drift 7/10.
+- notes: deux défauts trouvés par mesure puis par Opus — bornes `ParamSpec` silencieuses
+  (`stride` 3072 = 1,4 ligne, `offset` ±65536) relevées à ±4 000 000 (DEV-234) ; `shift` inopérant
+  à `offset=0` et `drift` ignorant `stride`/`offset`, rayures arc-en-ciel dues à un pas non multiple
+  de 3 (DEV-235, DEV-236).
+
+### L29 · Documentation de `bytemosh` et axe `param` au CLI
+- wave: 4 · deps: L28 · size: S · **done**
+
+### L30 · `shift` en indel : le décalage propage à partir de la coupure
+- wave: 4 · deps: L28 · size: S · **done**
+- spec: `data[p:] = np.roll(data[p:], d)` — une translation propre ne damage rien, Opus l'avait
+  notée 1/10 ; un indel abîme à partir de P et seulement là.
+
+### L31 · `feedback` : origine et direction
+- wave: 4 · deps: — · size: M · **done**
+- owns: `lattice_core/effects/feedback.py`, `tests/test_feedback.py`
+- spec: `origin` (centre, 4 coins, 4 bords) et `direction` (−180..180), `iterations` 8→16.
+- notes: **axe Y inversé trouvé par Opus** — `cap 90` montait au lieu de descendre, convention
+  mathématique au lieu d'écran ; `sy = ys - amount*sin(angle)` (DEV-237).
+
+### L32/L33 · Polissage post-H13 de `sort_echo` et du CRT
+- wave: 4 · deps: L24 · review: Opus · **done**
+- notes: `sort_echo` 3/10 → 5-6/10 (cause mesurée : `white=1.0` faisait courir les runs 543 px sur
+  720 ; `white 0.92` + `brightness 0.45`) ; CRT gagne `roll` (phase du balayage) au lieu d'animer
+  `curvature` — « aucun tube ne fait ça » (DEV-241). Rejetés sur mesure : bande 0.30-0.70, clés
+  `saturation` et `hue`.
+
+### L34 · Passe visuelle des huit starters dither et glyph
+- wave: 4 · deps: — · review: Opus · **done**
+- notes: trois accusations d'Opus confirmées sur mesure — `dither_01` à 99,8 % sur deux couleurs,
+  `glyph_01` en `mono` noir/blanc avec un masque orphelin, renderers bitmask n'utilisant la palette
+  que pour décider quels points s'allument. `glyph_04` passé en mode continu : le tramage en amont
+  détruisait les échantillons (DEV-242, DEV-243).
+
+### L36 · Galerie d'algorithmes promue dans le core
+- wave: 4 · deps: — · size: M · **done**
+- owns: `lattice_core/ui/algorithm_gallery.py`, `lattice_dither/ui/gallery.py`
+- spec: la vraie galerie (440 l.) monte dans le core, le prototype mort (300 l.) disparaît, l'app se
+  réduit à une **fabrique** de 30 l. (`test_ui_no_duplicates` interdit un nom de classe présent dans
+  deux paquets) ; `app_dir_name` et `set_translator` injectés (DEV-244).
+
+### L37 · `cli.py` et `actions.py` partagés
+- wave: 4 · deps: L36 · size: L · **done**
+- owns: `lattice_core/cli_shared.py`, `lattice_core/ui/actions.py`, les deux `cli.py`/`actions.py` d'app
+- spec: les onze verbes communs vivent une seule fois ; un `CliBackend` déclare ce qui reste propre à
+  l'app, `extra_verbs` enregistre `loop` côté Glitch seul. Tailles : cli 419+370 → 144+72 (+417),
+  actions 136+114 → 57+58 (+172).
+- notes: sept pièges corrigés, tous trouvés par les tests — dont Glyph qui rend un **spec** là où
+  Glitch rend un **preset**, et `discover_host` qui doit se résoudre à l'appel, pas à l'installation
+  du backend (DEV-245).
+
+### L38 · 1.0.0 : versions alignées, binaires reconstruits, coexistence des trois shells
+- wave: 4 · deps: L37 · size: L · **done**
+- owns: `pyproject.toml` ×4, `__init__.py` ×4, `build/manifests/**`, `scripts/packaging/*.spec`,
+  `tests/test_three_shells.py`
+- spec: un seul numéro partout, annoncé par chaque surface ; six binaires reconstruits et installés ;
+  `.desktop` validés ; un test qui démarre les trois apps dans un même processus.
+- accept: `lattice-dither 1.0.0`, `lattice-glyph 1.0.0`, `lattice-glitch 1.0.0` depuis les binaires
+  installés ; `VERSION CHECK OK` ; tag `v1.0.0`.
+- notes: **trois bugs trouvés en testant les binaires livrés, aucun visible dans la suite** — Dither
+  ne pouvait ouvrir aucun de ses quatre starters (v3 contre chargeur v1/v2, DEV-246) ; Glyph et
+  Glitch mouraient sur `ModuleNotFoundError` (import dynamique de `entry.py` non suivi par
+  PyInstaller) ; `grey16_atkinson` annonçait 16 gris et en rendait 243 (post-effet `sharpen` sur le
+  grain du tramage, DEV-247). Voir aussi DEV-248 (`--version`).

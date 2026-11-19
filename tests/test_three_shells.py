@@ -182,3 +182,35 @@ def test_every_command_line_announces_the_same_version(capsys: pytest.CaptureFix
         assert printed == expected, f"{name} printed {printed!r}, package declares {expected!r}"
         reported[name] = printed
     assert len(set(reported.values())) == 1, f"versions disagree: {reported}"
+
+
+@pytest.mark.parametrize("name", ["dither", "glyph", "glitch"])
+def test_the_gui_bootstrap_builds_a_window_and_wires_shutdown(name: str) -> None:
+    """The real bootstrap path opens a window and connects its shutdown.
+
+    Every other test builds ``MainWindow`` directly, which is why the three shells shipped a
+    GUI that died on import: ``app.py`` did ``from <app>.actions import connect_shutdown``, and
+    dropping that re-export from the shared module broke the window while the whole suite
+    stayed green. This walks the bootstrap's own steps — create_application, the window, the
+    shutdown hook — without entering ``app.exec()``, which would block forever.
+    """
+    import importlib
+
+    from PySide6.QtWidgets import QApplication
+
+    # Glyph and Glitch expose the bootstrap as <app>.app; Dither keeps it under ui.app.
+    path = "lattice_dither.ui.app" if name == "dither" else f"lattice_{name}.app"
+    module = importlib.import_module(path)
+    app = module.create_application([])
+    assert isinstance(app, QApplication)
+    window = module.MainWindow()
+    try:
+        # Dither wires its shutdown inside the window; only the two shells do it from app.py.
+        getattr(module, "connect_shutdown", lambda window: None)(window)
+        window.show()
+        QApplication.processEvents()
+        assert window.isVisible(), f"{name}: the window did not become visible"
+    finally:
+        window.close()
+        window.deleteLater()
+        QApplication.processEvents()

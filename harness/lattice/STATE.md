@@ -3,10 +3,10 @@
 > La carte L22 transmet son résumé d'acceptation (JSON, via `tools/acceptance.py`) ; l'orchestrateur
 > le reporte dans STATE.md — la carte n'écrit pas STATE.md directement.
 
-contract_version: 0.1.0
+contract_version: 1.0.0
 base_contracts: DitherCraft 1.0.0 (§1–§11) and 1.1.0 (§12–§25), frozen, in force for the dithering app
 max_concurrency: 4
-last_update: 2026-11-18
+last_update: 2026-11-19
 
 ## Environment
 
@@ -376,3 +376,16 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
   `param` pour animer les effets déterministes. **Planche H13 : `harness/lattice/docs/h13/*.gif`** — 4 GIF de 8 frames,
   tous 8/8 distinctes, écarts 170-239/255. Constat mesuré au passage : les 36 tests du codeur L26 passaient alors que
   le cas le plus courant (aucun verrou) ne variait pas — corrigé par l'orchestrateur (DEV-232).
+
+- 2026-11-19 (19h30, **clôture 1.0.0**) : versions alignées à 1.0.0 sur les quatre `pyproject.toml`, les quatre
+  `__init__.py`, les six manifests et le tag `v1.0.0` ; **`--version` ajouté aux trois CLI**, chacun lisant son
+  propre `__version__` de paquet (DEV-248). **Unification L37** : `cli.py` et `actions.py` partagés dans le core
+  (`lattice_core/cli_shared.py`, `lattice_core/ui/actions.py`), les onze verbes communs vivant une seule fois ;
+  `loop` reste côté Glitch par `extra_verbs` (DEV-245). **Trois bugs trouvés en testant les binaires livrés, aucun
+  visible dans la suite** : (1) Dither ne pouvait ouvrir aucun de ses quatre starters — format v3 contre un chargeur
+  v1/v2 (DEV-246) ; (2) les binaires Glyph et Glitch mouraient sur `ModuleNotFoundError`, `entry.py` utilisant un
+  import dynamique que PyInstaller ne suit pas (specs complétées) ; (3) `grey16_atkinson` annonçait 16 gris et en
+  rendait 243, le post-effet `sharpen` renforçant le grain du tramage — jugé par Opus « un défaut, pas un choix »,
+  passé en pré-effet (DEV-247). `tests/test_three_shells.py` : les trois fenêtres sous un seul `QApplication`, le
+  registre global intact, chaque CLI liant son backend, et `--version` identique sur les trois. Batterie
+  **2324 tests / 1 skip**, ruff 0, contrat OK, `VERSION CHECK OK`.

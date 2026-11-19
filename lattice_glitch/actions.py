@@ -18,6 +18,7 @@ from lattice_core.ui.actions import (
     MAIN_TOOLBAR,
     MODES,
     add_action,
+    connect_shutdown,
     dropped_images,
     handle_drag_enter,
     handle_drop,
@@ -52,6 +53,6 @@ def build_toolbar(window, actions: dict[str, QAction]):
 
 __all__ = [
     "EXTRA_KEY", "EXTRA_TOOLBAR_GROUPS", "IMAGE_SUFFIXES", "MAIN_TOOLBAR", "MODES",
-    "add_action", "build_actions", "build_toolbar", "dropped_images",
-    "handle_drag_enter", "handle_drop",
+    "add_action", "build_actions", "build_toolbar", "connect_shutdown",
+    "dropped_images", "handle_drag_enter", "handle_drop",
 ]
