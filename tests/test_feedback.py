@@ -5,7 +5,13 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from lattice_core.effects.feedback import feedback, iterate, validate_params
+from lattice_core.effects.feedback import (
+    _apply_transform,
+    _grid,
+    feedback,
+    iterate,
+    validate_params,
+)
 from lattice_core.registry import get_effect, resolve_params
 
 EFFECT_ID = "feedback"
@@ -21,6 +27,35 @@ def _image(seed: int = 7, shape: tuple[int, int] = (32, 32)) -> np.ndarray:
     ramp = np.linspace(0.0, 1.0, shape[1], dtype=np.float32)[None, :, None]
     ramp = np.repeat(ramp, shape[0], axis=0)
     return np.ascontiguousarray(np.clip(noise + ramp, 0.0, 1.0))
+
+
+def _ramp(shape: tuple[int, int]) -> np.ndarray:
+    """Return a horizontal ramp: every column a distinct brightness."""
+    ramp = np.linspace(0.0, 1.0, shape[1], dtype=np.float32)[None, :, None]
+    return np.ascontiguousarray(np.repeat(np.repeat(ramp, shape[0], 0), 3, -1))
+
+
+def _corners(shape: tuple[int, int]) -> np.ndarray:
+    """Return a frame with a bright block in each corner, so a pivot shows a signature."""
+    frame = np.zeros((*shape, 3), dtype=np.float32)
+    h, w = shape
+    q = max(2, min(h, w) // 8)
+    frame[:q, :q] = 1.0      # top-left
+    frame[:q, -q:] = 0.6     # top-right
+    frame[-q:, :q] = 0.3     # bottom-left
+    frame[-q:, -q:] = 0.9    # bottom-right
+    return frame
+
+
+def _energy(frame: np.ndarray) -> dict[str, float]:
+    """Return the mean brightness of each third, to see where the echo went."""
+    h, w = frame.shape[:2]
+    return {
+        "top": float(frame[: h // 3].mean()),
+        "bottom": float(frame[-h // 3 :].mean()),
+        "left": float(frame[:, : w // 3].mean()),
+        "right": float(frame[:, -w // 3 :].mean()),
+    }
 
 
 def _params(**overrides: object) -> dict:
@@ -55,6 +90,8 @@ def test_registration_and_params() -> None:
         "amount",
         "iterations",
         "blend",
+        "origin",
+        "direction",
     ]
     assert resolve_params(info.params, {}) == {
         "decay": 0.5,
@@ -62,6 +99,8 @@ def test_registration_and_params() -> None:
         "amount": 2.0,
         "iterations": 1,
         "blend": "add",
+        "origin": "center",
+        "direction": 0.0,
     }
 
 
@@ -195,7 +234,7 @@ def test_resolve_params_clamps_numeric_bounds() -> None:
     resolved = resolve_params(info.params, {"decay": 5.0, "amount": -4.0, "iterations": 99})
     assert resolved["decay"] == 0.99
     assert resolved["amount"] == 0.0
-    assert resolved["iterations"] == 8
+    assert resolved["iterations"] == 16
     assert resolve_params(info.params, {"iterations": 0})["iterations"] == 1
 
 
@@ -216,3 +255,131 @@ def test_outputs_are_float32_in_range_at_small_shapes(shape: tuple[int, int]) ->
     assert np.isfinite(out).all()
     assert float(out.min()) >= 0.0
     assert float(out.max()) <= 1.0
+
+
+def _corner_energy(frame: np.ndarray) -> dict[str, float]:
+    """Return the mean brightness of each third of the frame, for pivot checks."""
+    h, w = frame.shape[:2]
+    return {
+        "top": float(frame[: h // 3].mean()),
+        "bottom": float(frame[-h // 3 :].mean()),
+        "left": float(frame[:, : w // 3].mean()),
+        "right": float(frame[:, -w // 3 :].mean()),
+    }
+
+
+@pytest.mark.parametrize("origin", ["center", "top_left", "bottom_right", "left", "top"])
+def test_origin_moves_the_rotation_pivot(origin: str) -> None:
+    """The pivot really moves: rotating around a corner leaves a different frame."""
+    img = _ramp((48, 48))
+    centred = _run(img, {"decay": 0.85, "transform": "rotate", "amount": 30.0,
+                         "iterations": 4, "blend": "screen", "origin": "center"})
+    moved = _run(img, {"decay": 0.85, "transform": "rotate", "amount": 30.0,
+                       "iterations": 4, "blend": "screen", "origin": origin})
+    if origin == "center":
+        assert np.array_equal(moved, centred)
+    else:
+        assert not np.array_equal(moved, centred)
+
+
+def test_origin_changes_where_the_zoom_stretches() -> None:
+    """Scaling around a corner moves the far side, not the middle.
+
+    Measured on a horizontal ramp, where a wrong pivot is unmistakable: a zoom anchored
+    at the centre keeps the midpoint near its source value, an anchor at the top-left
+    samples further right, so the midpoint brightens towards the far edge.
+    """
+    img = _ramp((64, 64))
+    grid = _grid(64, 64)
+    centred = _apply_transform(img, "scale", -4.0, grid, None, "center", 0.0)
+    corner = _apply_transform(img, "scale", -4.0, grid, None, "top_left", 0.0)
+    mid_center = float(centred[0, 32, 0])
+    mid_corner = float(corner[0, 32, 0])
+    assert abs(mid_center - 0.5) < 0.05  # the centre pivot keeps the middle put
+    assert mid_corner > mid_center + 0.2  # the corner pivot drags it towards the far side
+
+
+def test_origin_keeps_the_rotation_corner_sharp() -> None:
+    """Rotating around the top-left leaves that corner exactly as it was."""
+    img = _ramp((64, 64))
+    grid = _grid(64, 64)
+    centred = _apply_transform(img, "rotate", 30.0, grid, None, "center", 0.0)
+    corner = _apply_transform(img, "rotate", 30.0, grid, None, "top_left", 0.0)
+    assert float(centred[0, 0, 0]) > 0.1  # a centre pivot smears the corner
+    assert float(corner[0, 0, 0]) == float(img[0, 0, 0])  # the pivot itself is untouched
+
+
+@pytest.mark.parametrize("direction", [0.0, 90.0, 180.0, -90.0])
+def test_direction_chooses_the_translate_heading(direction: float) -> None:
+    """Every heading gives a different frame, and none of them is the untouched source."""
+    img = _corners((64, 64))
+    params = {"decay": 0.8, "transform": "translate", "amount": 6.0,
+              "iterations": 3, "blend": "screen", "direction": direction}
+    out = _run(img, params)
+    assert not np.array_equal(out, img)
+    right = _run(img, {**params, "direction": 0.0})
+    down = _run(img, {**params, "direction": 90.0})
+    assert not np.array_equal(right, down)
+
+
+def _centroid(frame: np.ndarray) -> tuple[float, float]:
+    """Return the (x, y) centre of brightness of a frame."""
+    weight = frame.sum(axis=2)
+    total = float(weight.sum())
+    h, w = weight.shape
+    xs = np.arange(w, dtype=np.float64)[None, :]
+    ys = np.arange(h, dtype=np.float64)[:, None]
+    return float((weight * xs).sum() / total), float((weight * ys).sum() / total)
+
+
+def _dot(shape: tuple[int, int]) -> np.ndarray:
+    """Return a dark frame with one bright square in the middle."""
+    frame = np.zeros((*shape, 3), dtype=np.float32)
+    cy, cx = shape[0] // 2, shape[1] // 2
+    frame[cy - 4 : cy + 4, cx - 4 : cx + 4] = 1.0
+    return frame
+
+
+@pytest.mark.parametrize(("direction", "moves"), [(0.0, "x"), (180.0, "x"), (90.0, "y"),
+                                                  (-90.0, "y")])
+def test_direction_moves_the_echo_along_its_heading(direction: float, moves: str) -> None:
+    """The bright blob ends up displaced along the chosen axis, and only along it."""
+    img = _dot((64, 64))
+    start_x, start_y = _centroid(img)
+    out = _apply_transform(
+        img, "translate", 10.0, _grid(64, 64), None, "center", direction
+    )
+    end_x, end_y = _centroid(out)
+    if moves == "x":
+        assert abs(end_x - start_x) > 3.0  # it really travelled horizontally
+        assert abs(end_y - start_y) < 1.0  # and not vertically
+    else:
+        assert abs(end_y - start_y) > 3.0
+        assert abs(end_x - start_x) < 1.0
+
+
+def test_direction_opposite_headings_are_mirror_images() -> None:
+    """0 and 180 send the echo to opposite sides; 90 and -90 do the same vertically."""
+    img = _dot((64, 64))
+    grid = _grid(64, 64)
+    x0, _ = _centroid(_apply_transform(img, "translate", 10.0, grid, None, "center", 0.0))
+    x180, _ = _centroid(_apply_transform(img, "translate", 10.0, grid, None, "center", 180.0))
+    _, y90 = _centroid(_apply_transform(img, "translate", 10.0, grid, None, "center", 90.0))
+    _, y270 = _centroid(_apply_transform(img, "translate", 10.0, grid, None, "center", -90.0))
+    source_x, source_y = _centroid(img)
+    assert x0 > source_x > x180
+    # Screen convention: heading 90 sends the echo DOWN, -90 sends it up (Opus flagged the
+    # inverted Y axis on the first take: "down" was climbing).
+    assert y90 > source_y > y270
+
+
+def test_unknown_origin_is_rejected_naming_the_value() -> None:
+    """A bad origin is caught at validation, with the offending value in the message."""
+    with pytest.raises(ValueError, match="middle"):
+        validate_params({"origin": "middle"})
+
+
+def test_direction_is_clamped_to_plus_minus_180() -> None:
+    """Direction outside the documented range is clamped, not accepted silently."""
+    assert validate_params({"direction": 400})["direction"] == 180.0
+    assert validate_params({"direction": -400})["direction"] == -180.0

@@ -683,3 +683,26 @@ invented in code. The orchestrator folds them into the contract at the next chec
   positions de `swap`/`interpret` ne sont pas alignées sur 3, ce qui retourne les canaux 2 fois
   sur 3 (assumé et documenté, c'est le vocabulaire du databending).
 - status: applied
+
+### DEV-237 — L31 · `feedback` : origine et direction (demande humaine)
+- classes: E1 (deux options neuves) | task: L31 | status: applied | date: 2026-11-19
+- context: demande de l'utilisateur — « je veux choisir l'origine, choisir la direction » sur
+  l'effet derrière son preset préféré (`07_feedback_echo`). Jusque-là l'écho partait toujours
+  du centre et ne pouvait glisser que vers la droite.
+- facts: `_apply_transform` codait `sx, sy = xs - amount, ys` pour `translate` (un seul axe
+  possible) et `(width-1)/2, (height-1)/2` en dur pour `rotate`/`scale` (pivot fixe). Les
+  transformations étaient déjà composables, donc deux options suffisent à couvrir la gamme.
+- decision: deux ParamSpec, `origin` (choice : center, 4 coins, 4 bords) et `direction`
+  (float −180..180, degrés). `origin` déplace le pivot de rotate/scale et le bord de départ de
+  translate ; `direction` donne un cap à translate et une dérive biaisée à displace.
+  `iterations` passe de 8 à 16 (plafond relevé : la boucle normalise, aucune divergence).
+- evidence: mesure du centre de gravité d'une tache lumineuse — cap 0 → x +10, cap 180 → x −10,
+  cap 90 → y +10 (bas de l'écran), cap −90 → y −10 ; symétrie miroir vérifiée. Pivot : sur une
+  rampe horizontale, un zoom centré laisse le milieu à 0,513 alors qu'un pivot en haut-gauche
+  le porte à 0,847 ; en rotation à 30°, le coin haut-gauche reste exactement à sa valeur source
+  avec ce pivot et vaut 0,317 avec le pivot central. 89 tests dans `test_feedback.py`.
+- bug attrapé par le juge visuel : `sy = ys + amount*sin(θ)` suivait la convention mathématique
+  (Y vers le haut), donc « cap 90 » faisait monter l'écho alors que l'utilisateur demandait le
+  bas. Signe inversé sur translate et displace ; revérifié sur rendu réel : droite / bas / haut
+  conformes.
+- status: applied
