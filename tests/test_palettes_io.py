@@ -7,9 +7,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from lattice_core.palettes.builtin import BUILTIN, builtin_names, get_builtin
-from lattice_core.palettes.io import from_hex_list, hex_list, load_palette, save_palette
-from lattice_core.types import Palette
+from lattice.palettes.builtin import BUILTIN, builtin_names, get_builtin
+from lattice.palettes.io import from_hex_list, hex_list, load_palette, save_palette
+from lattice.types import Palette
 
 EXPECTED_COUNTS = {
     "bw": 2,

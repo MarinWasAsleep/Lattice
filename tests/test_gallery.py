@@ -18,13 +18,13 @@ import pytest  # noqa: E402
 from PIL import Image as PILImage  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-import lattice_core.dither  # noqa: E402,F401  (registers every algorithm)
-import lattice_core.effects  # noqa: E402,F401  (registers every effect)
-import lattice_glitch.presets as glitch_presets  # noqa: E402
-import lattice_glyph.document as glyph_doc  # noqa: E402
-import lattice_glyph.presets as glyph_presets  # noqa: E402
-from lattice_core import gallery as core_gallery  # noqa: E402
-from lattice_core.gallery import (  # noqa: E402
+import lattice.dither  # noqa: E402,F401  (registers every algorithm)
+import lattice.effects  # noqa: E402,F401  (registers every effect)
+import lattice.modes.glitch.presets as glitch_presets  # noqa: E402
+import lattice.modes.glyph.document as glyph_doc  # noqa: E402
+import lattice.modes.glyph.presets as glyph_presets  # noqa: E402
+from lattice import gallery as core_gallery  # noqa: E402
+from lattice.gallery import (  # noqa: E402
     MAX_GALLERY_BYTES,
     PLACEHOLDER_COLOR,
     GalleryEntry,
@@ -39,12 +39,12 @@ from lattice_core.gallery import (  # noqa: E402
     starter_preset_dir,
     starter_presets,
 )
-from lattice_core.pipeline import PaletteSpec, PipelineSpec, render  # noqa: E402
-from lattice_core.preset import from_json, to_json, to_pipeline_spec  # noqa: E402
-from lattice_core.presets import save_preset as save_v2_preset  # noqa: E402
-from lattice_core.registry import get_algorithm, get_effect, list_algorithms  # noqa: E402
-from lattice_core.renderers import list_renderers  # noqa: E402
-from lattice_core.types import RGB8  # noqa: E402
+from lattice.pipeline import PaletteSpec, PipelineSpec, render  # noqa: E402
+from lattice.preset import from_json, to_json, to_pipeline_spec  # noqa: E402
+from lattice.presets import save_preset as save_v2_preset  # noqa: E402
+from lattice.registry import get_algorithm, get_effect, list_algorithms  # noqa: E402
+from lattice.renderers import list_renderers  # noqa: E402
+from lattice.types import RGB8  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
@@ -286,9 +286,9 @@ def _import_roots(path: Path) -> set[str]:
 
 
 def test_the_gallery_modules_respect_the_core_packaging_rules() -> None:
-    apps = {"lattice_dither", "lattice_glyph", "lattice_glitch"}
-    base = _import_roots(ROOT / "lattice_core" / "gallery.py")
+    apps = {"lattice.modes.dither", "lattice.modes.glyph", "lattice.modes.glitch"}
+    base = _import_roots(ROOT / "lattice" / "gallery.py")
     assert not base & (apps | {"PySide6"})
     # The algorithm gallery moved into the core as `algorithm_gallery` (the old ui/gallery.py
     # was a prototype no app used); it must still import no application module.
-    assert not _import_roots(ROOT / "lattice_core" / "ui" / "algorithm_gallery.py") & apps
+    assert not _import_roots(ROOT / "lattice" / "ui" / "algorithm_gallery.py") & apps

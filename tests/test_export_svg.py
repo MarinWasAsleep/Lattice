@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from lattice_dither.export.svg import export_svg
+from lattice.modes.dither.export.svg import export_svg
 
 SVG_NS = "{http://www.w3.org/2000/svg}"
 RUN = re.compile(r"M(\d+) (\d+)h(\d+)v(\d+)")

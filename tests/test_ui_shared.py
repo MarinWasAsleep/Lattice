@@ -1,6 +1,6 @@
-"""Tests for the shared widgets of lattice_core/ui (card L-UI).
+"""Tests for the shared widgets of lattice/ui (card L-UI).
 
-Covers every accept item of the card: no application import in lattice_core/ui
+Covers every accept item of the card: no application import in lattice/ui
 (E8), full-resolution export matching the pipeline output size, honest preset
 indicator, and each widget (canvas + worker + split, Looks grid, bridge status
 dot, empty state) with an offscreen smoke test.
@@ -24,12 +24,12 @@ from PySide6.QtGui import QImage  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-import lattice_core.dither  # noqa: E402,F401  (registers every algorithm)
-import lattice_core.effects  # noqa: E402,F401  (registers every effect)
-from lattice_core import color  # noqa: E402
-from lattice_core.pipeline import PipelineSpec, render  # noqa: E402
-from lattice_core.types import RGB8, Image  # noqa: E402
-from lattice_core.ui import (  # noqa: E402
+import lattice.dither  # noqa: E402,F401  (registers every algorithm)
+import lattice.effects  # noqa: E402,F401  (registers every effect)
+from lattice import color  # noqa: E402
+from lattice.pipeline import PipelineSpec, render  # noqa: E402
+from lattice.types import RGB8, Image  # noqa: E402
+from lattice.ui import (  # noqa: E402
     MAX_SOURCE_SIDE,
     PREVIEW_MAX_SIDE,
     PREVIEW_STAGES,
@@ -47,11 +47,11 @@ from lattice_core.ui import (  # noqa: E402
     preview_proxy,
     proxy_factor,
 )
-from lattice_core.ui import export_dialog as export_module  # noqa: E402
-from lattice_core.ui import looks as looks_module  # noqa: E402
-from lattice_core.ui import worker as worker_module  # noqa: E402
+from lattice.ui import export_dialog as export_module  # noqa: E402
+from lattice.ui import looks as looks_module  # noqa: E402
+from lattice.ui import worker as worker_module  # noqa: E402
 
-UI_PACKAGE = Path(lattice_core.ui.__file__).resolve().parent
+UI_PACKAGE = Path(lattice.ui.__file__).resolve().parent
 REPO_ROOT = UI_PACKAGE.parents[1]
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
@@ -111,11 +111,11 @@ def gallery(qapp: QApplication) -> LookGallery:
     QApplication.processEvents()
 
 
-# --- accept: lattice_core/ui imports no application module (E8) --------------------
+# --- accept: lattice/ui imports no application module (E8) --------------------
 
 
 def test_ui_package_imports_no_application_module() -> None:
-    """No module of lattice_core/ui may reference an application in an import."""
+    """No module of lattice/ui may reference an application in an import."""
     files = [path for path in UI_PACKAGE.rglob("*.py") if "__pycache__" not in str(path)]
     for path in sorted(files):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -128,16 +128,17 @@ def test_ui_package_imports_no_application_module() -> None:
                 continue
             for name in names:
                 root = name.split(".")[0]
-                assert root not in ("lattice_dither", "lattice_glyph", "lattice_glitch"), (
+                assert root not in ("lattice.modes.dither", "lattice.modes.glyph",
+                                    "lattice.modes.glitch"), (
                     f"{path.name} imports {name!r} from an application package"
                 )
 
 
 def test_base_core_import_never_pulls_ui_or_pyside6() -> None:
-    """A fresh interpreter importing lattice_core must not import the ui package."""
+    """A fresh interpreter importing lattice must not import the ui package."""
     code = (
-        "import lattice_core, sys\n"
-        "assert 'lattice_core.ui' not in sys.modules, 'lattice_core.ui was imported'\n"
+        "import lattice, sys\n"
+        "assert 'lattice.ui' not in sys.modules, 'lattice.ui was imported'\n"
         "assert 'PySide6' not in sys.modules, 'PySide6 was imported'\n"
     )
     env = dict(os.environ)

@@ -21,9 +21,9 @@ import pytest  # noqa: E402
 from PySide6.QtGui import QImage  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from lattice_core.renderers import glyph_ramp as renderer  # noqa: E402
-from lattice_core.ui import glyph_browser as module  # noqa: E402
-from lattice_core.ui.glyph_browser import (  # noqa: E402
+from lattice.renderers import glyph_ramp as renderer  # noqa: E402
+from lattice.ui import glyph_browser as module  # noqa: E402
+from lattice.ui.glyph_browser import (  # noqa: E402
     DATA_FILE,
     MIN_CATEGORIES,
     MIN_NON_LATIN_RAMPS,
@@ -120,7 +120,7 @@ def test_data_file_is_found_next_to_the_module_not_the_cwd(
     expected_ids = [item["id"] for item in document()["categories"]]
     load_catalogue.cache_clear()  # force a real read, from a directory holding no data
     monkeypatch.chdir(tmp_path)
-    assert not Path("lattice_core/data/ramps.json").exists()
+    assert not Path("lattice/data/ramps.json").exists()
     assert [c.id for c in load_catalogue().categories] == expected_ids
     load_catalogue.cache_clear()
 

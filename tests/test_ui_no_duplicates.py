@@ -1,4 +1,4 @@
-"""L-UI2: lattice_dither/ui must not redefine the widgets shared by lattice_core/ui.
+"""L-UI2: lattice.modes.dither/ui must not redefine the widgets shared by lattice/ui.
 
 The card's structural defect S5 was two parallel UIs. This test compares the
 class names and ``__all__`` of every module in both packages and asserts the
@@ -11,11 +11,11 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-import lattice_core.ui
-import lattice_dither.ui
+import lattice.modes.dither.ui
+import lattice.ui
 
-CORE_DIR = Path(lattice_core.ui.__file__).resolve().parent
-APP_DIR = Path(lattice_dither.ui.__file__).resolve().parent
+CORE_DIR = Path(lattice.ui.__file__).resolve().parent
+APP_DIR = Path(lattice.modes.dither.ui.__file__).resolve().parent
 
 # Widgets the card requires to come from core, never redefined in the app.
 SHARED_WIDGETS = (
@@ -66,8 +66,8 @@ def test_shared_widgets_are_defined_in_core_and_not_in_the_app() -> None:
     core_names = set().union(*core.values())
     app_names = set().union(*app.values())
     for name in SHARED_WIDGETS:
-        assert name in core_names, f"{name} is missing from lattice_core/ui"
-        assert name not in app_names, f"{name} is still defined in lattice_dither/ui"
+        assert name in core_names, f"{name} is missing from lattice/ui"
+        assert name not in app_names, f"{name} is still defined in lattice.modes.dither/ui"
 
 
 def test_the_app_does_not_redefine_core_widgets() -> None:
@@ -79,14 +79,14 @@ def test_the_app_does_not_redefine_core_widgets() -> None:
 
 
 def test_the_app_ui_imports_the_shared_widgets_from_core() -> None:
-    """The app modules that use the shared widgets import them from lattice_core.ui."""
+    """The app modules that use the shared widgets import them from lattice.ui."""
     main_window = (APP_DIR / "main_window.py").read_text(encoding="utf-8")
-    assert "from lattice_core.ui.canvas import PreviewCanvas" in main_window
-    assert "from lattice_core.ui.worker import" in main_window
+    assert "from lattice.ui.canvas import PreviewCanvas" in main_window
+    assert "from lattice.ui.worker import" in main_window
     palette_panel = (APP_DIR / "palette_panel.py").read_text(encoding="utf-8")
-    assert "from lattice_core.ui.worker import PaletteExtraction" in palette_panel
+    assert "from lattice.ui.worker import PaletteExtraction" in palette_panel
     commands = (APP_DIR / "commands.py").read_text(encoding="utf-8")
-    assert "from lattice_core.ui.export_dialog import run_export_dialog" in commands
+    assert "from lattice.ui.export_dialog import run_export_dialog" in commands
 
 
 def test_no_app_module_defines_a_core___all__widget() -> None:

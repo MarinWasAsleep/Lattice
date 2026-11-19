@@ -18,14 +18,8 @@ from PySide6.QtCore import Qt, QThread  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QWidget  # noqa: E402
 
-import lattice_core.dither  # noqa: E402,F401  (registers every algorithm)
-from lattice_core.pipeline import PaletteSpec  # noqa: E402
-from lattice_core.registry import AlgorithmInfo  # noqa: E402
-
-# The widget now lives in the core; the patches must land on the module that READS these
-# names, not on the app's thin binding.
-from lattice_core.ui import algorithm_gallery as gallery_module  # noqa: E402
-from lattice_dither.ui.gallery import (  # noqa: E402
+import lattice.dither  # noqa: E402,F401  (registers every algorithm)
+from lattice.modes.dither.ui.gallery import (  # noqa: E402
     THUMB_SIZE,
     AlgorithmGallery,
     ThumbnailCell,
@@ -40,7 +34,13 @@ from lattice_dither.ui.gallery import (  # noqa: E402
 )
 
 # aliased: pytest would collect a bare test_image as a test function
-from lattice_dither.ui.gallery import test_image as synthetic_image  # noqa: E402
+from lattice.modes.dither.ui.gallery import test_image as synthetic_image  # noqa: E402
+from lattice.pipeline import PaletteSpec  # noqa: E402
+from lattice.registry import AlgorithmInfo  # noqa: E402
+
+# The widget now lives in the core; the patches must land on the module that READS these
+# names, not on the app's thin binding.
+from lattice.ui import algorithm_gallery as gallery_module  # noqa: E402
 
 PALETTE = PaletteSpec(source="builtin", name="pico8")
 OTHER_PALETTE = PaletteSpec(source="builtin", name="gameboy")

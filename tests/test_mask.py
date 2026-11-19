@@ -13,8 +13,8 @@ import numpy as np
 import pytest
 from PIL import Image as PILImage
 
-import lattice_core.effects  # noqa: F401  (registers every effect)
-from lattice_core.mask import (
+import lattice.effects  # noqa: F401  (registers every effect)
+from lattice.mask import (
     MAX_EMBED_BYTES,
     MaskRef,
     apply,
@@ -26,8 +26,8 @@ from lattice_core.mask import (
     resolve_masks,
     to_png,
 )
-from lattice_core.preset import from_json, to_json
-from lattice_core.registry import get_effect, list_effects, resolve_params
+from lattice.preset import from_json, to_json
+from lattice.registry import get_effect, list_effects, resolve_params
 
 
 def _mask_effects() -> list[str]:

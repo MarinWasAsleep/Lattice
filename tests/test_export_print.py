@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from lattice_dither.export.print import INKS, export_print
+from lattice.modes.dither.export.print import INKS, export_print
 
 DPI = 300
 BLEED_MM = 3.0

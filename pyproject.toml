@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "lattice-core"
+name = "lattice"
 version = "1.0.0"
-description = "Lattice Core: the shared image-processing engine of the Lattice suite"
+description = "Lattice: dithering, glyph and glitch studio for raster images"
 requires-python = ">=3.13"
 license = "MIT OR Apache-2.0"
 dependencies = [
@@ -17,12 +17,23 @@ dependencies = [
 [project.optional-dependencies]
 ui = ["PySide6"]
 
+[project.scripts]
+# One console script for the whole suite: `lattice dither render …`, `lattice glyph …`.
+lattice = "lattice.cli:main"
+
+[project.gui-scripts]
+# One window for the whole suite: the three modes as three tabs.
+lattice-studio = "lattice.app:main"
+
 [tool.setuptools.packages.find]
-include = ["lattice_core*"]
+include = ["lattice*"]
 
 [tool.setuptools.package-data]
-"lattice_core.palettes" = ["data/*"]
-"lattice_core" = ["data/*.json"]
+"lattice.palettes" = ["data/*"]
+"lattice" = ["data/*.json"]
+"lattice.modes.dither" = ["presets/*.json"]
+"lattice.modes.glyph" = ["presets/*.json"]
+"lattice.modes.glitch" = ["presets/*.json"]
 
 [tool.ruff]
 line-length = 100

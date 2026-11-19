@@ -10,11 +10,11 @@ import numpy as np  # noqa: E402
 import pytest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QDoubleSpinBox  # noqa: E402
 
-from lattice_core import registry  # noqa: E402
-from lattice_core.pipeline import PaletteSpec, PipelineSpec  # noqa: E402
-from lattice_core.registry import AlgorithmInfo  # noqa: E402
-from lattice_core.types import ParamSpec  # noqa: E402
-from lattice_dither.ui.algorithm_panel import AlgorithmPanel  # noqa: E402
+from lattice import registry  # noqa: E402
+from lattice.modes.dither.ui.algorithm_panel import AlgorithmPanel  # noqa: E402
+from lattice.pipeline import PaletteSpec, PipelineSpec  # noqa: E402
+from lattice.registry import AlgorithmInfo  # noqa: E402
+from lattice.types import ParamSpec  # noqa: E402
 
 
 def _noop(img: np.ndarray, palette: np.ndarray, params: dict) -> np.ndarray:

@@ -14,18 +14,18 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import lattice_core.renderers  # noqa: F401  (registers the built-in renderers)
-from lattice_core.cell import CellGrid, RenderStyle, get_renderer
-from lattice_core.svg import (
+import lattice.renderers  # noqa: F401  (registers the built-in renderers)
+from lattice.cell import CellGrid, RenderStyle, get_renderer
+from lattice.svg import (
     DEFAULT_MAX_BYTES,
     SVG_NS,
     render_svg,
 )
-from lattice_core.svg import _box_count as box_count
-from lattice_core.svg import _encode as encode
-from lattice_core.svg import _palette_codes as palette_codes
-from lattice_core.svg import _rects as cell_rects
-from lattice_core.types import Palette
+from lattice.svg import _box_count as box_count
+from lattice.svg import _encode as encode
+from lattice.svg import _palette_codes as palette_codes
+from lattice.svg import _rects as cell_rects
+from lattice.types import Palette
 
 NS = f"{{{SVG_NS}}}"
 BW: Palette = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], dtype=np.float32)
@@ -352,8 +352,8 @@ def test_render_svg_does_not_mutate_its_inputs() -> None:
 def test_the_export_modules_import_no_application_and_no_qt() -> None:
     import ast
 
-    root = Path(__file__).resolve().parents[1] / "lattice_core"
-    forbidden = {"lattice_dither", "lattice_glyph", "lattice_glitch", "PySide6"}
+    root = Path(__file__).resolve().parents[1] / "lattice"
+    forbidden = {"lattice.modes.dither", "lattice.modes.glyph", "lattice.modes.glitch", "PySide6"}
     for name in ("svg.py", "textout.py"):
         tree = ast.parse((root / name).read_text(encoding="utf-8"))
         imported: set[str] = set()

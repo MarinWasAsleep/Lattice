@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from lattice_dither.preprocess import descreen, detect_grid, snap_to_grid
+from lattice.modes.dither.preprocess import descreen, detect_grid, snap_to_grid
 
 _LEVELS = 4
 _SCREEN_CYCLES_X = 16.4

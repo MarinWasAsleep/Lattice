@@ -8,11 +8,11 @@ import numpy as np
 import pytest
 from PIL import Image as PILImage
 
-import lattice_core.dither  # noqa: F401
-import lattice_core.effects  # noqa: F401
-from lattice_core.color import to_float
-from lattice_core.pipeline import render
-from lattice_core.presets import load_preset
+import lattice.dither  # noqa: F401
+import lattice.effects  # noqa: F401
+from lattice.color import to_float
+from lattice.pipeline import render
+from lattice.presets import load_preset
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = ROOT / "tests" / "data" / "baseline"
@@ -50,7 +50,7 @@ def test_witness_preset_loads_as_version_one(name: str) -> None:
 @pytest.mark.parametrize("name", WITNESSES)
 def test_witness_preset_survives_a_v2_round_trip(name: str) -> None:
     """Saving a witness as v2 and reloading it renders the same bytes."""
-    from lattice_core.presets import from_json, to_json
+    from lattice.presets import from_json, to_json
 
     spec = load_preset(ROOT / "presets" / f"{name}.json")
     upgraded = from_json(to_json(spec))

@@ -5,14 +5,14 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from lattice_core.effects.feedback import (
+from lattice.effects.feedback import (
     _apply_transform,
     _grid,
     feedback,
     iterate,
     validate_params,
 )
-from lattice_core.registry import get_effect, resolve_params
+from lattice.registry import get_effect, resolve_params
 
 EFFECT_ID = "feedback"
 TRANSFORMS = ("identity", "translate", "rotate", "scale", "displace")
@@ -371,7 +371,7 @@ def test_direction_opposite_headings_are_mirror_images() -> None:
     _, y270 = _centroid(_apply_transform(img, "translate", 10.0, grid, None, "center", -90.0))
     source_x, source_y = _centroid(img)
     assert x0 > source_x > x180
-    # Screen convention: heading 90 sends the echo DOWN, -90 sends it up (Opus flagged the
+    # Screen convention: heading 90 sends the echo DOWN, -90 sends it up (the first take had
     # inverted Y axis on the first take: "down" was climbing).
     assert y90 > source_y > y270
 
@@ -444,7 +444,7 @@ def test_negative_amount_makes_the_zoom_go_inward() -> None:
     """`scale` with a negative amount zooms IN: the factor must stay below 1.
 
     A negative amount used to be clamped to 0 by the ParamSpec bound, so the factor became
-    exactly 1.0 and `scale` collapsed silently into `identity`. Opus scored that render
+    exactly 1.0 and `scale` collapsed silently into `identity`. That render read
     3/10 ("aucun echo visible") without knowing the effect was doing nothing at all.
     """
     img = _ramp((64, 64))

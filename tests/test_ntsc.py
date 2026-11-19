@@ -5,9 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from lattice_core import effects  # noqa: F401  (registers the effect)
-from lattice_core.effects import ntsc as ntsc_effect
-from lattice_core.registry import get_effect, list_effects, resolve_params
+from lattice import effects  # noqa: F401  (registers the effect)
+from lattice.effects import ntsc as ntsc_effect
+from lattice.registry import get_effect, list_effects, resolve_params
 
 NEUTRAL = {  # every parameter at its neutral value
     "seed": 0, "chroma_lowpass": 0.0, "chroma_phase_noise": 0.0, "luma_smear": 0.0,

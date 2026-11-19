@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from lattice_core.types import Image, Palette
-from lattice_dither.i18n import set_language
+from lattice.modes.dither.i18n import set_language
+from lattice.types import Image, Palette
 
 
 @pytest.fixture(autouse=True)

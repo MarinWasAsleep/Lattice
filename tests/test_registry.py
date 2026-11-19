@@ -8,8 +8,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from lattice_core import registry
-from lattice_core.types import ParamSpec
+from lattice import registry
+from lattice.types import ParamSpec
 
 
 def _noop_algorithm(img, palette, params):

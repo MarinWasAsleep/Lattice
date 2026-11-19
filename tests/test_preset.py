@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from lattice_core import preset
-from lattice_core.pipeline import PipelineSpec
-from lattice_core.preset import (
+from lattice import preset
+from lattice.pipeline import PipelineSpec
+from lattice.preset import (
     Preset,
     from_json,
     from_pipeline_spec,
@@ -354,5 +354,5 @@ def test_preset_module_imports_no_application_package() -> None:
         elif isinstance(node, ast.ImportFrom) and node.module:
             modules.append(node.module)
     assert modules
-    for name in ("lattice_dither", "lattice_glyph", "lattice_glitch"):
+    for name in ("lattice.modes.dither", "lattice.modes.glyph", "lattice.modes.glitch"):
         assert not any(module == name or module.startswith(name + ".") for module in modules)

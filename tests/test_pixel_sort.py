@@ -8,9 +8,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from lattice_core.effects import pixel_sort as pixel_sort_module
-from lattice_core.effects.pixel_sort import pixel_sort
-from lattice_core.registry import get_effect, list_effects, resolve_params
+from lattice.effects import pixel_sort as pixel_sort_module
+from lattice.effects.pixel_sort import pixel_sort
+from lattice.registry import get_effect, list_effects, resolve_params
 
 EFFECT_ID = "pixel_sort"
 SHAPES = ((1, 1), (1, 5), (5, 1), (23, 37), (64, 64))
@@ -63,7 +63,7 @@ def test_registration_and_params() -> None:
     }
 
 
-def test_registered_once_in_lattice_core() -> None:
+def test_registered_once_in_lattice() -> None:
     """The pixel sort effect is registered by the core effect module itself."""
     mine = [info for info in list_effects() if info.fn.__module__ == pixel_sort_module.__name__]
     assert [info.id for info in mine] == [EFFECT_ID]
@@ -287,4 +287,5 @@ def test_module_imports_no_application_package() -> None:
             continue
         for name in names:
             root = name.split(".")[0]
-            assert root not in ("lattice_dither", "lattice_glyph", "lattice_glitch"), name
+            assert root not in ("lattice.modes.dither", "lattice.modes.glyph",
+                                "lattice.modes.glitch"), name

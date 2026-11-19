@@ -14,12 +14,12 @@ import pytest
 from PIL import Image as PILImage
 from PIL import ImageFont
 
-import lattice_core.dither  # noqa: F401  (registers the algorithms the pipeline resolves)
-from lattice_core.cell import CellGrid, CellRenderer, RenderStyle, get_renderer, list_renderers
-from lattice_core.pipeline import PaletteSpec, PipelineSpec, render
-from lattice_core.renderers import text as text_module
-from lattice_core.renderers.text import DEFAULT_BG, MIN_OPACITY, TextGlyph, TextRenderer
-from lattice_core.types import Palette
+import lattice.dither  # noqa: F401  (registers the algorithms the pipeline resolves)
+from lattice.cell import CellGrid, CellRenderer, RenderStyle, get_renderer, list_renderers
+from lattice.pipeline import PaletteSpec, PipelineSpec, render
+from lattice.renderers import text as text_module
+from lattice.renderers.text import DEFAULT_BG, MIN_OPACITY, TextGlyph, TextRenderer
+from lattice.types import Palette
 
 BW: Palette = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], dtype=np.float32)
 COLOUR: Palette = np.array([[1.0, 0.0, 0.0], [0.0, 0.0, 1.0]], dtype=np.float32)

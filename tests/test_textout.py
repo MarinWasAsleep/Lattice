@@ -13,10 +13,10 @@ import re
 import numpy as np
 import pytest
 
-import lattice_core.renderers  # noqa: F401  (registers the built-in renderers)
-from lattice_core.cell import CellGrid, RenderStyle, get_renderer
-from lattice_core.textout import BLANK, FORMATS, render_text
-from lattice_core.types import Palette
+import lattice.renderers  # noqa: F401  (registers the built-in renderers)
+from lattice.cell import CellGrid, RenderStyle, get_renderer
+from lattice.textout import BLANK, FORMATS, render_text
+from lattice.types import Palette
 
 BW: Palette = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], dtype=np.float32)
 FOUR: Palette = np.array(

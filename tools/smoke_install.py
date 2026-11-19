@@ -44,9 +44,9 @@ def _run(argv: list[str], timeout: float = 20.0) -> tuple[int, str]:
 def check_cli(python: str) -> dict[str, Any]:
     """Return one CLI result per app, using a display-free verb."""
     commands = {
-        "dither": [python, "-m", "lattice_dither.cli", "--help"],
-        "glyph": [python, "-m", "lattice_glyph", "presets", "list"],
-        "glitch": [python, "-m", "lattice_glitch", "presets", "list"],
+        "dither": [python, "-m", "lattice.modes.dither.cli", "--help"],
+        "glyph": [python, "-m", "lattice.modes.glyph", "presets", "list"],
+        "glitch": [python, "-m", "lattice.modes.glitch", "presets", "list"],
     }
     results: dict[str, Any] = {}
     for app, argv in commands.items():
@@ -108,7 +108,7 @@ def _image_check_one(app: str, path: Path) -> dict[str, Any]:
     """Instantiate one app's window, load path, and report whether it adopted it."""
     try:
         if app == "dither":
-            from lattice_dither.ui.main_window import MainWindow
+            from lattice.modes.dither.ui.main_window import MainWindow
 
             window = MainWindow()
             window.commands.open_path(str(path))

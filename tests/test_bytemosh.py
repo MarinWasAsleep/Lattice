@@ -8,9 +8,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from lattice_core.effects import bytemosh as bytemosh_module
-from lattice_core.effects.bytemosh import _indel
-from lattice_core.registry import get_effect, list_effects, resolve_params
+from lattice.effects import bytemosh as bytemosh_module
+from lattice.effects.bytemosh import _indel
+from lattice.registry import get_effect, list_effects, resolve_params
 
 EFFECT_ID = "bytemosh"
 OPERATIONS = ("swap", "shift", "interpret", "drift")
@@ -57,7 +57,7 @@ def test_registration_and_params() -> None:
     }
 
 
-def test_registered_once_in_lattice_core() -> None:
+def test_registered_once_in_lattice() -> None:
     """The bytemosh effect is registered by the core effect module itself."""
     mine = [info for info in list_effects() if info.fn.__module__ == bytemosh_module.__name__]
     assert [info.id for info in mine] == [EFFECT_ID]
@@ -65,7 +65,7 @@ def test_registered_once_in_lattice_core() -> None:
 
 def test_every_label_is_a_distinct_catalogue_key() -> None:
     """Labels reuse i18n catalogue keys (test_i18n) and name distinct parameters."""
-    from lattice_dither import i18n
+    from lattice.modes.dither import i18n
 
     catalogue = json.loads(
         (Path(i18n.__file__).resolve().parent / "en.json").read_text(encoding="utf-8")
@@ -127,9 +127,9 @@ def test_swap_keeps_channels_aligned_with_a_multiple_of_three_stride() -> None:
 def test_indel_leaves_the_head_intact_and_slides_the_tail() -> None:
     """The core gesture: bytes before the cut are untouched, everything after slides.
 
-    The old contract asked shift to translate the whole payload. Opus's verdict killed it:
+    The old contract asked shift to translate the whole payload. Measurement killed it:
     a translation is clean, nothing is damaged at a particular place, and the image heals
-    everywhere (verdict L30, shift 1/10). An indel damages from P onwards and only from P:
+    everywhere. An indel damages from P onwards and only from P:
     that is what real byte damage looks like.
     """
     data = np.arange(120, dtype=np.uint8)
@@ -252,7 +252,7 @@ def test_invalid_operation_is_rejected() -> None:
 
 def test_runs_through_the_generic_v3_preset_pipeline() -> None:
     """Accept: a v3 preset drives bytemosh through the shared engine, no special code."""
-    from lattice_core import pipeline, preset
+    from lattice import pipeline, preset
 
     text = json.dumps(
         {
@@ -291,7 +291,7 @@ def test_drift_spills_across_rows_and_keeps_colours_aligned() -> None:
 
     The first take rotated each row on itself: on a vertical gradient an inside-row rotation
     is invisible, so the background stayed pristine and only the shapes moved — the seam that
-    proves a misread file was missing (verdict L30). Here the tail of the payload is rolled,
+    proves a misread file was missing. Here the tail of the payload is rolled,
     so the end of a row spills into the next one, and the step stays a multiple of three so
     the RGB channels are not rotated.
     """

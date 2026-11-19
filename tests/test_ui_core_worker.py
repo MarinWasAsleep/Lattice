@@ -1,6 +1,6 @@
 """L-UI2: the shared core RenderWorker bridge verbs and PaletteExtraction.
 
-These tests import only ``lattice_core`` (never an application), so they also
+These tests import only ``lattice`` (never an application), so they also
 prove the shared worker is usable standalone under ``lattice-core[ui]``. They
 cover the verbs the Dither copy used to own: ``request_send``, ``request_get``,
 ``check_version``, ``check_connection`` and the threaded ``PaletteExtraction``.
@@ -18,14 +18,14 @@ import pytest  # noqa: E402
 from PIL import Image as PILImage  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-import lattice_core.dither  # noqa: E402,F401  (registers every algorithm)
-import lattice_core.effects  # noqa: E402,F401  (registers every effect)
-from lattice_core.bridge.photocraft import PhotoCraftClient  # noqa: E402
-from lattice_core.palettes.extract import extract_palette  # noqa: E402
-from lattice_core.palettes.io import hex_list  # noqa: E402
-from lattice_core.pipeline import PipelineSpec, render  # noqa: E402
-from lattice_core.ui import worker as worker_module  # noqa: E402
-from lattice_core.ui.worker import PaletteExtraction, RenderWorker  # noqa: E402
+import lattice.dither  # noqa: E402,F401  (registers every algorithm)
+import lattice.effects  # noqa: E402,F401  (registers every effect)
+from lattice.bridge.photocraft import PhotoCraftClient  # noqa: E402
+from lattice.palettes.extract import extract_palette  # noqa: E402
+from lattice.palettes.io import hex_list  # noqa: E402
+from lattice.pipeline import PipelineSpec, render  # noqa: E402
+from lattice.ui import worker as worker_module  # noqa: E402
+from lattice.ui.worker import PaletteExtraction, RenderWorker  # noqa: E402
 
 
 @pytest.fixture(scope="module")

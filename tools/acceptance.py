@@ -31,16 +31,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np  # noqa: E402
 from PIL import Image  # noqa: E402
 
-import lattice_core.dither  # noqa: E402,F401  (registers the 33 algorithms)
-import lattice_core.renderers  # noqa: E402,F401  (registers the 8 renderers)
-from lattice_core.bridge import ArtCraftClient  # noqa: E402
-from lattice_core.bridge.designcraft import DesignCraftClient  # noqa: E402
-from lattice_core.bridge.photocraft import (  # noqa: E402
+import lattice.dither  # noqa: E402,F401  (registers the 33 algorithms)
+import lattice.renderers  # noqa: E402,F401  (registers the 8 renderers)
+from lattice.bridge import ArtCraftClient  # noqa: E402
+from lattice.bridge.designcraft import DesignCraftClient  # noqa: E402
+from lattice.bridge.photocraft import (  # noqa: E402
     BridgeError,
     installed_photocraft_version,
     version_status,
 )
-from lattice_core.pipeline import PaletteSpec, PipelineSpec, render  # noqa: E402
+from lattice.pipeline import PaletteSpec, PipelineSpec, render  # noqa: E402
 
 APPS = ("dither", "glyph", "glitch")
 PIXEL_TOLERANCE = 1.0 / 255.0

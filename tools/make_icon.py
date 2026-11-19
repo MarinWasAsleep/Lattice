@@ -1,4 +1,4 @@
-"""Generate ``assets/lattice_dither.ico``: a 256 px Bayer-dithered icon.
+"""Generate ``assets/lattice.modes.dither.ico``: a 256 px Bayer-dithered icon.
 
 Run once from the project root: ``python tools/make_icon.py``.
 The result is committed; the application never regenerates it at runtime.
@@ -15,7 +15,7 @@ from PIL import Image
 SIZE = 256
 MATRIX_SIZE = 8
 ICO_SIZES = ((16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256))
-OUTPUT = Path(__file__).resolve().parents[1] / "assets" / "lattice_dither.ico"
+OUTPUT = Path(__file__).resolve().parents[1] / "assets" / "lattice.modes.dither.ico"
 
 
 def bayer_matrix(size: int) -> np.ndarray:

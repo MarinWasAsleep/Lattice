@@ -13,16 +13,16 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QFormLayout  # noqa: E402
 
-from lattice_core.types import ParamSpec  # noqa: E402
-from lattice_dither import i18n  # noqa: E402
-from lattice_dither.i18n import (  # noqa: E402
+from lattice.modes.dither import i18n  # noqa: E402
+from lattice.modes.dither.i18n import (  # noqa: E402
     current_language,
     init_language,
     save_language,
     set_language,
     tr,
 )
-from lattice_dither.ui.param_form import ParamForm  # noqa: E402
+from lattice.modes.dither.ui.param_form import ParamForm  # noqa: E402
+from lattice.types import ParamSpec  # noqa: E402
 
 CATALOGUE_DIR = Path(i18n.__file__).resolve().parent
 UI_DIR = Path(i18n.__file__).resolve().parents[1] / "ui"
@@ -64,7 +64,7 @@ TEXT_API = re.compile(
     r"\b(?:QLabel|QPushButton|QCheckBox|QGroupBox|QAction|QToolBar|QDockWidget|QMessageBox|"
     r"setText|setWindowTitle|setPlaceholderText|setToolTip|showMessage|addRow|setApplicationName)\b"
 )
-TR_IMPORT = "from lattice_dither.i18n import"
+TR_IMPORT = "from lattice.modes.dither.i18n import"
 
 
 def _literal_setters(source: str) -> list[str]:
@@ -229,9 +229,9 @@ def test_french_catalogue_really_differs_from_english() -> None:
 
 def test_catalogue_covers_every_parameter_label() -> None:
     """Every ParamSpec label of every algorithm and effect is a catalogue key."""
-    import lattice_core.dither  # noqa: F401  (registers the algorithms)
-    import lattice_core.effects  # noqa: F401  (registers the effects)
-    from lattice_core.registry import list_algorithms, list_effects
+    import lattice.dither  # noqa: F401  (registers the algorithms)
+    import lattice.effects  # noqa: F401  (registers the effects)
+    from lattice.registry import list_algorithms, list_effects
 
     catalogue = _load("en")
     labels = {spec.label for info in list_algorithms() for spec in info.params}
@@ -427,7 +427,7 @@ def test_param_form_translates_its_labels(qapp: QApplication) -> None:
 
 def test_create_application_uses_the_translated_name(qapp: QApplication) -> None:
     """The bootstrap resolves the language and names the application through tr()."""
-    from lattice_dither.ui.app import create_application
+    from lattice.modes.dither.ui.app import create_application
 
     _store_language("fr")
     app = create_application([])

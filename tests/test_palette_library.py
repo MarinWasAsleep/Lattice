@@ -7,8 +7,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from lattice_core.palettes.io import MAX_COLORS, MIN_COLORS, from_hex_text, hex_list
-from lattice_core.palettes.library import DATA_DIR, get_library, library_names
+from lattice.palettes.io import MAX_COLORS, MIN_COLORS, from_hex_text, hex_list
+from lattice.palettes.library import DATA_DIR, get_library, library_names
 
 MIN_LIBRARY = 12
 
@@ -75,7 +75,7 @@ def test_get_library_returns_a_copy() -> None:
 def test_library_files_are_not_imported_by_the_core() -> None:
     """The fetch script is manual: nothing in the package imports it."""
     root = Path(__file__).resolve().parents[1]
-    for path in (root / "lattice_dither").rglob("*.py"):
+    for path in (root / "lattice.modes.dither").rglob("*.py"):
         assert "fetch_palettes" not in path.read_text(encoding="utf-8"), path
 
 

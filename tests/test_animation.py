@@ -11,17 +11,17 @@ import numpy as np
 import pytest
 from PIL import Image
 
-import lattice_core.dither  # noqa: F401
-from lattice_core.pipeline import (
+import lattice.dither  # noqa: F401
+from lattice.modes.dither.core import animation
+from lattice.modes.dither.core.animation import render_sequence
+from lattice.modes.dither.export import video
+from lattice.modes.dither.export.video import export_gif, export_video
+from lattice.pipeline import (
     PaletteSpec,
     PipelineSpec,
     prepare_image,
     resolve_palette,
 )
-from lattice_dither.core import animation
-from lattice_dither.core.animation import render_sequence
-from lattice_dither.export import video
-from lattice_dither.export.video import export_gif, export_video
 
 BW = ["#000000", "#FFFFFF"]
 

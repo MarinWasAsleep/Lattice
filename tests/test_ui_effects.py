@@ -17,10 +17,8 @@ from PySide6.QtWidgets import (  # noqa: E402
     QSpinBox,
 )
 
-from lattice_core import registry  # noqa: E402
-from lattice_core.pipeline import EffectInstance, PipelineSpec  # noqa: E402
-from lattice_core.types import ParamSpec  # noqa: E402
-from lattice_dither.ui.effects_panel import (  # noqa: E402
+from lattice import registry  # noqa: E402
+from lattice.modes.dither.ui.effects_panel import (  # noqa: E402
     NO_SELECTION_TEXT,
     PARAMS_TITLE,
     POST_TITLE,
@@ -28,6 +26,8 @@ from lattice_dither.ui.effects_panel import (  # noqa: E402
     EffectList,
     EffectsPanel,
 )
+from lattice.pipeline import EffectInstance, PipelineSpec  # noqa: E402
+from lattice.types import ParamSpec  # noqa: E402
 
 
 def _identity(img, params, rng):  # noqa: ANN001, ANN202

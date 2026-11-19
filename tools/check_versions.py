@@ -1,8 +1,9 @@
-"""Vérifie la cohérence des versions des distributions Lattice et des manifests de build.
+"""Vérifie la cohérence de la version de Lattice et des manifests de build.
 
-Contrôle (carte L23) : les quatre pyproject.toml déclarent 1.0.0 et, pour chaque
-application dont un build a été enregistré, les deux binaires (gui + cli) portent
-la même version et la même empreinte de code source.
+Lattice 1.0 est une seule distribution : le pyproject racine déclare la version attendue et,
+pour la plateforme dont un build a été enregistré, les deux binaires (fenêtre + console)
+portent la même version et la même empreinte de code source. Une release dont les deux
+binaires divergent est refusée.
 """
 
 from __future__ import annotations
@@ -16,30 +17,18 @@ from pathlib import Path
 from typing import Any
 
 EXPECTED_VERSION = "1.0.0"
-APPS: tuple[str, ...] = ("dither", "glyph", "glitch")
+APP = "lattice"
 PLATFORMS: tuple[str, ...] = ("linux", "windows")
 MODES: tuple[str, ...] = ("gui", "cli")
 DISTRIBUTIONS: dict[str, str] = {
-    "lattice-core": "pyproject.toml",
-    "lattice-dither": "lattice_dither/pyproject.toml",
-    "lattice-glyph": "lattice_glyph/pyproject.toml",
-    "lattice-glitch": "lattice_glitch/pyproject.toml",
+    "lattice": "pyproject.toml",
 }
 MANIFEST_DIR = Path("build/manifests")
 FINGERPRINT_SUFFIXES: tuple[str, ...] = (
     "pyproject.toml",
-    "lattice_dither/pyproject.toml",
-    "lattice_glyph/pyproject.toml",
-    "lattice_glitch/pyproject.toml",
-    "scripts/packaging/entry/dither_gui.py",
-    "scripts/packaging/entry/dither_cli.py",
-    "scripts/packaging/entry/glyph_gui.py",
-    "scripts/packaging/entry/glyph_cli.py",
-    "scripts/packaging/entry/glitch_gui.py",
-    "scripts/packaging/entry/glitch_cli.py",
-    "scripts/packaging/lattice_dither.spec",
-    "scripts/packaging/lattice_glyph.spec",
-    "scripts/packaging/lattice_glitch.spec",
+    "scripts/packaging/lattice.spec",
+    "lattice/__main__.py",
+    "lattice/__init__.py",
 )
 
 
@@ -112,7 +101,7 @@ def _load_manifests(root: Path) -> list[dict[str, Any]]:
 def check_manifests(root: Path, fingerprint: str) -> tuple[list[str], dict[str, Any]]:
     """Return named errors and a per-app/platform summary of built binaries."""
     errors: list[str] = []
-    built: dict[str, Any] = {app: {} for app in APPS}
+    built: dict[str, Any] = {APP: {}}
     for manifest in _load_manifests(root):
         name = manifest.get("file", "?")
         if "error" in manifest:
@@ -121,7 +110,7 @@ def check_manifests(root: Path, fingerprint: str) -> tuple[list[str], dict[str, 
         app = manifest.get("app")
         platform = manifest.get("platform")
         mode = manifest.get("mode")
-        if app not in APPS or platform not in PLATFORMS or mode not in MODES:
+        if app != APP or platform not in PLATFORMS or mode not in MODES:
             errors.append(f"MANIFEST {name}: invalid app/platform/mode")
             continue
         version = manifest.get("version")
@@ -131,7 +120,7 @@ def check_manifests(root: Path, fingerprint: str) -> tuple[list[str], dict[str, 
         if stamp != fingerprint:
             errors.append(f"MANIFEST {name}: fingerprint {stamp} != {fingerprint}")
         built[app].setdefault(platform, {})[mode] = manifest.get("binary")
-    for app in APPS:
+    for app in (APP,):
         for platform in PLATFORMS:
             modes = built[app].get(platform)
             if not modes:
@@ -147,7 +136,7 @@ def check_manifests(root: Path, fingerprint: str) -> tuple[list[str], dict[str, 
 
 def emit_manifest(root: Path, app: str, platform: str, mode: str, binary: str) -> Path:
     """Write one build manifest so the checker can prove release consistency."""
-    if app not in APPS or platform not in PLATFORMS or mode not in MODES:
+    if app != APP or platform not in PLATFORMS or mode not in MODES:
         raise ValueError(f"invalid manifest coordinates: {app}/{platform}/{mode}")
     directory = root / MANIFEST_DIR
     directory.mkdir(parents=True, exist_ok=True)

@@ -7,10 +7,10 @@ import time
 import numpy as np
 import pytest
 
-from lattice_core.color import nearest_index
-from lattice_core.dither.error_diffusion import KERNELS
-from lattice_core.registry import get_algorithm, resolve_params
-from lattice_core.types import Image, Palette
+from lattice.color import nearest_index
+from lattice.dither.error_diffusion import KERNELS
+from lattice.registry import get_algorithm, resolve_params
+from lattice.types import Image, Palette
 
 KERNEL_IDS = tuple(KERNELS)
 EXPECTED_IDS = {

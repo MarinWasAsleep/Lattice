@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from PIL import Image as PILImage
 
-from lattice_dither.cli import (
+from lattice.modes.dither.cli import (
     EXIT_INPUT,
     EXIT_OK,
     EXIT_RENDER,

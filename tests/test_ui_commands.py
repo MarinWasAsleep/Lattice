@@ -17,14 +17,14 @@ from PySide6.QtCore import QEvent, QMimeData, QPointF, Qt, QUrl  # noqa: E402
 from PySide6.QtGui import QDragEnterEvent, QDropEvent  # noqa: E402
 from PySide6.QtWidgets import QApplication, QMessageBox, QWidget  # noqa: E402
 
-from lattice_core.bridge.photocraft import PhotoCraftClient  # noqa: E402
-from lattice_core.pipeline import PipelineSpec  # noqa: E402
-from lattice_core.presets import to_json  # noqa: E402
-from lattice_core.ui import worker as worker_module  # noqa: E402
-from lattice_dither.export.video import export_video  # noqa: E402
-from lattice_dither.i18n import tr  # noqa: E402
-from lattice_dither.ui import commands as cmd  # noqa: E402
-from lattice_dither.ui import main_window as mw  # noqa: E402
+from lattice.bridge.photocraft import PhotoCraftClient  # noqa: E402
+from lattice.modes.dither.export.video import export_video  # noqa: E402
+from lattice.modes.dither.i18n import tr  # noqa: E402
+from lattice.modes.dither.ui import commands as cmd  # noqa: E402
+from lattice.modes.dither.ui import main_window as mw  # noqa: E402
+from lattice.pipeline import PipelineSpec  # noqa: E402
+from lattice.presets import to_json  # noqa: E402
+from lattice.ui import worker as worker_module  # noqa: E402
 
 # The eleven shortcuts of §22.2, keyed by the action that carries them.
 CONTRACT_SHORTCUTS: dict[str, tuple[str, ...]] = {

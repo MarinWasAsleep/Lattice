@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 from PIL import Image as PILImage
 
-from lattice_core import color
-from lattice_core.palettes.builtin import get_builtin
+from lattice import color
+from lattice.palettes.builtin import get_builtin
 
 
 def test_to_float_composites_transparent_pixel_over_white():

@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from lattice_core.effects.halftone import plates
-from lattice_core.registry import get_effect, resolve_params
+from lattice.effects.halftone import plates
+from lattice.registry import get_effect, resolve_params
 
 EFFECT_ID = "halftone_cmyk"
 SHAPES = ((1, 1), (1, 5), (5, 1), (37, 23), (64, 64))

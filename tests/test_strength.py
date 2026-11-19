@@ -9,11 +9,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import lattice_core.dither  # noqa: F401
-import lattice_core.effects  # noqa: F401
-from lattice_core import color
-from lattice_core.registry import get_algorithm, list_algorithms, resolve_params
-from lattice_core.types import Image, Palette
+import lattice.dither  # noqa: F401
+import lattice.effects  # noqa: F401
+from lattice import color
+from lattice.registry import get_algorithm, list_algorithms, resolve_params
+from lattice.types import Image, Palette
 
 BASELINE_PATH = Path(__file__).resolve().parent / "data" / "strength_baseline.json"
 METRICS = ("srgb", "linear", "oklab", "lab2000")

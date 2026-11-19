@@ -7,11 +7,11 @@ import json
 import numpy as np
 import pytest
 
-import lattice_core.cell as cell_module
-import lattice_core.dither  # noqa: F401  (registers the algorithms the pipeline resolves)
-import lattice_core.effects  # noqa: F401  (registers the effects the pipeline resolves)
-from lattice_core import color
-from lattice_core.cell import (
+import lattice.cell as cell_module
+import lattice.dither  # noqa: F401  (registers the algorithms the pipeline resolves)
+import lattice.effects  # noqa: F401  (registers the effects the pipeline resolves)
+from lattice import color
+from lattice.cell import (
     CellGrid,
     CellRenderer,
     RenderStyle,
@@ -19,8 +19,8 @@ from lattice_core.cell import (
     list_renderers,
     register_renderer,
 )
-from lattice_core.palettes.extract import extract_palette
-from lattice_core.pipeline import (
+from lattice.palettes.extract import extract_palette
+from lattice.pipeline import (
     MAX_PIXEL_SIZE,
     MIN_PIXEL_SIZE,
     POST_EFFECT_SEED_OFFSET,
@@ -30,9 +30,9 @@ from lattice_core.pipeline import (
     _make_grid,
     render_with_palette,
 )
-from lattice_core.registry import get_algorithm, get_effect, resolve_params
-from lattice_core.renderers.pixel import PixelRenderer
-from lattice_core.types import Image, Palette
+from lattice.registry import get_algorithm, get_effect, resolve_params
+from lattice.renderers.pixel import PixelRenderer
+from lattice.types import Image, Palette
 
 BW: Palette = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], dtype=np.float32)
 GREY_PALETTE: Palette = np.array([[v / 255.0] * 3 for v in (0, 85, 170, 255)], dtype=np.float32)

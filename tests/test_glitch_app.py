@@ -16,22 +16,22 @@ from PIL import Image as PILImage  # noqa: E402
 from PySide6.QtCore import QSettings  # noqa: E402
 from PySide6.QtWidgets import QApplication, QMessageBox, QSlider  # noqa: E402
 
-import lattice_core.effects  # noqa: E402,F401  (registers every effect)
-import lattice_glitch  # noqa: E402
-from lattice_core import color, mask  # noqa: E402
-from lattice_core.animation import render_loop  # noqa: E402
-from lattice_core.effects.ntsc import LABEL_NOTES, PRESET_NAMES, SIMPLE_PARAM_IDS  # noqa: E402
-from lattice_core.pipeline import PipelineSpec  # noqa: E402
-from lattice_core.preset import to_pipeline_spec  # noqa: E402
-from lattice_core.registry import get_effect, list_effects, resolve_params  # noqa: E402
-from lattice_core.seed import SeedController  # noqa: E402
-from lattice_core.ui import ExportDialog, ExportError  # noqa: E402
-from lattice_glitch import cli, presets  # noqa: E402
-from lattice_glitch import document as doc  # noqa: E402
-from lattice_glitch.stack import EffectStack  # noqa: E402
-from lattice_glitch.window import MainWindow  # noqa: E402
+import lattice.effects  # noqa: E402,F401  (registers every effect)
+import lattice.modes.glitch  # noqa: E402
+from lattice import color, mask  # noqa: E402
+from lattice.animation import render_loop  # noqa: E402
+from lattice.effects.ntsc import LABEL_NOTES, PRESET_NAMES, SIMPLE_PARAM_IDS  # noqa: E402
+from lattice.modes.glitch import cli, presets  # noqa: E402
+from lattice.modes.glitch import document as doc  # noqa: E402
+from lattice.modes.glitch.stack import EffectStack  # noqa: E402
+from lattice.modes.glitch.window import MainWindow  # noqa: E402
+from lattice.pipeline import PipelineSpec  # noqa: E402
+from lattice.preset import to_pipeline_spec  # noqa: E402
+from lattice.registry import get_effect, list_effects, resolve_params  # noqa: E402
+from lattice.seed import SeedController  # noqa: E402
+from lattice.ui import ExportDialog, ExportError  # noqa: E402
 
-PACKAGE = Path(lattice_glitch.__file__).resolve().parent
+PACKAGE = Path(lattice.modes.glitch.__file__).resolve().parent
 SHIPPED = PACKAGE / "presets"
 EFFECT_IDS = [info.id for info in list_effects()]
 CLI_MODULES = ("__init__", "__main__", "cli", "document", "hosts", "presets", "stack",
@@ -44,9 +44,9 @@ class Refuse(importlib.abc.MetaPathFinder):
     def find_spec(self, name, path=None, target=None):
         if name.split('.')[0] == 'PySide6': raise ImportError('PySide6 is not installed')
 sys.meta_path.insert(0, Refuse()); sys.path.insert(0, {root!r})
-from lattice_glitch.__main__ import main
+from lattice.modes.glitch.__main__ import main
 code = main(['render', '--preset', {preset!r}, '--in', {source!r}, '--out', {target!r}])
-forbidden = ('lattice_core.ui', 'lattice_core.animation', 'lattice_dither', 'lattice_glyph')
+forbidden = ('lattice.ui', 'lattice.animation', 'lattice.modes.dither', 'lattice.modes.glyph')
 assert not [m for m in sys.modules if m.split('.')[0] == 'PySide6' or m.startswith(forbidden)]
 raise SystemExit(code)"""
 LOOP_BLOCKER = """import sys, importlib.abc
@@ -54,12 +54,12 @@ class Refuse(importlib.abc.MetaPathFinder):
     def find_spec(self, name, path=None, target=None):
         if name.split('.')[0] == 'PySide6': raise ImportError('PySide6 is not installed')
 sys.meta_path.insert(0, Refuse()); sys.path.insert(0, {root!r})
-from lattice_glitch.__main__ import main
+from lattice.modes.glitch.__main__ import main
 code = main(['loop', '--preset', {preset!r}, '--in', {source!r}, '--out', {target!r},
              '--frames', '4'])
-forbidden = ('lattice_core.ui', 'lattice_dither', 'lattice_glyph')
+forbidden = ('lattice.ui', 'lattice.modes.dither', 'lattice.modes.glyph')
 assert not [m for m in sys.modules if m.split('.')[0] == 'PySide6' or m.startswith(forbidden)]
-assert 'lattice_core.animation' in sys.modules
+assert 'lattice.animation' in sys.modules
 raise SystemExit(code)"""
 
 
@@ -160,7 +160,7 @@ def test_shell_opens_stacks_reorders_saves(make_window, tmp_path: Path, image_fi
                                            quiet: list[str]) -> None:
     """Accept: launch, open, stack two effects, reorder, save; the bridge dot probes live."""
     window = make_window()
-    assert window.windowTitle() == lattice_glitch.APP_NAME
+    assert window.windowTitle() == lattice.modes.glitch.APP_NAME
     assert window.tabs.count() == 4 and "reroll" in window.action_map
     _settle(lambda: window.bridge_dot.state() != "unknown")
     assert window.bridge_dot.state() == "disconnected"
@@ -189,7 +189,7 @@ def test_shell_opens_stacks_reorders_saves(make_window, tmp_path: Path, image_fi
     assert window.effect_stack.effect_ids() == ["rgb_shift", "noise"]
     entries = window.preset_panel.entries()
     assert entries and any(e.name == "mine.json" and not e.read_only for e in entries)
-    monkeypatch.setattr("lattice_glitch.bridge_actions.discover", lambda host: None)
+    monkeypatch.setattr("lattice.modes.glitch.bridge_actions.discover", lambda host: None)
     window.send_to_host()
     _settle(lambda: "not running" in window.statusBar().currentMessage())
     window.get_from_host()
@@ -429,10 +429,10 @@ def test_cli_render_verbs_and_no_qt(capsys: pytest.CaptureFixture[str], tmp_path
     for path in sorted(PACKAGE.glob("*.py")):
         full = _imports(path)
         tops = {n.split(".")[0] for n in full}
-        qt = "PySide6" in tops or any(n.startswith("lattice_core.ui") for n in full)
+        qt = "PySide6" in tops or any(n.startswith("lattice.ui") for n in full)
         assert qt == (path.stem in GUI_MODULES), path.name
-        assert not tops & {"lattice_dither", "lattice_glyph"}, path.name
-        assert not any(n.startswith("lattice_core.animation") for n in full), path.name
+        assert not tops & {"lattice.modes.dither", "lattice.modes.glyph"}, path.name
+        assert not any(n.startswith("lattice.animation") for n in full), path.name
     script = BLOCKER.format(root=str(PACKAGE.parent), source=str(SRC),
                             target=str(T / "bare.png"), preset=str(P))
     result = subprocess.run([sys.executable, "-c", script], capture_output=True,
@@ -648,9 +648,9 @@ def test_cli_loop_exposes_every_axis_the_core_accepts() -> None:
     A hard-coded tuple hid ``param`` from the command line while the core had supported it
     since L27: only the tests could animate an effect. This pins the two lists together.
     """
-    from lattice_core import animation, axes
-    from lattice_core.cli_shared import _build_parser
-    from lattice_glitch.cli import install_backend
+    from lattice import animation, axes
+    from lattice.cli_shared import _build_parser
+    from lattice.modes.glitch.cli import install_backend
 
     install_backend()
 
@@ -663,7 +663,7 @@ def test_cli_loop_exposes_every_axis_the_core_accepts() -> None:
 
 def test_cli_loop_rejects_param_without_the_parameter_name(tmp_path: Path) -> None:
     """`--axis param` alone is a usage error, not a crash inside the renderer."""
-    from lattice_glitch.cli import EXIT_USAGE, main
+    from lattice.modes.glitch.cli import EXIT_USAGE, main
 
     preset = tmp_path / "bare.json"
     preset.write_text(json.dumps({

@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Construit les binaires PyInstaller Linux (GUI et CLI) des trois applications Lattice.
-# PyInstaller est un outil de build : aucune dépendance d'exécution n'est ajoutée.
+# Construit les deux binaires PyInstaller de Lattice : la fenetre (GUI) et la ligne de commande.
+# PyInstaller est un outil de build : aucune dependance d'execution n'est ajoutee.
+#
+# Lattice 1.0 est un seul programme : un spec, deux binaires (un fenetre, un console) qui
+# portent la meme version et sortent du meme arbre source.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -10,7 +13,6 @@ SPEC_DIR="$SCRIPT_DIR/packaging"
 DIST_DIR="${DIST_DIR:-$ROOT/dist}"
 WORK_DIR="${WORK_DIR:-$ROOT/build/pyinstaller}"
 CHECKER="$ROOT/tools/check_versions.py"
-APPS="${APPS:-dither glyph glitch}"
 MODES="${MODES:-gui cli}"
 
 log() { printf '[Lattice build] %s\n' "$1"; }
@@ -20,14 +22,10 @@ die() {
 }
 
 binary_name() {
-    case "$1:$2" in
-        dither:gui) printf 'LatticeDither' ;;
-        dither:cli) printf 'lattice-dither-cli' ;;
-        glyph:gui)  printf 'LatticeGlyph' ;;
-        glyph:cli)  printf 'lattice-glyph-cli' ;;
-        glitch:gui) printf 'LatticeGlitch' ;;
-        glitch:cli) printf 'lattice-glitch-cli' ;;
-        *) return 1 ;;
+    case "$1" in
+        gui) printf 'Lattice' ;;
+        cli) printf 'lattice' ;;
+        *)   return 1 ;;
     esac
 }
 
@@ -38,27 +36,27 @@ binary_name() {
     die "dependances" "numpy/numba/Pillow/PySide6 requis dans $PYTHON"
 
 mkdir -p "$DIST_DIR" "$WORK_DIR"
-log "versions attendues verifiees par $CHECKER"
+log "versions verifiees par $CHECKER"
 "$PYTHON" "$CHECKER" --distributions-only >/dev/null ||
-    die "versions" "les pyproject ne sont pas a 1.0.0"
+    die "versions" "le pyproject racine n'est pas a la version attendue"
 
-for app in $APPS; do
-    spec="$SPEC_DIR/lattice_${app}.spec"
-    [[ -f "$spec" ]] || die "$app" "spec introuvable: $spec"
-    for mode in $MODES; do
-        name="$(binary_name "$app" "$mode")" || die "$app/$mode" "paire app/mode inconnue"
-        log "build $app/$mode -> $name"
-        LATTICE_BUILD_MODE="$mode" "$PYTHON" -m PyInstaller \
-            --noconfirm --clean \
-            --distpath "$DIST_DIR" \
-            --workpath "$WORK_DIR/${app}-${mode}" \
-            "$spec" || die "$app/$mode" "PyInstaller a echoue"
-        output="$DIST_DIR/$name"
-        [[ -f "$output" ]] || die "$app/$mode" "binaire absent apres build: $output"
-        chmod +x "$output"
-        "$PYTHON" "$CHECKER" --emit-manifest "$app" linux "$mode" "$output" \
-            || die "$app/$mode" "manifest de build non ecrit"
-    done
+spec="$SPEC_DIR/lattice.spec"
+[[ -f "$spec" ]] || die "spec" "spec introuvable: $spec"
+
+for mode in $MODES; do
+    name="$(binary_name "$mode")" || die "$mode" "mode de build inconnu"
+    log "build $mode -> $name"
+    LATTICE_BUILD_MODE="$mode" "$PYTHON" -m PyInstaller \
+        --noconfirm --clean \
+        --distpath "$DIST_DIR" \
+        --workpath "$WORK_DIR/$mode" \
+        "$spec" || die "$mode" "PyInstaller a echoue"
+    output="$DIST_DIR/$name"
+    [[ -f "$output" ]] || die "$mode" "binaire absent apres build: $output"
+    chmod +x "$output"
+    "$PYTHON" "$CHECKER" --emit-manifest lattice linux "$mode" "$output" \
+        || die "$mode" "manifest de build non ecrit"
+    log "$mode -> $output"
 done
 
 "$PYTHON" "$CHECKER" || die "release" "les binaires ne partagent pas la meme version de code"

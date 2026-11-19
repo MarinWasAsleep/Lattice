@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import numpy as np
 
-import lattice_core.effects  # noqa: F401 — enregistre les effets (registre peuplé à l'import)
-from lattice_core.pipeline import EffectInstance, PipelineSpec, render
-from lattice_core.preset import Preset, from_json, from_pipeline_spec, to_json, to_pipeline_spec
-from lattice_core.seed import SeedController, module_seed, render_effects
+import lattice.effects  # noqa: F401 — enregistre les effets (registre peuplé à l'import)
+from lattice.pipeline import EffectInstance, PipelineSpec, render
+from lattice.preset import Preset, from_json, from_pipeline_spec, to_json, to_pipeline_spec
+from lattice.seed import SeedController, module_seed, render_effects
 
 _JPEG = {"quality": 40, "corruptions": 5}
 # Two effects that both consume their rng, so a changed stream is visible.

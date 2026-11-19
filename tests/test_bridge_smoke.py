@@ -13,9 +13,9 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from lattice_core.bridge import ArtCraftClient, photocraft
-from lattice_core.bridge.designcraft import DesignCraftClient
-from lattice_core.bridge.photocraft import BridgeError
+from lattice.bridge import ArtCraftClient, photocraft
+from lattice.bridge.designcraft import DesignCraftClient
+from lattice.bridge.photocraft import BridgeError
 
 ROOT = Path(__file__).resolve().parents[1]
 

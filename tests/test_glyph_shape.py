@@ -27,13 +27,13 @@ import pytest
 from PIL import Image as PILImage
 from PIL import ImageDraw, ImageFont
 
-import lattice_core.dither  # noqa: F401  (registers the algorithms the pipeline resolves)
-from lattice_core import color, pipeline
-from lattice_core.cell import CellGrid, CellRenderer, RenderStyle, get_renderer, list_renderers
-from lattice_core.pipeline import PipelineSpec, render_with_palette
-from lattice_core.renderers import glyph_shape
-from lattice_core.renderers.glyph_ramp import GlyphRampRenderer, _font_size
-from lattice_core.renderers.glyph_shape import (
+import lattice.dither  # noqa: F401  (registers the algorithms the pipeline resolves)
+from lattice import color, pipeline
+from lattice.cell import CellGrid, CellRenderer, RenderStyle, get_renderer, list_renderers
+from lattice.pipeline import PipelineSpec, render_with_palette
+from lattice.renderers import glyph_shape
+from lattice.renderers.glyph_ramp import GlyphRampRenderer, _font_size
+from lattice.renderers.glyph_shape import (
     _CIRCLE_RADIUS,
     _CIRCLE_X,
     _CIRCLE_Y,
@@ -49,7 +49,7 @@ from lattice_core.renderers.glyph_shape import (
     _read_options,
     _shape_table,
 )
-from lattice_core.types import Palette
+from lattice.types import Palette
 
 BW: Palette = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], dtype=np.float32)
 COLOUR: Palette = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]], dtype=np.float32)

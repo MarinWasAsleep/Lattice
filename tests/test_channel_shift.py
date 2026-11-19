@@ -5,12 +5,12 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from lattice_core.effects.channel_shift import (
+from lattice.effects.channel_shift import (
     DEFAULT_CHANNELS,
     channel_shift,
     validate_params,
 )
-from lattice_core.registry import get_effect, resolve_params
+from lattice.registry import get_effect, resolve_params
 
 MODES = ("translate", "scale", "radial")
 SHAPES = ((1, 1), (1, 5), (5, 1), (37, 23), (64, 64))

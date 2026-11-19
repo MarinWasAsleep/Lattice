@@ -5,9 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from lattice_core.dither import halftone
-from lattice_core.registry import get_algorithm, resolve_params
-from lattice_core.types import Image, Palette
+from lattice.dither import halftone
+from lattice.registry import get_algorithm, resolve_params
+from lattice.types import Image, Palette
 
 IDS = ("halftone_dots", "halftone_squares", "halftone_lines")
 DEFAULT_SHAPE = {"halftone_dots": "round", "halftone_squares": "square", "halftone_lines": "line"}

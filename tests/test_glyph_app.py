@@ -18,15 +18,13 @@ import pytest  # noqa: E402
 from PySide6.QtCore import QSettings  # noqa: E402
 from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
 
-import lattice_core.pipeline as pipeline  # noqa: E402
-import lattice_core.renderers  # noqa: E402,F401  (registers every renderer)
-import lattice_glyph  # noqa: E402
-from lattice_core import color  # noqa: E402
-from lattice_core.cell import list_renderers  # noqa: E402
-from lattice_core.pipeline import EffectInstance, PaletteSpec, PipelineSpec, render  # noqa: E402
-from lattice_core.svg import SVG_NS  # noqa: E402
-from lattice_glyph import cli, presets  # noqa: E402
-from lattice_glyph.document import (  # noqa: E402
+import lattice.modes.glyph  # noqa: E402
+import lattice.pipeline as pipeline  # noqa: E402
+import lattice.renderers  # noqa: E402,F401  (registers every renderer)
+from lattice import color  # noqa: E402
+from lattice.cell import list_renderers  # noqa: E402
+from lattice.modes.glyph import cli, presets  # noqa: E402
+from lattice.modes.glyph.document import (  # noqa: E402
     FORMATS,
     DocumentError,
     GridError,
@@ -38,10 +36,12 @@ from lattice_glyph.document import (  # noqa: E402
     target_path,
     write_render,
 )
-from lattice_glyph.options import OPTIONS, clean, defaults_for  # noqa: E402
-from lattice_glyph.window import MainWindow  # noqa: E402
+from lattice.modes.glyph.options import OPTIONS, clean, defaults_for  # noqa: E402
+from lattice.modes.glyph.window import MainWindow  # noqa: E402
+from lattice.pipeline import EffectInstance, PaletteSpec, PipelineSpec, render  # noqa: E402
+from lattice.svg import SVG_NS  # noqa: E402
 
-PACKAGE = Path(lattice_glyph.__file__).resolve().parent
+PACKAGE = Path(lattice.modes.glyph.__file__).resolve().parent
 SHIPPED = PACKAGE / "presets"
 RENDERERS = sorted(list_renderers())
 
@@ -68,10 +68,10 @@ class Refuse(importlib.abc.MetaPathFinder):
     def find_spec(self, name, path=None, target=None):
         if name.split('.')[0] == 'PySide6': raise ImportError('PySide6 is not installed')
 sys.meta_path.insert(0, Refuse()); sys.path.insert(0, {root!r})
-from lattice_glyph.cli import main
+from lattice.modes.glyph.cli import main
 code = main(['render', '--preset', {preset!r}, '--in', {source!r}, '--out', {target!r}])
-assert 'PySide6' not in sys.modules and 'lattice_core.ui' not in sys.modules
-assert not [m for m in sys.modules if m.startswith('lattice_dither')]
+assert 'PySide6' not in sys.modules and 'lattice.ui' not in sys.modules
+assert not [m for m in sys.modules if m.startswith('lattice.modes.dither')]
 raise SystemExit(code)"""
 
 
@@ -237,8 +237,13 @@ def test_shipped_presets_and_document_helpers(tmp_path: Path, image: np.ndarray)
     assert format_of("a.png") == "png" and format_of("bare") == "png"
     with pytest.raises(DocumentError):
         format_of("a.webp")
-    assert 'lattice-glyph = "lattice_glyph.__main__:main"' in (
-        PACKAGE / "pyproject.toml").read_text()
+    # The per-app distributions are gone: Lattice 1.0 ships one console script that routes to
+    # a mode on the command line, so the entry points live once, in the root pyproject —
+    # three levels up from lattice/modes/glyph.
+    root = Path(lattice.__file__).resolve().parent.parent / "pyproject.toml"
+    manifest = root.read_text()
+    assert 'lattice = "lattice.cli:main"' in manifest
+    assert 'lattice-studio = "lattice.app:main"' in manifest
 
 
 def test_shell_opens_previews_saves_and_refuses(make_window, tmp_path: Path, image_file: Path,
@@ -259,7 +264,7 @@ def test_shell_opens_previews_saves_and_refuses(make_window, tmp_path: Path, ima
     window.set_source(np.zeros((9000, 4, 3), dtype=np.float32))
     assert window.source is None and len(quiet) == 3 and "9000" in quiet[-1]
     assert window.open_path(image_file) is True
-    monkeypatch.setattr("lattice_glyph.hosts.discover", lambda host: None)
+    monkeypatch.setattr("lattice.modes.glyph.hosts.discover", lambda host: None)
     window.set_source(image)
     window.send_to_host()
     _settle(lambda: "not running" in window.statusBar().currentMessage())
@@ -312,9 +317,9 @@ def test_cli_verbs_bridge_and_no_qt(capsys: pytest.CaptureFixture[str],
     for name, qt in [(n, False) for n in CLI_MODULES] + [(n, True) for n in GUI_MODULES]:
         tops = _tops(PACKAGE / f"{name}.py")
         assert ("PySide6" in tops) is qt, name
-        assert "lattice_core.ui" not in tops or qt, name
+        assert "lattice.ui" not in tops or qt, name
     for path in sorted(PACKAGE.rglob("*.py")):
-        assert not _tops(path) & {"lattice_dither", "lattice_glitch"}, path.name
+        assert not _tops(path) & {"lattice.modes.dither", "lattice.modes.glitch"}, path.name
     source = _png(tmp_path / "source.png", color.to_rgb8(np.full((16, 16, 3), 0.5, np.float32)))
     script = BLOCKER.format(root=str(PACKAGE.parent), source=str(source),
                             target=str(tmp_path / "bare.png"), preset=str(_preset(tmp_path)))
@@ -332,9 +337,9 @@ def test_cli_verbs_bridge_and_no_qt(capsys: pytest.CaptureFixture[str],
     def broken(token_path=None, port=None):
         raise OSError("connection refused")
 
-    monkeypatch.setattr("lattice_core.bridge.photocraft.PhotoCraftClient.discover",
+    monkeypatch.setattr("lattice.bridge.photocraft.PhotoCraftClient.discover",
                         staticmethod(broken))
-    monkeypatch.setattr("lattice_core.bridge.designcraft.DesignCraftClient.discover",
+    monkeypatch.setattr("lattice.bridge.designcraft.DesignCraftClient.discover",
                         staticmethod(broken))
     assert cli.host_report(["photocraft", "designcraft"]) == [
         {"host": "photocraft", "connected": False}, {"host": "designcraft", "connected": False}]

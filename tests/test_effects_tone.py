@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from lattice_core.effects.tone import _gaussian_blur
-from lattice_core.registry import get_effect, list_effects, resolve_params
+from lattice.effects.tone import _gaussian_blur
+from lattice.registry import get_effect, list_effects, resolve_params
 
 CARD_PARAMS: dict[str, tuple[tuple[str, str, object, float | None, float | None], ...]] = {
     "gaussian_blur": (("radius", "float", 0.0, 0.0, 50.0),),
@@ -56,7 +56,7 @@ def _random_image(shape: tuple[int, int], seed: int = 7) -> np.ndarray:
 
 def test_registers_exactly_five_tone_effects() -> None:
     """The tone module registers exactly the five effects named by the card."""
-    mine = [info for info in list_effects() if info.fn.__module__ == "lattice_core.effects.tone"]
+    mine = [info for info in list_effects() if info.fn.__module__ == "lattice.effects.tone"]
     assert sorted(info.id for info in mine) == sorted(EFFECT_IDS)
 
 

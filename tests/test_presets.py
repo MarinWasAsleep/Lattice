@@ -9,10 +9,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from lattice_core import presets, registry
-from lattice_core.pipeline import EffectInstance, PaletteSpec, PipelineSpec, PresetMeta
-from lattice_core.presets import from_json, load_preset, save_preset, to_json
-from lattice_core.registry import AlgorithmInfo, EffectInfo
+from lattice import presets, registry
+from lattice.pipeline import EffectInstance, PaletteSpec, PipelineSpec, PresetMeta
+from lattice.presets import from_json, load_preset, save_preset, to_json
+from lattice.registry import AlgorithmInfo, EffectInfo
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -364,7 +364,7 @@ def test_every_shipped_starter_opens_through_the_loader(path: Path) -> None:
     renderer that cannot read what it ships is not shippable, so the version is asserted
     together with the fact that a spec actually comes out.
     """
-    import lattice_core.dither  # noqa: F401  (registers the algorithms the starters name)
+    import lattice.dither  # noqa: F401  (registers the algorithms the starters name)
 
     spec = load_preset(path)
     assert spec.algorithm_id, f"{path.name} loaded without an algorithm"
@@ -378,8 +378,8 @@ def test_every_shipped_starter_opens_through_the_loader(path: Path) -> None:
 def test_a_v3_preset_keeps_its_full_metadata() -> None:
     """Description, tags and thumbnail survive a v3 read, not only name and author."""
     starter = next(iter(sorted((ROOT / "presets" / "starter").glob("dither_*.json"))))
-    from lattice_core.preset import load_preset as read_v3
-    from lattice_core.preset import to_pipeline_spec
+    from lattice.preset import load_preset as read_v3
+    from lattice.preset import to_pipeline_spec
 
     raw = json.loads(starter.read_text(encoding="utf-8"))
     spec = to_pipeline_spec(read_v3(starter))
@@ -392,7 +392,7 @@ def _starter_source() -> np.ndarray:
     """Load the image the starter plates were rendered from, as float32 in [0, 1]."""
     from PIL import Image as PILImage
 
-    from lattice_core.color import to_float
+    from lattice.color import to_float
 
     return to_float(PILImage.open(ROOT / "tests" / "data" / "A_portrait.jpg"))
 
@@ -408,9 +408,9 @@ def test_a_dithered_starter_never_escapes_its_palette(path: Path) -> None:
     became 243, while the preset still announced sixteen. A sharpen that belongs in the recipe
     goes *before* the dithering, where it strengthens the source the dither will translate.
     """
-    import lattice_core.dither  # noqa: F401  (registers the algorithms the starters name)
-    import lattice_core.effects  # noqa: F401  (registers the effects they name, e.g. sharpen)
-    from lattice_core.pipeline import render, resolve_palette
+    import lattice.dither  # noqa: F401  (registers the algorithms the starters name)
+    import lattice.effects  # noqa: F401  (registers the effects they name, e.g. sharpen)
+    from lattice.pipeline import render, resolve_palette
 
     spec = load_preset(path)
     if spec.palette is None:

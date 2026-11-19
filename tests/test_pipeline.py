@@ -10,11 +10,11 @@ from contextlib import contextmanager
 import numpy as np
 import pytest
 
-import lattice_core.cell as cell_module
-import lattice_core.pipeline as pipeline
-from lattice_core import color, registry
-from lattice_core.cell import RenderStyle, register_renderer
-from lattice_core.pipeline import (
+import lattice.cell as cell_module
+import lattice.pipeline as pipeline
+from lattice import color, registry
+from lattice.cell import RenderStyle, register_renderer
+from lattice.pipeline import (
     POST_EFFECT_SEED_OFFSET,
     EffectInstance,
     PaletteSpec,
@@ -25,8 +25,8 @@ from lattice_core.pipeline import (
     render_with_palette,
     resolve_palette,
 )
-from lattice_core.registry import AlgorithmInfo, EffectInfo
-from lattice_core.types import ParamSpec
+from lattice.registry import AlgorithmInfo, EffectInfo
+from lattice.types import ParamSpec
 
 BW = PaletteSpec(source="custom", colors=["#000000", "#FFFFFF"])
 GREYS = [f"#{value:02X}{value:02X}{value:02X}" for value in range(256)]
@@ -296,9 +296,9 @@ def test_resolve_palette_unknown_source():
 
 def test_resolve_palette_builtin_is_lazy(monkeypatch):
     """The builtin palette module is imported inside resolve_palette, not at import time."""
-    fake = types.ModuleType("lattice_core.palettes.builtin")
+    fake = types.ModuleType("lattice.palettes.builtin")
     fake.get_builtin = lambda name: np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], np.float32)
-    monkeypatch.setitem(sys.modules, "lattice_core.palettes.builtin", fake)
+    monkeypatch.setitem(sys.modules, "lattice.palettes.builtin", fake)
     palette = resolve_palette(PaletteSpec(source="builtin", name="bw"), _image())
     assert palette.shape == (2, 3)
     assert "get_builtin" not in vars(pipeline)
@@ -307,7 +307,7 @@ def test_resolve_palette_builtin_is_lazy(monkeypatch):
 def test_resolve_palette_extracted(monkeypatch):
     """The extracted source forwards k and method to the extraction module."""
     calls: dict = {}
-    fake = types.ModuleType("lattice_core.palettes.extract")
+    fake = types.ModuleType("lattice.palettes.extract")
 
     def extract_palette(img, k, method, seed=0):
         calls["args"] = (img.shape, k, method)
@@ -315,7 +315,7 @@ def test_resolve_palette_extracted(monkeypatch):
 
     fake.extract_palette = extract_palette
     fake.MIN_K, fake.MAX_K = 2, 32
-    monkeypatch.setitem(sys.modules, "lattice_core.palettes.extract", fake)
+    monkeypatch.setitem(sys.modules, "lattice.palettes.extract", fake)
     spec = PaletteSpec(source="extracted", extract_k=4, extract_method="median_cut")
     palette = resolve_palette(spec, np.zeros((5, 7, 3), dtype=np.float32))
     assert calls["args"] == ((5, 7, 3), 4, "median_cut")
@@ -336,7 +336,7 @@ def test_custom_palette_drives_render(test_registry):
 def test_extract_palette_receives_the_downscaled_image(test_registry, monkeypatch):
     """Step 5 extracts from the image produced by step 4, not from the source."""
     seen: dict = {}
-    fake = types.ModuleType("lattice_core.palettes.extract")
+    fake = types.ModuleType("lattice.palettes.extract")
 
     def extract_palette(img, k, method, seed=0):
         seen["shape"] = img.shape
@@ -344,7 +344,7 @@ def test_extract_palette_receives_the_downscaled_image(test_registry, monkeypatc
 
     fake.extract_palette = extract_palette
     fake.MIN_K, fake.MAX_K = 2, 32
-    monkeypatch.setitem(sys.modules, "lattice_core.palettes.extract", fake)
+    monkeypatch.setitem(sys.modules, "lattice.palettes.extract", fake)
     spec = _spec(pixel_size=3, palette=PaletteSpec(source="extracted", extract_k=4))
     out = render(_image(), spec)
     assert seen["shape"] == (13, 8, 3)

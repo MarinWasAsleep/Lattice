@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from lattice_core.effects.displace import displace
-from lattice_core.registry import get_effect, resolve_params
+from lattice.effects.displace import displace
+from lattice.registry import get_effect, resolve_params
 
 EFFECT_ID = "displace"
 MODES = ("luma", "r", "g", "b", "hue")

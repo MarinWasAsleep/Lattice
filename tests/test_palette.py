@@ -8,8 +8,8 @@ import numpy as np
 import pytest
 from PIL import Image as PILImage
 
-from lattice_core import color
-from lattice_core.palette import (
+from lattice import color
+from lattice.palette import (
     MAX_COLORS,
     MIN_COLORS,
     Palette,
@@ -19,7 +19,7 @@ from lattice_core.palette import (
     from_png,
     load,
 )
-from lattice_core.palettes.io import hex_list
+from lattice.palettes.io import hex_list
 
 TWO_COLORS = ["#000000", "#FFFFFF"]
 
@@ -167,7 +167,7 @@ def test_load_dispatches_on_the_extension(tmp_path: Path) -> None:
 
 def test_palette_module_has_no_network_imports() -> None:
     """palette.py must not import urllib, requests or socket."""
-    module = Path(__file__).resolve().parent.parent / "lattice_core" / "palette.py"
+    module = Path(__file__).resolve().parent.parent / "lattice" / "palette.py"
     text = module.read_text(encoding="utf-8")
     for banned in ("urllib", "requests", "socket"):
         assert banned not in text

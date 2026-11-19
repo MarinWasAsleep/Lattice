@@ -18,22 +18,22 @@ from PySide6.QtCore import QSize, Qt, QThread  # noqa: E402
 from PySide6.QtGui import QImage  # noqa: E402
 from PySide6.QtWidgets import QApplication, QGraphicsPixmapItem  # noqa: E402
 
-from lattice_core import presets  # noqa: E402
-from lattice_core.bridge.photocraft import PhotoCraftClient  # noqa: E402
-from lattice_core.palettes.library import library_names  # noqa: E402
-from lattice_core.pipeline import COLOR_METRICS, PaletteSpec, PipelineSpec, render  # noqa: E402
-from lattice_core.registry import list_algorithms, list_effects  # noqa: E402
-from lattice_core.ui import worker as worker_module  # noqa: E402
-from lattice_core.ui.worker import PREVIEW_MAX_SIDE, PreviewResult  # noqa: E402
-from lattice_dither.i18n import set_language, tr  # noqa: E402
-from lattice_dither.preprocess import detect_grid, snap_to_grid  # noqa: E402
-from lattice_dither.ui import main_window as mw  # noqa: E402
-from lattice_dither.ui.algorithm_panel import AlgorithmPanel  # noqa: E402
-from lattice_dither.ui.effects_panel import EffectsPanel  # noqa: E402
+from lattice import presets  # noqa: E402
+from lattice.bridge.photocraft import PhotoCraftClient  # noqa: E402
+from lattice.modes.dither.i18n import set_language, tr  # noqa: E402
+from lattice.modes.dither.preprocess import detect_grid, snap_to_grid  # noqa: E402
+from lattice.modes.dither.ui import main_window as mw  # noqa: E402
+from lattice.modes.dither.ui.algorithm_panel import AlgorithmPanel  # noqa: E402
+from lattice.modes.dither.ui.effects_panel import EffectsPanel  # noqa: E402
 
 # aliased: pytest would collect a bare test_image as a test function
-from lattice_dither.ui.gallery import test_image as synthetic_image  # noqa: E402
-from lattice_dither.ui.palette_panel import PalettePanel  # noqa: E402
+from lattice.modes.dither.ui.gallery import test_image as synthetic_image  # noqa: E402
+from lattice.modes.dither.ui.palette_panel import PalettePanel  # noqa: E402
+from lattice.palettes.library import library_names  # noqa: E402
+from lattice.pipeline import COLOR_METRICS, PaletteSpec, PipelineSpec, render  # noqa: E402
+from lattice.registry import list_algorithms, list_effects  # noqa: E402
+from lattice.ui import worker as worker_module  # noqa: E402
+from lattice.ui.worker import PREVIEW_MAX_SIDE, PreviewResult  # noqa: E402
 
 PREVIEW_TIMEOUT = 2.0
 RENDER_TIMEOUT = 5.0

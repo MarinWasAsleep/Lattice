@@ -11,9 +11,9 @@ from PIL import ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import lattice_core.dither  # noqa: F401
-import lattice_core.effects  # noqa: F401
-from lattice_core.pipeline import PaletteSpec, PipelineSpec, render
+import lattice.dither  # noqa: F401
+import lattice.effects  # noqa: F401
+from lattice.pipeline import PaletteSpec, PipelineSpec, render
 
 SIZE = 200
 CELL = 200

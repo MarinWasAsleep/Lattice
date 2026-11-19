@@ -11,10 +11,10 @@ import numpy as np
 import pytest
 from PIL import Image as PILImage
 
-import lattice_core.animation as animation
-import lattice_core.dither  # noqa: F401  (registers the algorithms)
-import lattice_core.effects  # noqa: F401  (registers the effects)
-from lattice_core.animation import (
+import lattice.animation as animation
+import lattice.dither  # noqa: F401  (registers the algorithms)
+import lattice.effects  # noqa: F401  (registers the effects)
+from lattice.animation import (
     AXES,
     StreamedSpec,
     export_apng,
@@ -22,9 +22,9 @@ from lattice_core.animation import (
     render_loop,
     render_sequence,
 )
-from lattice_core.pipeline import EffectInstance, PaletteSpec, PipelineSpec, render
-from lattice_core.seed import module_seed
-from lattice_core.types import RGB8, Image
+from lattice.pipeline import EffectInstance, PaletteSpec, PipelineSpec, render
+from lattice.seed import module_seed
+from lattice.types import RGB8, Image
 
 BW = ["#000000", "#FFFFFF"]
 
@@ -89,7 +89,7 @@ def _with_iterations(spec: PipelineSpec, value: int) -> PipelineSpec:
 
 def test_render_sequence_is_the_moved_dither_function() -> None:
     """The core function reproduces the Dither 1.1 export on the same input."""
-    from lattice_dither.core.animation import render_sequence as dither_sequence
+    from lattice.modes.dither.core.animation import render_sequence as dither_sequence
 
     frames = [_src() for _ in range(3)]
     for core, dither in zip(
@@ -247,7 +247,7 @@ def test_loop_frames_are_writable_to_both_formats(
 
 
 def test_animation_module_imports_no_application() -> None:
-    """lattice_core/animation.py imports no application module."""
+    """lattice/animation.py imports no application module."""
     tree = ast.parse(Path(animation.__file__).read_text(encoding="utf-8"))
     roots = set()
     for node in ast.walk(tree):
@@ -255,14 +255,14 @@ def test_animation_module_imports_no_application() -> None:
             roots.update(alias.name.split(".")[0] for alias in node.names)
         elif isinstance(node, ast.ImportFrom) and node.module:
             roots.add(node.module.split(".")[0])
-    assert not roots & {"lattice_dither", "lattice_glyph", "lattice_glitch"}
+    assert not roots & {"lattice.modes.dither", "lattice.modes.glyph", "lattice.modes.glitch"}
 
 
 def test_dither_video_exports_are_left_intact(tmp_path: Path) -> None:
     """The Dither 1.1 export path still writes a GIF and owns the video writer."""
-    from lattice_dither.core.animation import render_sequence as dither_sequence
-    from lattice_dither.export.video import export_gif as dither_gif
-    from lattice_dither.export.video import export_video as dither_video
+    from lattice.modes.dither.core.animation import render_sequence as dither_sequence
+    from lattice.modes.dither.export.video import export_gif as dither_gif
+    from lattice.modes.dither.export.video import export_video as dither_video
 
     frames = _rgb_frames(3)
     target = tmp_path / "dither.gif"
@@ -505,7 +505,7 @@ def test_param_axis_varies_only_the_first_matching_instance() -> None:
 def test_param_axis_reseed_rerolls_the_random_structure() -> None:
     """The param axis alone is an intensity knob on a frozen structure.
 
-    Opus refused H13 on this: the seed stayed fixed, so a VHS preset tore in exactly the
+    H13 was refused on this: the seed stayed fixed, so a VHS preset tore in exactly the
     same place on every frame — "a filter with a knob being turned". `reseed` steps the
     seed per frame while the animated parameter keeps its curve.
     """
@@ -544,11 +544,11 @@ def test_reseed_is_ignored_on_the_other_axes() -> None:
 
 
 def test_reseed_isolated_by_a_null_sweep() -> None:
-    """The only test that isolates the reseed, as the H13c judge asked for.
+    """The only test that isolates the reseed, which H13c required.
 
     With a null sweep (from_value == to_value) the parameter never moves, so ANY difference
     between frames can only come from the seed. Without reseed the frames are byte-identical
-    — that is the "fixed structure" the judge diagnosed. With reseed a large share of pixels
+    — that is the "fixed structure" diagnosed before reseed. With reseed a large share of pixels
     must differ, not just a handful.
     """
     spec = _feedback()
@@ -569,7 +569,7 @@ def test_a_fixed_seed_beats_the_session_snapshot() -> None:
     the param axis with reseed produced byte-identical frames. Any fixed render that changed
     its seed mid-session was already silently wrong.
     """
-    from lattice_glitch.document import RenderContext, render_rgb8
+    from lattice.modes.glitch.document import RenderContext, render_rgb8
 
     src = _gradient(32)
     spec = _feedback(seed=7)  # the glitch path: no algorithm, no palette

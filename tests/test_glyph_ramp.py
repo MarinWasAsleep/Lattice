@@ -19,11 +19,11 @@ import pytest
 from PIL import Image as PILImage
 from PIL import ImageDraw, ImageFont
 
-import lattice_core.dither  # noqa: F401  (registers the algorithms the pipeline resolves)
-from lattice_core import color
-from lattice_core.cell import CellGrid, CellRenderer, RenderStyle, get_renderer, list_renderers
-from lattice_core.palettes.builtin import get_builtin
-from lattice_core.pipeline import (
+import lattice.dither  # noqa: F401  (registers the algorithms the pipeline resolves)
+from lattice import color
+from lattice.cell import CellGrid, CellRenderer, RenderStyle, get_renderer, list_renderers
+from lattice.palettes.builtin import get_builtin
+from lattice.pipeline import (
     RESERVED_METRIC,
     PipelineSpec,
     _cell_geometry,
@@ -32,16 +32,16 @@ from lattice_core.pipeline import (
     _to_cells,
     render_with_palette,
 )
-from lattice_core.registry import get_algorithm, resolve_params
-from lattice_core.renderers import glyph_ramp
-from lattice_core.renderers.glyph_ramp import (
+from lattice.registry import get_algorithm, resolve_params
+from lattice.renderers import glyph_ramp
+from lattice.renderers.glyph_ramp import (
     DEFAULT_RAMP,
     GlyphPlacement,
     GlyphRampRenderer,
     _font_size,
     _glyph_mask,
 )
-from lattice_core.types import Palette
+from lattice.types import Palette
 
 RAMP = "@%#*+=-:. "
 BOUNDED = RAMP[1:-1]  # "%#*+=-:." — H12 bg_colour ramp, extremes (space, '@') removed

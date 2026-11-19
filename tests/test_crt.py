@@ -9,10 +9,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from lattice_core import effects  # noqa: F401  (registers the core effects)
-from lattice_core.effects import crt as crt_module
-from lattice_core.registry import get_effect, list_effects, resolve_params
-from lattice_dither import i18n
+from lattice import effects  # noqa: F401  (registers the core effects)
+from lattice.effects import crt as crt_module
+from lattice.modes.dither import i18n
+from lattice.registry import get_effect, list_effects, resolve_params
 
 EFFECT_ID = "crt"
 NEUTRAL = {
@@ -281,7 +281,7 @@ def test_phosphor_after_curvature_avoids_border_colour_bands() -> None:
 def test_roll_scrolls_the_beam_without_moving_the_geometry() -> None:
     """The one temporal knob: the scanlines scroll while the tube silhouette stays put.
 
-    The judge rejected animating `curvature` — the whole picture swelled and shrank like a
+    Animating `curvature` was rejected — the whole picture swelled and shrank like a
     zoom, "aucun tube ne fait ça". `roll` moves the beam phase instead: the usable surface
     must stay identical (his threshold is 2%) while consecutive frames differ.
     """

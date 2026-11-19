@@ -1,6 +1,6 @@
 """Tests for the shared export dialog (T33 / CONTRACT §19 to §21, card L-UI2).
 
-The dialog lives in lattice_core/ui and covers the four export families: PNG,
+The dialog lives in lattice/ui and covers the four export families: PNG,
 SVG, print and the GIF/video sequence. The video writer and tr are injected by
 the application; these tests inject the Dither ones to prove the pattern, and
 pin that the default export renders beyond the preview cap (REVUE bloquant 1).
@@ -19,11 +19,11 @@ import pytest  # noqa: E402
 from PIL import Image as PILImage  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from lattice_core.pipeline import PipelineSpec  # noqa: E402
-from lattice_core.ui import export_dialog as ed  # noqa: E402
-from lattice_core.ui.export_dialog import ExportDialog, ExportError  # noqa: E402
-from lattice_core.ui.worker import PREVIEW_MAX_SIDE  # noqa: E402
-from lattice_dither.export import video as video_module  # noqa: E402
+from lattice.modes.dither.export import video as video_module  # noqa: E402
+from lattice.pipeline import PipelineSpec  # noqa: E402
+from lattice.ui import export_dialog as ed  # noqa: E402
+from lattice.ui.export_dialog import ExportDialog, ExportError  # noqa: E402
+from lattice.ui.worker import PREVIEW_MAX_SIDE  # noqa: E402
 
 SETTINGS_NAME = "LatticeDither"
 

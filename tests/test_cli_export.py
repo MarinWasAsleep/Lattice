@@ -8,19 +8,19 @@ from pathlib import Path
 import pytest
 from PIL import Image as PILImage
 
-import lattice_core.dither  # noqa: F401  (importing the package registers every algorithm)
-import lattice_core.effects  # noqa: F401  (importing the package registers every effect)
-from lattice_core import color
-from lattice_core.pipeline import render
-from lattice_core.presets import load_preset
-from lattice_core.types import RGB8
-from lattice_dither import cli
-from lattice_dither.cli import EXIT_INPUT, EXIT_OK, EXIT_RENDER, EXIT_USAGE, main
-from lattice_dither.core.animation import render_sequence
-from lattice_dither.export import video as video_module
-from lattice_dither.export.print import export_print
-from lattice_dither.export.svg import export_svg
-from lattice_dither.export.video import export_gif, export_video
+import lattice.dither  # noqa: F401  (importing the package registers every algorithm)
+import lattice.effects  # noqa: F401  (importing the package registers every effect)
+from lattice import color
+from lattice.modes.dither import cli
+from lattice.modes.dither.cli import EXIT_INPUT, EXIT_OK, EXIT_RENDER, EXIT_USAGE, main
+from lattice.modes.dither.core.animation import render_sequence
+from lattice.modes.dither.export import video as video_module
+from lattice.modes.dither.export.print import export_print
+from lattice.modes.dither.export.svg import export_svg
+from lattice.modes.dither.export.video import export_gif, export_video
+from lattice.pipeline import render
+from lattice.presets import load_preset
+from lattice.types import RGB8
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "tests" / "data" / "baseline" / "source.png"

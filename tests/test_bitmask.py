@@ -7,16 +7,16 @@ import unicodedata
 import numpy as np
 import pytest
 
-import lattice_core.dither  # noqa: F401  (registers the algorithms the pipeline resolves)
-from lattice_core.cell import (
+import lattice.dither  # noqa: F401  (registers the algorithms the pipeline resolves)
+from lattice.cell import (
     CellGrid,
     CellRenderer,
     RenderStyle,
     get_renderer,
     list_renderers,
 )
-from lattice_core.pipeline import PipelineSpec, render_with_palette
-from lattice_core.renderers.bitmask import (
+from lattice.pipeline import PipelineSpec, render_with_palette
+from lattice.renderers.bitmask import (
     _HALF_BLOCK_CODEPOINTS,
     _QUADRANT_CODEPOINTS,
     _SEXTANT_CODEPOINTS,
@@ -248,7 +248,7 @@ def test_degenerate_palette_renders_all_paper():
 
 
 def test_quadrant_codepoint_names():
-    from lattice_core.renderers.bitmask import _QUADRANT_CODEPOINTS
+    from lattice.renderers.bitmask import _QUADRANT_CODEPOINTS
     quadrants = {
         "UPPER LEFT": 0x1, "UPPER RIGHT": 0x2, "LOWER LEFT": 0x4,
         "LOWER RIGHT": 0x8,

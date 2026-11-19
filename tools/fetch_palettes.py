@@ -1,4 +1,4 @@
-"""Fetch palette files into lattice_dither/palettes/data (manual, never imported).
+"""Fetch palette files into lattice.modes.dither/palettes/data (manual, never imported).
 
 This script is not part of the application and is never imported by it. It exists
 so a maintainer can refresh the shipped palettes by hand, with network access,
@@ -21,7 +21,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-DATA_DIR = Path(__file__).resolve().parents[1] / "lattice_core" / "palettes" / "data"
+DATA_DIR = Path(__file__).resolve().parents[1] / "lattice" / "palettes" / "data"
 TIMEOUT_SECONDS = 20
 MAX_BYTES = 1 << 20
 USER_AGENT = "lattice-dither-fetch-palettes/1.0"
