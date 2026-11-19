@@ -1,214 +1,128 @@
-# Lattice Dither
+![Lattice, Dither tab: a gallery of algorithms on the left, the dithered photo in the centre, settings on the right](docs/01-dither.png)
 
-A desktop dithering studio: 33 dithering algorithms, 9 image effects, 11 built-in palettes and a
-live preview, with a one-click round trip to PhotoCraft as a new layer.
+# Lattice
 
-Lattice Dither is the first application of the **Lattice** suite, a family of free, open-source
-image-transformation tools that share one engine and each run standalone.
+Lattice turns a photo into dithered pixel art, text, or glitched signal. It has three modes —
+Dither, Glyph, Glitch — in one window with three tabs, and a command line so the same presets
+can run in a script.
 
-![Twelve dithering algorithms applied to the same test image](docs/algorithms.png)
+It is built for making things: pixel art, riso prints, GIFs, generative art, album covers.
+The interface is dark and the image sits in the middle.
 
-*Same source image, twelve algorithms, four palettes. Top row: Floyd-Steinberg, Atkinson, Stucki,
-Jarvis-Judice-Ninke. Middle: Ostromoukhov, Riemersma, Bayer 8×8, Blue Noise. Bottom: Yliluoma 2,
-Halftone Dots, Dot Diffusion, Direct Binary Search.*
+## Before / after
 
-## Why
+| Source | Dither | Glyph | Glitch |
+|:---:|:---:|:---:|:---:|
+| ![Source photo of a fjord](docs/00-source.jpg) | ![Ordered dithering, PICO-8 palette](docs/04-render-dither.png) | ![Quadrant blocks, PICO-8 palette](docs/05-render-glyph.png) | ![VHS soft](docs/06-render-glitch.png) |
+| Original photo | Ordered dither, PICO-8 palette | Quadrant blocks, PICO-8 palette | VHS soft |
 
-Most dithering tools give you Floyd-Steinberg and a Bayer matrix. Lattice Dither is built to compare
-methods side by side: pick an algorithm, a palette and a pixel size, and the preview updates while
-you drag a slider. When a result is good, send it back to PhotoCraft as a new layer on top of the
-original.
+## The three modes
 
-## Features
+### Dither
 
-- **33 algorithms** across four families — error diffusion, ordered, halftone and search-based.
-- **10 effects** applied before or after the dither, each with its own parameters.
-- **11 built-in palettes** (Game Boy, PICO-8, CGA, EGA, greys, CMYK, RGB) plus palette extraction
-  from the image itself (k-means or median cut) and hand-edited palettes.
-- **Live preview** rendered on a worker thread, with Before / After / Split comparison and zoom.
-- **Presets** as plain JSON, navigable with the arrow keys or the toolbar buttons.
-- **PhotoCraft bridge**: pull the visible document, push the result back as a new layer.
-- **Numba-accelerated** inner loops; a 1024×1024 Direct Binary Search render takes about 0.7 s.
+![Dither tab](docs/01-dither.png)
 
-### Algorithms
+More than 40 dithering algorithms, with a searchable gallery that previews each one. Error
+diffusion (Floyd-Steinberg, Atkinson, Stucki, Sierra and others), ordered dithering (Bayer from
+2×2 to 16×16, blue noise, cluster dot) and halftone (dots, lines, squares) are all there.
 
-| Family | Algorithms |
-| --- | --- |
-| Error diffusion | Floyd-Steinberg, False Floyd-Steinberg, Jarvis-Judice-Ninke, Stucki, Burkes, Sierra, Sierra Two Row, Sierra Lite, Atkinson, Stevenson-Arce, Fan, Shiau-Fan, Ostromoukhov |
-| Ordered | Bayer 2×2, 4×4, 8×8, 16×16, Blue Noise, Cluster Dot 4×4, Cluster Dot 8×8, Lines Horizontal, Lines Vertical, Lines Diagonal, Yliluoma 1, Yliluoma 2 |
-| Halftone | Halftone Dots, Halftone Lines, Halftone Squares |
-| Other | Riemersma, Dot Diffusion, Direct Binary Search, Random, Threshold |
+Built-in palettes: Game Boy, PICO-8, EGA, CGA, greys, CMYK, RGB — plus palette extraction from
+the image itself. Pixel size, brightness, contrast, gamma and saturation are adjustable, and the
+preview updates as you change them.
 
-### Effects
+### Glyph
 
-Chromatic Aberration, Gaussian Blur, Glow, JPEG Glitch, Noise, Posterize, RGB Shift, Scanlines,
-Sharpen, Halftone CMYK.
+![Glyph tab](docs/02-glyph.png)
 
-### Palettes
+Redraws the image with glyphs: ASCII, Braille, quadrant blocks or solid shapes. In ASCII mode
+you set the character ramp yourself and pick the foreground and background colours. The result
+can be exported as an image or as plain text.
 
-`bw`, `grey_4`, `grey_8`, `grey_16`, `gameboy`, `pico8`, `cga_0_high`, `cga_1_high`, `ega`,
-`cmyk_5`, `rgb_8` — plus extraction and custom palettes.
+### Glitch
 
-## Download
+![Glitch tab](docs/03-glitch.png)
 
-A prebuilt Windows executable is attached to the
-[latest release](https://github.com/MarinWasAsleep/lattice-dither/releases/latest): download
-`LatticeDither.exe` and run it, no Python installation needed. It is a PyInstaller bundle of about
-146 MB, so the first window takes a few seconds to appear while it unpacks. The bundle carries its
-own ffmpeg, so video export works out of the box.
+Signal degradation, built as a stack of effects you add, reorder, toggle and remove:
+
+- CRT: curvature, phosphor mask, sweep, scanlines
+- Feedback
+- Displacement
+- Pixel sorting
+- VHS / NTSC
+- Byte corruption ("byte mosh")
+
+Any effect can be limited to a mask, and the seed can be re-rolled to get a different result
+from the same settings. Loops can be rendered as GIF or APNG.
 
 ## Install
 
-Windows 11 or Linux, Python 3.13 or newer.
+### Option 1: download a binary
 
-```powershell
-git clone https://github.com/MarinWasAsleep/lattice-dither.git
-cd lattice-dither
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-```
+Go to the [Releases page](../../releases) and download the files for your system:
+
+| System | Window | Command line |
+|---|---|---|
+| Linux | `Lattice` | `lattice-cli` |
+| Windows | `Lattice.exe` | `lattice-cli.exe` |
+
+No Python installation is needed for these. On Linux, make them executable first:
 
 ```bash
-# Linux (Python 3.13 via uv, ou python3.13 -m venv)
-cd lattice-dither
-uv venv --python 3.13 .venv
-uv pip install -r requirements.txt --python .venv/bin/python
+chmod +x Lattice lattice-cli
 ```
 
-Prérequis GUI (Linux) : `sudo apt install -y libxcb-cursor0` — Qt 6.5+ exige cette
-bibliothèque pour le plugin xcb ; sans elle, l'app refuse de démarrer sur l'écran
-(les tests headless `offscreen` la masquent).
+### Option 2: from source
 
-The Windows and Linux installs share the same pinned `requirements.txt`; the render pipeline uses
-committed lookup tables (including the gamma curve), so both platforms produce byte-identical
-output for the same preset and image.
+You need Python 3.13 or newer. The core depends on numpy, numba and Pillow; the interface uses
+PySide6.
 
-That is the whole install. Video export needs ffmpeg, and `imageio-ffmpeg` ships one inside its
-wheel, so there is no separate system step. If you already have a newer ffmpeg on `PATH` and prefer
-it, uninstall the dependency and the export falls back to yours.
-
-## Run
-
-Windows:
-```powershell
-.\.venv\Scripts\python.exe -m lattice_dither
-```
-
-Linux:
 ```bash
-.venv/bin/python -m lattice_dither
+pip install -e ".[ui]"
 ```
 
-Or double-click `LatticeDither.pyw`, which starts the GUI without a console window. To get Desktop
-and Start Menu shortcuts:
+Then:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install_shortcuts.ps1
+```bash
+lattice                  # opens the window
+lattice <mode> <verb>    # command line
 ```
 
-`-Uninstall` removes them again.
+## Command line
 
-## PhotoCraft integration
+The command line takes the same presets as the window. Each command reads an image and writes a
+result:
 
-Lattice Dither talks to a running PhotoCraft desktop app over its local control server (TCP on
-`127.0.0.1:47600`, one JSON object per line, token-authenticated). PhotoCraft must be started with
-automation roots pointing at a shared exchange directory:
+```bash
+# Dither: Game Boy palette, Bayer 8×8
+lattice dither render --preset presets/starter/dither_01_gameboy_bayer8.json --in photo.jpg --out out.png
 
+# Glyph: quadrant blocks, PICO-8 palette
+lattice glyph render --preset presets/starter/glyph_03_quadrant_pico8.json --in photo.jpg --out out.png
+
+# Glitch: soft VHS
+lattice glitch render --preset presets/starter/glitch_01_vhs_soft.json --in photo.jpg --out out.png
+
+# Glitch: an 8-frame looping GIF
+lattice glitch loop --preset presets/starter/glitch_01_vhs_soft.json --in photo.jpg --out loop.gif --frames 8
 ```
-photocraft.exe --control 47600 --control-token-file "%LOCALAPPDATA%\LatticeDither\control.token" ^
-  --automation-read-root <EXCHANGE_DIR> --automation-write-root <EXCHANGE_DIR>
-```
-
-**Get from PhotoCraft** saves a flattened PNG of the active document into that directory and loads
-it. **Send to PhotoCraft** writes the render there and places it as a new layer above the current
-one. The document itself is never modified in place, and layers, masks and blend modes are not
-carried over — the bridge works on flattened pixels.
-
-Setups created before the rename keep working: the token file and the exchange directory are still
-read from `%LOCALAPPDATA%\DitherCraft\` when the new location is absent.
-
-Without PhotoCraft, everything else works: open an image from disk and export a PNG.
 
 ## Presets
 
-A preset is a JSON file describing the whole pipeline:
+`presets/starter/` holds 12 presets, four per mode. Use them as they are, or as a starting point
+for your own: they are plain JSON, and every setting in the window is in them.
 
-```json
-{
-  "version": 1,
-  "algorithm_id": "yliluoma2",
-  "algorithm_params": { "slots": 64 },
-  "palette": {
-    "source": "builtin",
-    "name": "pico8",
-    "colors": [],
-    "extract_k": 8,
-    "extract_method": "kmeans"
-  },
-  "pixel_size": 1,
-  "brightness": 0.0,
-  "contrast": 0.0,
-  "gamma": 1.0,
-  "pre_effects": [],
-  "post_effects": [
-    {
-      "effect_id": "scanlines",
-      "params": { "spacing": 3, "thickness": 1, "darkness": 0.45 },
-      "enabled": true
-    }
-  ],
-  "seed": 0
-}
-```
+## PhotoCraft and DesignCraft
 
-Twelve starter presets live in `presets/`. Use the arrows in the toolbar (or the left and right
-arrow keys) to step through them.
+Lattice can send an image to, and receive one from, **PhotoCraft** and **DesignCraft** (the
+ArtCraft suite), over their local control server. It looks for them at startup. If they are not
+installed, nothing breaks — you simply do not get the host buttons.
 
-## Adding an algorithm
+## Project status
 
-Algorithms are registered by decorator, so a new one is a single function plus one line of import:
-
-```python
-from lattice_dither.core.registry import register_algorithm
-
-@register_algorithm("my_method", "My Method", "error_diffusion", params=())
-def my_method(img, palette, params):
-    """Return an int32 index array of shape (H, W) into palette."""
-    ...
-```
-
-The UI panel, the preset format and the parameter form pick it up automatically. The same pattern
-applies to effects (`register_effect`) and palettes.
-
-## Development
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest      # ~1212 tests (clôture du harness 1.1 ; G2 du harness 0.1)
-.\.venv\Scripts\ruff.exe check .          # lint
-.\.venv\Scripts\python.exe tools\check_contract.py
-```
-
-`tools/contact_sheet.py` renders an algorithm comparison grid, `tools/smoke_photocraft.py` checks a
-live PhotoCraft connection.
-
-## Layout
-
-```
-lattice_dither/
-  algorithms/   error diffusion, ordered, halftone, search-based
-  effects/      tone and glitch effects
-  palettes/     built-in palettes, extraction, file IO
-  core/         types, registry, colour maths, pipeline, presets
-  bridge/       PhotoCraft control-server client
-  ui/           PySide6 window, panels, canvas, render worker
-presets/        starter presets
-tools/          contract check, contact sheet, smoke test, icon and noise generators
-tests/          ~1212 tests (clôture du 1.1)
-```
+- Version 1.0.0.
+- 2328 tests, run by CI on Linux and Windows on every push.
+- One Python package (`lattice`), one command line (`lattice`), one window.
 
 ## License
 
-No license file is provided yet, so the code is published for reference only. The suite contract
-(`harness/lattice/CONTRACT.md` §1) fixes **MIT OR Apache-2.0** for every package; the `LICENSE`
-file will be added at the first publication (`lattice-core`). Open an issue if you want to reuse
-the code before that and we will sort out terms.
+Dual-licensed under **MIT OR Apache-2.0**. You may choose either.

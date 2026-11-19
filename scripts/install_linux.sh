@@ -92,8 +92,20 @@ write_cli() {
 }
 
 write_desktop() {
-    local dest="$DESKTOP_DIR/$DESKTOP_FILE" icon="$ROOT/lattice/resources/icon-app.svg"
-    [[ -f "$icon" ]] || icon="applications-graphics"
+    local dest="$DESKTOP_DIR/$DESKTOP_FILE" icon icon_name="lattice"
+    local source_icon="$ROOT/lattice/resources/icon-app.svg"
+    # The icon is installed into the icon theme rather than referenced from the source tree: the
+    # .desktop must keep working if the repository is moved or deleted, and a theme icon is also
+    # what the task switcher and the window manager ask for.
+    if [[ -f "$source_icon" ]]; then
+        local icon_dir="$DATA_HOME/icons/hicolor/scalable/apps"
+        mkdir -p "$icon_dir"
+        install -m 0644 "$source_icon" "$icon_dir/$icon_name.svg"
+        log "icone -> $icon_dir/$icon_name.svg"
+        icon="$icon_name"
+    else
+        icon="applications-graphics"
+    fi
     cat >"$dest" <<EOF
 [Desktop Entry]
 Type=Application
