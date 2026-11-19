@@ -25,9 +25,12 @@ function Die($tag, $message) {
 }
 
 function BinaryName($mode) {
+    # The two names must differ by more than their case: Windows file systems are
+    # case-insensitive, so "Lattice" and "lattice" are the same file and the second build
+    # silently overwrites the first.
     switch ($mode) {
         "gui" { return "Lattice" }
-        "cli" { return "lattice" }
+        "cli" { return "lattice-cli" }
         default { Die $mode "mode de build inconnu" }
     }
 }

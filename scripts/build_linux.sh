@@ -34,7 +34,7 @@ die() {
 binary_name() {
     case "$1" in
         gui) printf 'Lattice' ;;
-        cli) printf 'lattice' ;;
+        cli) printf 'lattice-cli' ;;
         *)   return 1 ;;
     esac
 }

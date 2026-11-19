@@ -20,7 +20,10 @@ from PyInstaller.utils.hooks import collect_submodules
 HERE = os.path.abspath(SPECPATH)
 ROOT = os.path.dirname(os.path.dirname(HERE))
 MODE = os.environ.get("LATTICE_BUILD_MODE", "gui")
-NAME = "Lattice" if MODE == "gui" else "lattice"
+# The two names must not differ only by case: Windows is case-insensitive, so "Lattice" and
+# "lattice" are one file there and the second build silently overwrites the first. The same
+# names are used on every platform so a release asset means the same thing everywhere.
+NAME = "Lattice" if MODE == "gui" else "lattice-cli"
 
 ANALYSIS_KW = {
     "pathex": [ROOT],
