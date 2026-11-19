@@ -1,0 +1,20 @@
+# source: https://github.com/morhetz/gruvbox
+# licence: MIT
+# copyright: Pavel Pertsev
+
+282828	bg0
+3C3836	bg1
+504945	bg2
+665C54	bg3
+928374	gray
+FBF1C7	fg0
+EBD8B2	fg1
+D5C4A1	fg2
+BDAE93	fg3
+A89984	fg4
+CC241D	red
+98971A	green
+D79921	yellow
+458588	blue
+B16286	purple
+689D6A	aqua

@@ -1,0 +1,61 @@
+{
+  "app": "glitch",
+  "effects": [
+    {
+      "enabled": true,
+      "mask": null,
+      "name": "channel_shift",
+      "params": {
+        "amount": 12.0,
+        "channels": 5,
+        "mode": "translate"
+      },
+      "stage": "post"
+    },
+    {
+      "enabled": true,
+      "mask": null,
+      "name": "noise",
+      "params": {
+        "amount": 0.06,
+        "monochrome": false
+      },
+      "stage": "post"
+    }
+  ],
+  "fonts": {},
+  "masks": {},
+  "meta": {
+    "author": "",
+    "created": "",
+    "description": "",
+    "name": "05_channel_rift",
+    "tags": [],
+    "thumbnail": ""
+  },
+  "output": {
+    "dpi": null,
+    "scale": 1,
+    "width": null
+  },
+  "palette": null,
+  "pipeline": {
+    "algorithm": null,
+    "auto_levels": false,
+    "brightness": 0.0,
+    "color_metric": "srgb",
+    "contrast": 0.0,
+    "gamma": 1.0,
+    "max_side": null,
+    "params": {},
+    "pixel_size": 1,
+    "pre_blur": 0.0,
+    "saturation": 0.0
+  },
+  "renderer": {
+    "name": "pixel",
+    "style": {}
+  },
+  "seed": 7,
+  "version": 3
+}

@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "pre_effects": [{"effect_id": "scanlines", "params": {"intensity": 0.1}, "enabled": true}],
+  "brightness": 0.1,
+  "contrast": -0.2,
+  "gamma": 1.1,
+  "saturation": 0.3,
+  "pre_blur": 2.0,
+  "auto_levels": true,
+  "color_metric": "oklab",
+  "pixel_size": 3,
+  "algorithm_id": "floyd_steinberg",
+  "algorithm_params": {},
+  "palette": {
+    "source": "extracted",
+    "name": "bw",
+    "colors": ["#000000", "#ffffff"],
+    "extract_k": 6,
+    "extract_method": "median_cut",
+    "locked": ["#ffffff"],
+    "order": [1, 0]
+  },
+  "post_effects": [{"effect_id": "glow", "params": {}, "enabled": false}],
+  "seed": 42,
+  "meta": {"name": "Legacy", "author": "Marin", "description": "v2 source", "tags": ["old"]},
+  "renderer": "pixel",
+  "renderer_style": {"scale": 2}
+}

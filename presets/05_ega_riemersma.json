@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "pre_effects": [],
+  "brightness": 0.0,
+  "contrast": 0.0,
+  "gamma": 1.0,
+  "pixel_size": 1,
+  "algorithm_id": "riemersma",
+  "algorithm_params": {},
+  "palette": {
+    "source": "builtin",
+    "name": "ega",
+    "colors": [],
+    "extract_k": 8,
+    "extract_method": "kmeans"
+  },
+  "post_effects": [],
+  "seed": 0
+}

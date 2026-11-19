@@ -1,0 +1,6 @@
+<!-- icon-glyph.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <title>Glyph</title>
+  <path d="M6 21V10l3-5h6l3 5v11M6 14h12" fill="none" stroke="#9BE15D" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter"/>
+  <path fill="#9BE15D" d="M20 19h2v2h-2z"/>
+</svg>

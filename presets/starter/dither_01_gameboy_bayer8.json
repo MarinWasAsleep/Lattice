@@ -1,0 +1,56 @@
+{
+  "app": "dither",
+  "effects": [],
+  "fonts": {},
+  "masks": {},
+  "meta": {
+    "author": "Lattice",
+    "created": "2026-11-19",
+    "description": "Floyd-Steinberg on the Game Boy palette, 2 px cells.",
+    "name": "dither_01_gameboy_bayer8",
+    "tags": [
+      "dither",
+      "gameboy",
+      "error_diffusion"
+    ],
+    "thumbnail": ""
+  },
+  "output": {
+    "dpi": null,
+    "scale": 1,
+    "width": null
+  },
+  "palette": {
+    "colors": [
+      "#0f380f",
+      "#306230",
+      "#8bac0f",
+      "#9bbc0f"
+    ],
+    "extract": {},
+    "locked": false,
+    "name": "gameboy",
+    "order": null,
+    "source": "custom"
+  },
+  "pipeline": {
+    "algorithm": "bayer_8",
+    "auto_levels": false,
+    "brightness": 0.0,
+    "color_metric": "srgb",
+    "contrast": 0.0,
+    "fit_palette": true,
+    "gamma": 1.0,
+    "max_side": null,
+    "params": {},
+    "pixel_size": 4,
+    "pre_blur": 0.0,
+    "saturation": 0.0
+  },
+  "renderer": {
+    "name": "pixel",
+    "style": {}
+  },
+  "seed": 0,
+  "version": 3
+}

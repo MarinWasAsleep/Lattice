@@ -1,0 +1,17 @@
+# Build artefacts — a release attaches the binaries, the repository never carries them.
+build/
+dist/
+*.egg-info/
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Per-machine state
+*.log
+.DS_Store
+
+# IDE
+.idea/
+.vscode/

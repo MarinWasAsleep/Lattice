@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "pre_effects": [],
+  "brightness": 0.0,
+  "contrast": 0.0,
+  "gamma": 1.0,
+  "pixel_size": 2,
+  "algorithm_id": "yliluoma2",
+  "algorithm_params": {
+    "slots": 64
+  },
+  "palette": {
+    "source": "builtin",
+    "name": "pico8",
+    "colors": [],
+    "extract_k": 8,
+    "extract_method": "kmeans"
+  },
+  "post_effects": [],
+  "seed": 0
+}

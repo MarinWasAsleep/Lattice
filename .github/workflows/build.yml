@@ -1,0 +1,211 @@
+name: build
+
+# Every push and pull request proves the suite stays green on both platforms; a tag additionally
+# builds the two binaries and attaches them to a release. Windows is the reason this file
+# exists: the Linux binaries can be built on any Linux box, but a .exe cannot, so the release
+# would otherwise ship a promise instead of a file.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_COLOR: "1"
+  # Qt has no display in CI; the suite runs against the offscreen platform.
+  QT_QPA_PLATFORM: offscreen
+
+# Attaching the binaries to a release writes to the repository, which the default token may not
+# do: without this the build succeeds and the upload answers 403.
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Qt's runtime libraries (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            libegl1 libgl1 libxkbcommon0 libdbus-1-3 libfontconfig1
+
+      - name: Install the package with its UI extra
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[ui]"
+          # pytest-timeout bounds every test: a test that waits on an external process (a host
+          # probe, ffprobe) can otherwise hang a CI job for its full six-hour limit.
+          pip install pytest pytest-timeout ruff
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: pytest -q --timeout=120 --timeout-method=thread
+
+      - name: The three modes render from one command line
+        shell: bash
+        run: |
+          python -m lattice --version
+          python -m lattice dither render \
+            --preset presets/starter/dither_01_gameboy_bayer8.json \
+            --in docs/starters-source.png --out /tmp/ci-dither.png
+          python -m lattice glyph render \
+            --preset lattice/modes/glyph/presets/01_ascii_gameboy.json \
+            --in docs/starters-source.png --out /tmp/ci-glyph.png
+
+  binaries:
+    name: binaries (${{ matrix.os }})
+    # Only a tag builds the distributables: that keeps Actions minutes for what ships.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      # Both jobs upload to the same release. Serialising them is what keeps the upload honest:
+      # run in parallel, the second one collides with the first and the API answers 404.
+      max-parallel: 1
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: windows
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Qt's runtime libraries (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            libegl1 libgl1 libxkbcommon0 libdbus-1-3 libfontconfig1
+
+      - name: Install the package, its UI extra and PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[ui]"
+          pip install pyinstaller
+
+      # Both binaries come from one spec and one source tree, so they are built in a single pass:
+      # the script checks their fingerprints against each other at the end, which it cannot do
+      # when the two are built by separate invocations.
+      - name: Build both binaries (Linux)
+        if: runner.os == 'Linux'
+        run: bash scripts/build_linux.sh
+
+      - name: Build both binaries (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: scripts/build_windows.ps1
+
+      # A binary that exists is not a binary that runs. Both entry points are exercised here:
+      # the console one renders a real image, and the window one is started headless-then-killed
+      # after it reports it is up. That is the check that catches a missing __init__.py or an
+      # un-embedded translation catalogue, which no unit test can see.
+      - name: Smoke-test the binaries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          ./dist/lattice-cli --version
+          ./dist/lattice-cli dither render \
+            --preset presets/starter/dither_01_gameboy_bayer8.json \
+            --in docs/starters-source.png --out /tmp/linux-bin.png
+          test -s /tmp/linux-bin.png
+          timeout 25 ./dist/Lattice &
+          pid=$!
+          sleep 12
+          if kill -0 "$pid" 2>/dev/null; then
+            echo "the window opened"; kill "$pid"
+          else
+            echo "::error::the window binary exited before showing a window"; exit 1
+          fi
+
+      - name: Smoke-test the binaries (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          .\dist\lattice-cli.exe --version
+          .\dist\lattice-cli.exe dither render `
+            --preset presets/starter/dither_01_gameboy_bayer8.json `
+            --in docs/starters-source.png --out $env:TEMP\win-bin.png
+          if (-not (Test-Path $env:TEMP\win-bin.png)) { throw "the CLI wrote no image" }
+          $window = Start-Process -FilePath ".\dist\Lattice.exe" -PassThru
+          Start-Sleep -Seconds 15
+          if ($window.HasExited) {
+            throw "the window binary exited with code $($window.ExitCode)"
+          }
+          Write-Host "the window opened"
+          Stop-Process -Id $window.Id
+
+      - name: Keep the binaries as workflow artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.platform }}
+          path: |
+            dist/Lattice
+            dist/lattice-cli
+            dist/Lattice.exe
+            dist/lattice-cli.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: release
+    # One job publishes, with every binary already built: two jobs uploading to the same
+    # release race each other — the second one hits the asset it did not create and the API
+    # answers 404, which is exactly what happened when each platform published on its own.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect the binaries of both platforms
+        uses: actions/download-artifact@v4
+        with:
+          pattern: binaries-*
+          path: dist
+          merge-multiple: true
+
+      - name: List what will be published
+        run: ls -la dist/
+
+      # upload-artifact stores no permission bits, so the two Linux binaries come back without
+      # their executable flag and a user downloading them would get "permission denied".
+      - name: Restore the executable bit on the Linux binaries
+        run: chmod +x dist/Lattice dist/lattice-cli
+
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Lattice
+            dist/lattice-cli
+            dist/Lattice.exe
+            dist/lattice-cli.exe
+          fail_on_unmatched_files: true
+          generate_release_notes: true

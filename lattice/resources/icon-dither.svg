@@ -1,0 +1,15 @@
+<!-- icon-dither.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <title>Dither</title>
+  <path fill="#2EC4B6" transform="translate(1 0)" d="
+    M2 2h10v2H2z M14 2h2v2h-2z M18 2h2v2h-2z
+    M2 4h4v2H2z M8 4h2v2H8z M12 4h2v2h-2z
+    M2 6h10v2H2z M14 6h2v2h-2z
+    M2 8h4v2H2z M8 8h2v2H8z
+    M2 10h10v2H2z M14 10h2v2h-2z M18 10h2v2h-2z
+    M2 12h4v2H2z M8 12h2v2H8z M12 12h2v2h-2z
+    M2 14h10v2H2z M14 14h2v2h-2z
+    M2 16h4v2H2z M8 16h2v2H8z
+    M2 18h10v2H2z M14 18h2v2h-2z M18 18h2v2h-2z
+    M2 20h4v2H2z M8 20h2v2H8z M12 20h2v2h-2z"/>
+</svg>

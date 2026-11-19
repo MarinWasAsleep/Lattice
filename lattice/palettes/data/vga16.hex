@@ -1,0 +1,19 @@
+# source: IBM VGA standard 16-colour text mode
+# licence: public domain (a hardware standard, no authorship)
+
+000000	Black
+0000AA	Blue
+00AA00	Green
+00AAAA	Cyan
+AA0000	Red
+AA00AA	Magenta
+AA5500	Brown
+AAAAAA	Light grey
+555555	Dark grey
+5555FF	Light blue
+55FF55	Light green
+55FFFF	Light cyan
+FF5555	Light red
+FF55FF	Light magenta
+FFFF55	Yellow
+FFFFFF	White

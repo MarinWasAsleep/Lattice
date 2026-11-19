@@ -1,0 +1,16 @@
+# source: https://github.com/enkia/tokyo-night-vscode-theme
+# licence: MIT
+# copyright: enkia
+
+1A1B26	background
+16161E	background dark
+C0CAF5	foreground
+A9B1D6	foreground dark
+565F89	comment
+F7768E	red
+9ECE6A	green
+E0AF68	yellow
+7AA2F7	blue
+BB9AF7	magenta
+7DCFFF	cyan
+FF9E64	orange

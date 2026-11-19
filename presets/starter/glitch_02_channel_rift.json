@@ -1,0 +1,67 @@
+{
+  "app": "glitch",
+  "effects": [
+    {
+      "enabled": true,
+      "mask": null,
+      "name": "channel_shift",
+      "params": {
+        "amount": 6.0,
+        "channels": 5,
+        "mode": "translate"
+      },
+      "stage": "post"
+    },
+    {
+      "enabled": true,
+      "mask": null,
+      "name": "rgb_shift",
+      "params": {
+        "b_x": -3,
+        "b_y": 1,
+        "r_x": 3,
+        "r_y": 0
+      },
+      "stage": "post"
+    }
+  ],
+  "fonts": {},
+  "masks": {},
+  "meta": {
+    "author": "Lattice",
+    "created": "2026-11-19",
+    "description": "Channel translation rift with an RGB offset.",
+    "name": "glitch_02_channel_rift",
+    "tags": [
+      "glitch",
+      "channel",
+      "rgb"
+    ],
+    "thumbnail": ""
+  },
+  "output": {
+    "dpi": null,
+    "scale": 1,
+    "width": null
+  },
+  "palette": null,
+  "pipeline": {
+    "algorithm": null,
+    "auto_levels": false,
+    "brightness": 0.0,
+    "color_metric": "srgb",
+    "contrast": 0.0,
+    "gamma": 1.0,
+    "max_side": null,
+    "params": {},
+    "pixel_size": 1,
+    "pre_blur": 0.0,
+    "saturation": 0.0
+  },
+  "renderer": {
+    "name": "pixel",
+    "style": {}
+  },
+  "seed": 5,
+  "version": 3
+}

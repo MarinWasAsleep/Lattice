@@ -1,0 +1,37 @@
+{
+  "version": 3,
+  "app": "glyph",
+  "meta": {"name": "Amber terminal", "author": "Marin", "created": "2026-11-16"},
+  "renderer": {
+    "name": "glyph_ramp",
+    "style": {"ramp": " .:-=+*#%@", "mode": "palette", "offset": 0.1, "invert": false}
+  },
+  "palette": {
+    "colors": ["#000000", "#ffffff"],
+    "locked": false,
+    "order": null,
+    "source": "integrated",
+    "extract": {"from": "image", "n_colors": 16, "rows": null}
+  },
+  "pipeline": {
+    "algorithm": "floyd_steinberg",
+    "params": {},
+    "color_metric": "srgb",
+    "pixel_size": 2,
+    "max_side": null,
+    "brightness": 0.0,
+    "contrast": 0.0,
+    "gamma": 1.0,
+    "saturation": 0.0,
+    "pre_blur": 0.0,
+    "auto_levels": false
+  },
+  "effects": [
+    {"name": "scanlines", "params": {"intensity": 0.2}, "enabled": true, "stage": "pre", "mask": null},
+    {"name": "glow", "params": {}, "enabled": false, "stage": "post", "mask": "glow_mask"}
+  ],
+  "masks": {"glow_mask": {"kind": "v_flip"}},
+  "fonts": {"ramp": {"family": "DejaVu Sans Mono", "style": "", "fallback": ["mono"]}},
+  "output": {"scale": 2, "width": null, "dpi": 300},
+  "seed": 7
+}
