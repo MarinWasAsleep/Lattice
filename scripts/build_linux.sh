@@ -40,7 +40,7 @@ binary_name() {
 mkdir -p "$DIST_DIR" "$WORK_DIR"
 log "versions attendues verifiees par $CHECKER"
 "$PYTHON" "$CHECKER" --distributions-only >/dev/null ||
-    die "versions" "les pyproject ne sont pas a 0.1.0"
+    die "versions" "les pyproject ne sont pas a 1.0.0"
 
 for app in $APPS; do
     spec="$SPEC_DIR/lattice_${app}.spec"

@@ -7,7 +7,7 @@
     version de code : un executable fenetre (LatticeDither/GLYPH/GLITCH.exe) et un
     executable console (lattice-*-cli.exe). PyInstaller est un outil de build : il
     n'est pas ajoute aux dependances d'execution. Un manifeste par binaire est ecrit
-    dans build\manifests pour que tools\check_versions.py prouve la coherence 0.1.0.
+    dans build\manifests pour que tools\check_versions.py prouve la coherence 1.0.0.
 .PARAMETER App
     Application a construire : dither, glyph, glitch ou all (defaut all).
 .PARAMETER Mode
@@ -77,7 +77,7 @@ function Assert-Prerequisites {
         Fail 'checker' "verificateur de versions introuvable: $Checker"
     }
     & $Python $Checker --distributions-only 2>$null
-    if ($LASTEXITCODE -ne 0) { Fail 'versions' 'les pyproject ne sont pas a 0.1.0' }
+    if ($LASTEXITCODE -ne 0) { Fail 'versions' 'les pyproject ne sont pas a 1.0.0' }
     New-Item -ItemType Directory -Force -Path $DistDir, $WorkDir | Out-Null
 }
 

@@ -38,6 +38,9 @@ class CliBackend(NamedTuple):
     """
 
     prog: str
+    # The distribution version, always read from the package's own ``__version__``: a shell
+    # that reports a number nothing else agrees with is exactly the failure this exposes.
+    version: str
     read_preset: Callable[[Path], object]
     render_preset: Callable[[object, object], object]  # (image, preset) -> RGB8
     write_render: Callable[..., object]
@@ -340,6 +343,8 @@ def _add_render_options(parser: argparse.ArgumentParser, *, output_help: str) ->
 def _build_parser() -> argparse.ArgumentParser:
     """Return the argument parser: the eleven shared verbs, then the app's own."""
     parser = _Parser(prog=_backend().prog, description=f"{_backend().prog} command line")
+    parser.add_argument("--version", action="version",
+                        version=f"%(prog)s {_backend().version}")
     verbs = parser.add_subparsers(dest="command", required=True, parser_class=_Parser)
 
     render = verbs.add_parser("render", help="render one image with one preset")

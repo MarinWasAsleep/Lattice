@@ -9,6 +9,7 @@ not. No verb needs a display and this module never imports Qt.
 from __future__ import annotations
 
 import lattice_core.effects  # noqa: F401  (importing the package registers every effect)
+import lattice_glyph
 from lattice_core.bridge_hosts import discover as discover_host
 from lattice_core.cli_shared import (
     EXIT_BRIDGE,
@@ -41,6 +42,7 @@ def install_backend() -> None:
     """Bind Glitch to the shared command line."""
     install(CliBackend(
         prog=PROG,
+        version=lattice_glyph.__version__,
         read_preset=preset_tools.read_preset,
         # Glyph renders a spec, not a preset: the two shells disagree on that step, which is
         # exactly why the backend names it instead of the shared module guessing.
@@ -70,3 +72,7 @@ __all__ = [
     "EXIT_BRIDGE", "EXIT_OK", "EXIT_RENDER", "EXIT_USAGE", "FORMATS",
     "discover_host", "host_report", "main",
 ]
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

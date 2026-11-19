@@ -1016,3 +1016,26 @@ invented in code. The orchestrator folds them into the contract at the next chec
   lui, charge la bonne source.
 - evidence: 2323 tests, ruff 0 ; un test de non-régression prouvé par réintroduction du défaut.
 - status: applied
+
+### DEV-248 — 1.0.0 : un seul numéro, annoncé par chaque surface
+- classes: E3 | task: 1.0.0 | status: applied | date: 2026-11-19
+- facts: les quatre `pyproject.toml`, les quatre `__init__.py` et les six manifests disaient déjà
+  1.0.0, mais trois surfaces mentaient encore : le **tag git** valait `v0.1.0` ; les messages des
+  scripts (`build_linux.sh:43`, `build_exe.ps1:10,80`) et une docstring de `check_versions.py`
+  annonçaient 0.1.0 ; et **aucun CLI ne savait dire sa version** — `--version` n'existait pas,
+  donc un utilisateur n'avait aucun moyen de savoir ce qu'il venait d'installer.
+- decision: un nombre, trois surfaces, zéro duplication.
+  1. `CliBackend.version` porte la version et `cli_shared` ajoute `--version` ; chaque app la
+     lit dans son propre paquet (`lattice_glyph.__version__`), jamais en dur.
+  2. `lattice_dither/cli.py` a son propre parseur : même ajout, lisant `lattice_dither.__version__`.
+  3. `prog` de Dither était `lattice_dither.cli`, les autres `lattice-glyph` / `lattice-glitch` :
+     harmonisé en `lattice-dither`, sans qu'aucun test n'en dépende.
+  4. Les messages des scripts lisent `EXPECTED_VERSION` au lieu de répéter le nombre.
+- bug trouvé en route: `python -m lattice_glyph.cli --version` sortait 0 sans rien afficher —
+  les modules d'app n'avaient plus de bloc `__main__`, que j'avais supprimé en déplaçant le corps
+  dans `cli_shared`. Rétabli sur Glyph et Glitch.
+- garde-fou: `test_every_command_line_announces_the_same_version` lance les trois `--version` en
+  sous-processus et exige le même nombre, égal à celui du paquet.
+- evidence: `lattice-dither 1.0.0`, `lattice-glyph 1.0.0`, `lattice-glitch 1.0.0` depuis les
+  binaires installés ; 2324 tests, ruff 0 ; `VERSION CHECK OK`.
+- status: applied

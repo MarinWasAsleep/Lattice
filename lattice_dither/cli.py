@@ -16,6 +16,7 @@ from lattice_core import color
 from lattice_core.pipeline import PipelineSpec, render
 from lattice_core.presets import load_preset
 from lattice_core.types import RGB8
+from lattice_dither import __version__
 from lattice_dither.core.animation import render_sequence
 from lattice_dither.export.print import export_print
 from lattice_dither.export.svg import export_svg
@@ -327,7 +328,10 @@ def _add_export_common(parser: argparse.ArgumentParser) -> None:
 
 def _build_parser() -> argparse.ArgumentParser:
     """Return the argument parser with the six subcommands of §17 and §19 to §21."""
-    parser = _Parser(prog="lattice_dither.cli", description="Lattice Dither command line.")
+    parser = _Parser(prog="lattice-dither", description="Lattice Dither command line.")
+    # Read from the package, never written twice: a CLI that reports a number the rest of the
+    # project disagrees with is the exact failure --version exists to rule out.
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True, parser_class=_Parser)
 
     render_parser = subparsers.add_parser("render", help="render one image with one preset")

@@ -16,6 +16,7 @@ from functools import partial
 from pathlib import Path
 
 import lattice_core.effects  # noqa: F401  (importing the package registers every effect)
+import lattice_glitch
 from lattice_core import axes
 from lattice_core.bridge_hosts import discover as discover_host
 from lattice_core.cli_shared import (
@@ -118,6 +119,7 @@ def install_backend() -> None:
     """Bind Glitch to the shared command line."""
     install(CliBackend(
         prog=PROG,
+        version=lattice_glitch.__version__,
         read_preset=preset_tools.read_preset,
         render_preset=render_preset,
         write_render=write_render,
@@ -142,3 +144,7 @@ __all__ = [
     "EXIT_BRIDGE", "EXIT_OK", "EXIT_RENDER", "EXIT_USAGE", "FORMATS", "LOOP_AXES",
     "discover_host", "host_report", "main",
 ]
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

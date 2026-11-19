@@ -72,7 +72,7 @@ def current_fingerprint(root: Path | None = None) -> str:
 
 
 def check_distributions(root: Path) -> list[str]:
-    """Return one named error line per distribution whose version is not 0.1.0."""
+    """Return one named error line per distribution whose version is not EXPECTED_VERSION."""
     errors: list[str] = []
     for name, relative in DISTRIBUTIONS.items():
         path = root / relative

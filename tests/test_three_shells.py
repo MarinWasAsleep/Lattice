@@ -152,3 +152,33 @@ def _verbs(parser) -> set[str]:
         if isinstance(choices, dict) and action.dest == "command":
             return set(choices)
     return set()
+
+
+def test_every_command_line_announces_the_same_version(capsys: pytest.CaptureFixture[str]) -> None:
+    """The three CLIs print the same number, and it is the one the packages declare.
+
+    ``--version`` is the surface a user reads to know what they installed, so a shell whose
+    number drifts is a lie the tests can catch cheaply. Each one reads its own package's
+    ``__version__``; this asserts the numbers agree with each other and with the core's.
+    """
+    import subprocess
+    import sys
+
+    reported = {"core": lattice_core.__version__}
+    declared = {
+        "dither": lattice_dither.__version__,
+        "glyph": lattice_glyph.__version__,
+        "glitch": lattice_glitch.__version__,
+    }
+    for name in ("dither", "glyph", "glitch"):
+        expected = declared[name]
+        completed = subprocess.run(
+            [sys.executable, "-m", f"lattice_{name}.cli", "--version"],
+            capture_output=True, text=True, check=False,
+            env={**os.environ, "QT_QPA_PLATFORM": "offscreen"},
+        )
+        assert completed.returncode == 0, f"lattice_{name}.cli --version failed: {completed.stderr}"
+        printed = completed.stdout.strip().split()[-1]
+        assert printed == expected, f"{name} printed {printed!r}, package declares {expected!r}"
+        reported[name] = printed
+    assert len(set(reported.values())) == 1, f"versions disagree: {reported}"
