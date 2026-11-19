@@ -657,3 +657,29 @@ invented in code. The orchestrator folds them into the contract at the next chec
 - lesson: un commentaire « mirrors X » est un aveu de duplication, pas une garantie. Quand deux
   listes doivent rester égales, la seconde doit LIRE la première.
 - status: applied
+
+### DEV-236 — L30 · `bytemosh` : la propagation (critique Opus sur les rendus)
+- classes: E1 ×2 (sémantique des opérations) | task: L30 | status: applied | date: 2026-11-19
+- context: jugement visuel des images de doc par Claude Opus en thinking high, trois passes avec
+  les images régénérées entre chaque. Notes de départ : swap 3/10, shift 1/10, interpret 5/10,
+  drift 2-5/10. Diagnostic central : « rien ne se propage, l'image guérit à la ligne suivante ».
+- facts: deux bugs réels confirmés par la mesure — `round(amount * 0) = 0` rendait `shift`
+  inopérant au `offset` par défaut, et `_drift` recevait `stride`/`offset` sans jamais s'en servir.
+  Troisième défaut, relevé sur les images : `_drift` tournait chaque ligne SUR ELLE-MÊME, donc sur
+  un dégradé vertical la rotation était invisible et le fond restait intact — précisément la couture
+  qui prouve un fichier mal relu manquait.
+- decision: `shift` devient un indel sur la queue du flux (`data[p:] = roll(data[p:], d)`) à des
+  positions seedées ; `_indel` est extrait comme primitive ; `drift` tire ses positions sur tout le
+  flux (trier des tirages, pas un pas depuis le début — un pas de `width//4` ramenait les dix
+  événements dans la première rangée et empilait dix roulements en une seule translation) ; `offset`
+  rebranché dans `drift` (un curseur mort est un bug) ; pas multiples de 3 pour ne pas tourner les
+  canaux au hasard.
+- evidence: notes Opus après correctif — shift **8,5/10**, interpret **8/10**, swap **7/10**,
+  drift **7/10** et **6,5/10**. Le diagnostic « rien ne se propage » ne tient plus pour shift et
+  drift. Docstring de `_drift` alignée sur ce que le code fait réellement (la version précédente
+  annonçait un reshape à largeur fausse que le code ne faisait pas).
+- reste (carte, pas retouche) : `drift` n'a pas de pente continue — une vraie largeur de rangée
+  fausse (`width + k*3`) donnerait la diagonale ; `amount` discrimine peu entre 0,3 et 1,0 ; les
+  positions de `swap`/`interpret` ne sont pas alignées sur 3, ce qui retourne les canaux 2 fois
+  sur 3 (assumé et documenté, c'est le vocabulaire du databending).
+- status: applied

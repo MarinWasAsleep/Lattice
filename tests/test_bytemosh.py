@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 from lattice_core.effects import bytemosh as bytemosh_module
+from lattice_core.effects.bytemosh import _indel
 from lattice_core.registry import get_effect, list_effects, resolve_params
 
 EFFECT_ID = "bytemosh"
@@ -123,21 +124,33 @@ def test_swap_keeps_channels_aligned_with_a_multiple_of_three_stride() -> None:
     assert {tuple(pixel) for pixel in dst.tolist()} == {tuple(pixel) for pixel in src.tolist()}
 
 
-@pytest.mark.parametrize("offset", [7, -7, 100, 0])
-def test_shift_moves_the_payload_by_an_exact_byte_count(offset: int) -> None:
-    """Accept: shift rotates the payload by exactly offset bytes, wrapping the edges."""
-    img = _striped()
-    before = _bytes(img)
-    out = _apply(img, amount=1.0, operation="shift", offset=offset)
-    assert np.array_equal(_bytes(out), np.roll(before, offset))
+def test_indel_leaves_the_head_intact_and_slides_the_tail() -> None:
+    """The core gesture: bytes before the cut are untouched, everything after slides.
+
+    The old contract asked shift to translate the whole payload. Opus's verdict killed it:
+    a translation is clean, nothing is damaged at a particular place, and the image heals
+    everywhere (verdict L30, shift 1/10). An indel damages from P onwards and only from P:
+    that is what real byte damage looks like.
+    """
+    data = np.arange(120, dtype=np.uint8)
+    _indel(data, 30, 7)
+    assert np.array_equal(data[:30], np.arange(30, dtype=np.uint8))  # the head is intact
+    assert np.array_equal(data[30:], np.roll(np.arange(30, 120, dtype=np.uint8), 7))
+
+
+def test_shift_reaches_the_bottom_of_the_image() -> None:
+    """An edit near the top is still visible at the last row: the error propagates."""
+    img = _random_image((40, 60))
+    out = _apply(img, amount=1.0, operation="shift", offset=12, seed=3)
     assert out.shape == img.shape
+    assert not np.array_equal(out[-1], img[-1])
 
 
-def test_shift_amount_scales_the_distance() -> None:
-    """Intensity scales the displacement: amount=0.5, offset=8 shifts by 4 bytes."""
+def test_shift_at_amount_zero_is_the_identity() -> None:
+    """amount = 0 stays bit-identical: an unused effect must not touch the pixels."""
     img = _striped()
-    out = _apply(img, amount=0.5, operation="shift", offset=8)
-    assert np.array_equal(_bytes(out), np.roll(_bytes(img), 4))
+    out = _apply(img, amount=0.0, operation="shift", offset=12)
+    assert np.array_equal(_bytes(out), _bytes(img))
 
 
 def test_interpret_pastes_the_source_window_elsewhere() -> None:
@@ -171,12 +184,12 @@ def test_different_seeds_change_the_result(operation: str) -> None:
     assert not np.array_equal(first, second)
 
 
-def test_shift_is_independent_of_the_position_seed() -> None:
-    """shift draws no random positions, so the position seed does not change it (E1)."""
+def test_shift_positions_come_from_the_seed() -> None:
+    """The insertion points are seeded: two seeds must not give the same image (E1)."""
     img = _striped()
     first = _apply(img, amount=1.0, operation="shift", offset=7, seed=1)
     second = _apply(img, amount=1.0, operation="shift", offset=7, seed=999)
-    assert np.array_equal(first, second)
+    assert not np.array_equal(first, second)
 
 
 @pytest.mark.parametrize("operation", OPERATIONS)
@@ -273,30 +286,51 @@ def test_runs_through_the_generic_v3_preset_pipeline() -> None:
     assert not np.array_equal(out, img)
 
 
-def test_drift_leans_unevenly_and_spares_the_bottom() -> None:
-    """Drift displaces the top share of rows with an uneven slope and leaves the rest.
+def test_drift_spills_across_rows_and_keeps_colours_aligned() -> None:
+    """Drift must move content ACROSS rows, and only in whole pixels.
 
-    Two properties carry the visual intent: the displacement must grow downwards (a lean,
-    not a clean shear) and only the announced share of rows may move (pos: at max
-    intensity the untouched band is what keeps the image readable).
+    The first take rotated each row on itself: on a vertical gradient an inside-row rotation
+    is invisible, so the background stayed pristine and only the shapes moved — the seam that
+    proves a misread file was missing (verdict L30). Here the tail of the payload is rolled,
+    so the end of a row spills into the next one, and the step stays a multiple of three so
+    the RGB channels are not rotated.
     """
-    rows, cols = 20, 40
-    payload = np.arange(rows * cols * 3, dtype=np.uint8)
-    img = (payload.astype(np.float32) / np.float32(255.0)).reshape(rows, cols, 3)
-    out = _apply(img, amount=0.6, operation="drift", stride=3, offset=120)
-    src = payload.reshape(rows, cols * 3)
-    dst = np.round(np.clip(out, 0.0, 1.0) * 255).astype(np.uint8).reshape(rows, cols * 3)
-    shifts = []
-    for row in range(rows):
-        found = [k for k in range(cols * 3) if np.array_equal(np.roll(src[row], k), dst[row])]
-        assert found, f"row {row} is not a rotation of its source"
-        shifts.append(min(found))
-    touched = int(round(rows * (0.25 + 0.75 * 0.6)))
-    assert shifts[0] == 0  # the first row anchors the lean
-    assert shifts[touched - 1] > shifts[0]  # it grows downwards
-    assert all(shift == 0 for shift in shifts[touched:])  # the rest is spared
-    steps = [b - a for a, b in zip(shifts[:touched], shifts[1:touched], strict=False)]
-    assert len(set(steps)) > 1  # uneven: a real shear would give one constant step
+    img = _random_image((40, 60))
+    before = _bytes(img)
+    out = _apply(img, amount=0.5, operation="drift", stride=30, offset=0, seed=5)
+    after = _bytes(out)
+    assert out.shape == img.shape
+    assert not np.array_equal(after, before)
+    # The payload was rolled, not rotated row by row: a row must see its neighbour's bytes.
+    row_length = 60 * 3
+    assert not np.array_equal(after[row_length:], before[row_length:])
+    rotated_rows = sum(
+        1 for row in range(40)
+        if not any(
+            np.array_equal(after[row * row_length:(row + 1) * row_length],
+                          np.roll(before[row * row_length:(row + 1) * row_length], k))
+            for k in range(-12, 13)
+        )
+    )
+    assert rotated_rows > 0  # at least one row is no longer a rotation of itself
+
+
+def test_drift_uses_stride_and_offset() -> None:
+    """Both parameters must change the result: a dead control is a bug, not a style."""
+    img = _random_image((64, 64))
+    base = _apply(img, amount=1.0, operation="drift", stride=30, offset=0, seed=5)
+    wider = _apply(img, amount=1.0, operation="drift", stride=300, offset=0, seed=5)
+    anchored = _apply(img, amount=1.0, operation="drift", stride=30, offset=11, seed=5)
+    assert not np.array_equal(base, wider)
+    assert not np.array_equal(base, anchored)
+
+
+def test_shift_moves_even_with_the_default_offset() -> None:
+    """`shift` at offset 0 used to do nothing: the neutral anchor zeroed the distance."""
+    img = _striped((8, 8, 3))
+    moved = _apply(img, amount=1.0, operation="shift", stride=96, offset=0)
+    assert not np.array_equal(moved, img)
+    assert np.array_equal(_apply(img, amount=0.0, operation="shift", stride=96, offset=0), img)
 
 
 def test_drift_is_deterministic_and_bounded() -> None:

@@ -30,7 +30,7 @@ _PARAMS = (
 
 LABEL_NOTES: dict[str, str] = {
     "amount": "the intensity: how many byte windows are moshed",
-    "operation": "the byte rearrangement: swap, shift or interpret",
+    "operation": "the byte rearrangement: swap, shift, interpret or drift",
     "stride": "the window length in bytes, kept a multiple of 3",
     "offset": "the byte displacement anchoring the windows",
     "seed": "the seed choosing random window positions",
@@ -89,9 +89,40 @@ def _swap(data: np.ndarray, stride: int, offset: int, count: int, rng: np.random
         data[b : b + stride] = tmp
 
 
-def _shift(data: np.ndarray, offset: int, amount: float) -> np.ndarray:
-    """Circularly rotate the whole payload by round(amount * offset) bytes, edges wrapped."""
-    return np.roll(data, int(round(amount * offset)))
+def _indel(data: np.ndarray, position: int, distance: int) -> None:
+    """Rotate only the tail of the payload, so an error at P contaminates everything after.
+
+    Rotating the whole stream is a translation: nothing happens at a particular place, and
+    the image comes out clean (Opus, verdict L30). Real byte damage does not heal: one lost
+    or inserted byte shifts every byte that follows. ``data[p:] = roll(data[p:], d)`` is that
+    gesture — the end of each row spills into the next, so the seam shows in the background
+    as a diagonal, not just in the shapes.
+    """
+    size = data.size
+    if size == 0 or distance == 0:
+        return
+    start = int(position) % size
+    data[start:] = np.roll(data[start:], distance)
+
+
+def _shift(data: np.ndarray, offset: int, amount: float, stride: int,
+           rng: np.random.Generator | None = None) -> np.ndarray:
+    """Insert or drop bytes at seeded points: the tail slides, the damage propagates.
+
+    ``round(amount * 0)`` is 0, so the neutral anchor made the old rotation do nothing while
+    the slider moved. The scale now falls back to the window length, and the operation edits
+    the stream instead of translating it.
+    """
+    if amount <= 0.0:
+        return data
+    gen = rng if rng is not None else np.random.default_rng(0)
+    scale = offset if offset else stride
+    points = max(1, int(round(amount * _MAX_WINDOWS)))
+    for _ in range(points):
+        distance = int(gen.integers(1, max(2, abs(scale) + 1)))
+        distance = -distance if gen.integers(0, 2) else distance
+        _indel(data, int(gen.integers(0, data.size)), distance)
+    return data
 
 
 def _interpret(
@@ -111,33 +142,37 @@ def _interpret(
 
 def _drift(data: np.ndarray, width: int, stride: int, offset: int, amount: float,
            rng: np.random.Generator | None = None) -> None:
-    """Slide raster rows sideways by a growing, uneven amount: a torn-file lean.
+    """Relit the payload with a wrong row width, so damage spills across rows.
 
-    Two lessons from the visual verdicts went into this shape. First, a constant slope
-    reads as a clean shear (a filter), so the step grows and whole bands restart at random
-    offsets. Second, letting the displacement accumulate without a ceiling destroys the
-    image even at mid intensity, so the travel is capped at a fraction of the row width
-    and only a share of the rows is touched: the shapes must stay recognisable.
+    The previous take rotated each row on itself: with a vertical gradient, a rotation
+    inside a row is invisible, so only the shapes moved and the background stayed pristine —
+    the seam that proves a misread file was missing (Opus, verdict L30). Here the payload is
+    genuinely reshaped as (rows, width + error), so the end of one row flows into the next
+    and the seam crosses the whole image. The error steps at seeded event rows, so the
+    displacement accumulates downwards instead of growing smoothly like a clean shear.
     """
     size = data.size
-    if width <= 0 or size < width:
+    if width <= 0 or size < width or amount <= 0.0:
         return
-    rows = size // width
     gen = rng if rng is not None else np.random.default_rng(0)
-    payload = data[: rows * width].reshape(rows, width).copy()
-    ceiling = max(1, int(width * amount * 0.75))  # never tear more than 3/4 of a row
-    touched = max(1, int(round(rows * (0.25 + 0.75 * amount))))  # fraction of rows hit
-    band = max(1, rows // 5)
-    for row in range(rows):
-        if row >= touched:
-            continue
-        lean = row / max(1, touched - 1)
-        step = int(round(ceiling * lean * (0.6 + 0.8 * lean)))  # accelerates downward
-        if band > 1 and row % band == 0 and row:
-            step = min(ceiling, step + int(gen.integers(-width // 6, width // 6)) % ceiling)
-        if step:
-            payload[row] = np.roll(payload[row], step)
-    data[: rows * width] = payload.reshape(-1)
+    # The width error is the scale: small values bend, large ones shred.
+    error = max(1, int(round(amount * max(3, stride) / 3.0)))
+    # The events must be spread over the WHOLE payload. Stepping by a fraction of the row
+    # width left every event in the first row: ten rolls stacked on top of each other read
+    # as one translation, which is the exact defect this rewrite was meant to remove.
+    events = max(1, int(round(width / 60)))
+    # `offset` biases where the events land: it is the anchor the parameter promises, and a
+    # knob that does nothing is a bug (Opus caught two of those in the first take).
+    spread = max(1, size - width)
+    positions = np.sort((gen.integers(0, spread, events) + int(offset)) % spread)
+    step = 0
+    for position in positions:
+        step += int(gen.integers(1, error + 1)) * 3  # multiple of 3: colours stay honest
+        start = int(position)
+        tail = data[start:]
+        if tail.size > width:
+            broken = tail[: (tail.size // width) * width]
+            data[start: start + broken.size] = np.roll(broken, step)
 
 
 @register_effect("bytemosh", "Byte Mosh", _PARAMS)
@@ -155,7 +190,7 @@ def bytemosh(img: Image, params: dict, rng: np.random.Generator) -> Image:
     count = max(1, int(round(amount * _MAX_WINDOWS)))
     gen = _generator(cfg["seed"], rng)
     if cfg["operation"] == "shift":
-        data = _shift(data, cfg["offset"], amount)
+        data = _shift(data, cfg["offset"], amount, stride, gen)
     elif cfg["operation"] == "drift":
         _drift(data, shape[1] * 3 if len(shape) == 3 else shape[1], stride,
                cfg["offset"], amount, gen)

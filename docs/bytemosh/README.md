@@ -10,12 +10,12 @@ Lattice n'accepte pas de vidéo en entrée (§20 du contrat).
 
 ## Les quatre opérations
 
-| Opération | Ce qu'elle fait | Rendement |
+| Opération | Ce qu'elle fait | Ce qu'on voit |
 |---|---|---|
-| `swap` | échange deux fenêtres d'octets de même longueur | le plus lisible |
-| `shift` | rotation circulaire de tout le flux | translate l'image, propre |
-| `interpret` | recopie une fenêtre ailleurs dans le tampon | recopie de blocs |
-| `drift` | décale chaque ligne un cran de plus, en pente irrégulière | cisaille, dérive |
+| `swap` | échange deux fenêtres d'octets de même longueur | deux blocs changent de place, le reste est intact |
+| `shift` | rotation circulaire de **tout** le flux | l'image est translatée : honnête, mais ce n'est pas une corruption |
+| `interpret` | recopie une fenêtre ailleurs dans le tampon | des blocs recopiés, couleurs retournées |
+| `drift` | relit le flux en décalant les lignes par paliers | un cisaillement qui s'aggrave vers le bas |
 
 ## Paramètres
 
@@ -32,6 +32,11 @@ horizontalement en gardant les couleurs justes ; un décalage **non multiple de 
 les canaux RVB les uns par rapport aux autres et fait apparaître des couleurs qui ne sont
 pas dans la source. Les deux sont utiles, mais ce n'est pas le même effet.
 
+Ce n'est pas un réglage séparé : `swap` et `interpret` gardent la fenêtre alignée sur 3 mais
+pas forcément les positions, `shift` tire des distances quelconques et `drift` les force
+alignées. Les couleurs retournées que vous voyez dans les exemples viennent de là — c'est le
+vocabulaire du databending, pas un défaut.
+
 ## Exemples
 
 La source est un dégradé vertical avec un anneau jaune, un rectangle vert et du texte
@@ -42,8 +47,8 @@ blanc — les formes droites rendent les déplacements lisibles.
   reste reconnaissable
 - `02_shift.png` — translation du flux
 - `03_interpret.png` — une fenêtre de 50 lignes recopiée ailleurs, en escalier
-- `04_drift_03.png` / `05_drift_10.png` — la dérive à intensité 0,3 puis 1,0
-- `06_swap_simple.png` — un seul échange de 150 lignes, le cas le plus propre
+- `04_drift_03.png` / `05_drift_10.png` — la dérive à deux intensités
+- `06_swap_single.png` — un seul échange de 150 lignes, le cas le plus lisible
 
 ## Recette
 
