@@ -30,7 +30,6 @@ from lattice_dither.preprocess import detect_grid, snap_to_grid  # noqa: E402
 from lattice_dither.ui import main_window as mw  # noqa: E402
 from lattice_dither.ui.algorithm_panel import AlgorithmPanel  # noqa: E402
 from lattice_dither.ui.effects_panel import EffectsPanel  # noqa: E402
-from lattice_dither.ui.gallery import AlgorithmGallery  # noqa: E402
 
 # aliased: pytest would collect a bare test_image as a test function
 from lattice_dither.ui.gallery import test_image as synthetic_image  # noqa: E402
@@ -592,7 +591,9 @@ def test_the_effects_panel_lists_the_cmyk_halftone(window: mw.MainWindow) -> Non
 
 def test_the_gallery_is_wired_into_the_window(window: mw.MainWindow) -> None:
     """The gallery lives in its own dock and holds one cell per registered algorithm."""
-    assert isinstance(window.gallery, AlgorithmGallery)
+    # AlgorithmGallery is a factory in the app module (the widget lives in the core),
+    # so the check is duck-typed on the API the window relies on.
+    assert hasattr(window.gallery, "cells") and hasattr(window.gallery, "set_search")
     assert window.dockWidgetArea(window.gallery_dock) == Qt.DockWidgetArea.LeftDockWidgetArea
     assert window.gallery_dock.widget() is window.gallery
     assert len(window.gallery.cells()) == len(list_algorithms())

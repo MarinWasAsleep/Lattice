@@ -21,7 +21,10 @@ from PySide6.QtWidgets import QApplication, QWidget  # noqa: E402
 import lattice_core.dither  # noqa: E402,F401  (registers every algorithm)
 from lattice_core.pipeline import PaletteSpec  # noqa: E402
 from lattice_core.registry import AlgorithmInfo  # noqa: E402
-from lattice_dither.ui import gallery as gallery_module  # noqa: E402
+
+# The widget now lives in the core; the patches must land on the module that READS these
+# names, not on the app's thin binding.
+from lattice_core.ui import algorithm_gallery as gallery_module  # noqa: E402
 from lattice_dither.ui.gallery import (  # noqa: E402
     THUMB_SIZE,
     AlgorithmGallery,

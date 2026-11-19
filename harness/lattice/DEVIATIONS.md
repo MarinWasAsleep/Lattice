@@ -905,3 +905,30 @@ invented in code. The orchestrator folds them into the contract at the next chec
   cli, actions), le doublon `gallery.py` de Dither (440 l. contre 300 dans le cœur), puis
   la montée en 1.0.0.
 - status: applied
+
+### DEV-244 — L36 · `gallery.py` : promotion de la vraie galerie, suppression du prototype mort
+- classes: E3 | task: L36 | status: applied | date: 2026-11-19
+- facts (mesurés avant de toucher au code) : `lattice_core/ui/gallery.py` (300 l.) n'était
+  référencé par AUCUNE application — seulement par `tests/test_gallery.py`. La galerie
+  réellement affichée était `lattice_dither/ui/gallery.py` (440 l.), plus riche : cache disque
+  clé par `(algorithm_id, params_hash, palette_hash)`, recherche par nom et par famille, worker
+  de vignettes. Le « doublon » n'était donc pas deux versions concurrentes mais un widget
+  vivant et un prototype jamais branché.
+- decision: promouvoir la galerie de Dither en `lattice_core/ui/algorithm_gallery.py`, supprimer
+  le prototype, et ne laisser dans l'app qu'une fabrique de 30 lignes. Les deux liens à l'app
+  sont injectés : la fonction de traduction (`set_translator`) et le nom du dossier de données
+  (`app_dir_name`, qui remplace un chemin Windows codé en dur).
+- choix de forme: l'app expose une **fabrique** et non une sous-classe. `test_ui_no_duplicates`
+  interdit qu'un nom de classe vive dans les deux paquets, et une sous-classe aurait satisfait
+  la lettre du partage en gardant une seconde définition du même widget.
+- tests: 51 lignes de tests retirées (elles couvraient `set_source`, `save_png` et le worker du
+  prototype, trois APIs que le widget promu n'a pas) ; `tests/test_ui_gallery.py` (16 tests) pointe
+  maintenant ses patches vers le module du core, celui qui LIT `list_algorithms` et
+  `render_thumbnail` — les patcher sur le binding ne portait plus ; le test de packaging suit le
+  fichier déplacé.
+- evidence: `AlgorithmGallery()` dans l'app rend 33 cellules, cache
+  `~/AppData/Local/LatticeDither/thumbs`, tooltip traduit en français (« Atkinson (diffusion
+  d'erreurs) »). 2309 tests verts, ruff 0, contrat OK.
+- note: la galerie du core prend `app_dir_name` en argument plutôt que de deviner, donc Glitch et
+  Glyph pourront l'afficher avec leur propre cache sans se marcher dessus.
+- status: applied

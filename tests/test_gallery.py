@@ -10,16 +10,13 @@ import ast  # noqa: E402
 import json  # noqa: E402
 import time  # noqa: E402
 from collections import Counter  # noqa: E402
-from collections.abc import Callable, Iterator  # noqa: E402
-from contextlib import contextmanager  # noqa: E402
+from collections.abc import Callable  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
 from PIL import Image as PILImage  # noqa: E402
-from PySide6.QtCore import Qt, QThread  # noqa: E402
-from PySide6.QtTest import QTest  # noqa: E402
-from PySide6.QtWidgets import QApplication, QFileDialog, QWidget  # noqa: E402
+from PySide6.QtWidgets import QApplication  # noqa: E402
 
 import lattice_core.dither  # noqa: E402,F401  (registers every algorithm)
 import lattice_core.effects  # noqa: E402,F401  (registers every effect)
@@ -48,8 +45,6 @@ from lattice_core.presets import save_preset as save_v2_preset  # noqa: E402
 from lattice_core.registry import get_algorithm, get_effect, list_algorithms  # noqa: E402
 from lattice_core.renderers import list_renderers  # noqa: E402
 from lattice_core.types import RGB8  # noqa: E402
-from lattice_core.ui import gallery as ui_gallery  # noqa: E402
-from lattice_core.ui.gallery import THUMB_SIZE, GalleryWorker, ReferenceGallery  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
@@ -83,11 +78,6 @@ def _wait_until(predicate: Callable[[], bool], timeout: float = 120.0) -> bool:
     return predicate()
 
 
-def _all_ready(widget: ReferenceGallery) -> bool:
-    """Return True when every cell of the gallery shows a thumbnail."""
-    return all(cell.has_thumbnail() for cell in widget.cells())
-
-
 def _assert_rgb8(rgb8: RGB8, shape: tuple[int, ...]) -> None:
     """Assert one render result is a uint8 RGB image of the expected shape."""
     assert rgb8.dtype == np.uint8
@@ -113,17 +103,6 @@ def _core_errors(path: Path) -> list[str]:
         except KeyError:
             errors.append(f"{kind} {ident!r} is not registered")
     return errors
-
-
-@contextmanager
-def _open_gallery() -> Iterator[ReferenceGallery]:
-    """Yield a reference gallery, stopped and closed afterwards."""
-    widget = ReferenceGallery()
-    try:
-        yield widget
-    finally:
-        widget.shutdown()
-        widget.close()
 
 
 def test_the_reference_image_is_deterministic_and_valid(ref: np.ndarray) -> None:
@@ -291,80 +270,7 @@ def test_a_starter_preset_round_trips_with_unknown_keys_preserved() -> None:
     assert to_json(again) == to_json(preset)
 
 
-def test_the_widget_shows_one_cell_per_entry(qapp: QApplication) -> None:
-    with _open_gallery() as widget:
-        assert len(widget.cells()) == len(gallery_entries())
-        assert [c.entry_id for c in widget.cells()] == [e.id for e in gallery_entries()]
-        assert all(not cell.has_thumbnail() for cell in widget.cells())
-        assert _wait_until(lambda: _all_ready(widget)), "thumbnails never arrived"
-        assert [c.name_label.text() for c in widget.cells()] == [e.label for e in widget.entries()]
 
-
-def test_the_widget_renders_on_a_new_source(qapp: QApplication,
-                                            rng: np.random.Generator) -> None:
-    with _open_gallery() as widget:
-        assert _wait_until(lambda: _all_ready(widget))
-        widget.set_source(rng.random((96, 128, 3), dtype=np.float32))
-        assert all(not cell.has_thumbnail() for cell in widget.cells())
-        assert _wait_until(lambda: _all_ready(widget))
-        widget.set_source(None)
-        assert _wait_until(lambda: _all_ready(widget))
-
-
-def test_the_widget_save_button_writes_one_small_png(
-        qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    with _open_gallery() as widget:
-        assert _wait_until(lambda: _all_ready(widget))
-        target = tmp_path / "ui_gallery.png"
-        monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *a, **k: (str(target), ""))
-        QTest.mouseClick(widget.save_button, Qt.MouseButton.LeftButton)
-        assert target.read_bytes()[:8] == PNG_MAGIC
-        assert target.stat().st_size < MAX_GALLERY_BYTES
-        assert list(tmp_path.iterdir()) == [target]
-        assert widget.save_png(tmp_path / "direct.png").read_bytes() == target.read_bytes()
-
-
-def test_the_worker_runs_off_the_gui_thread(qapp: QApplication,
-                                            monkeypatch: pytest.MonkeyPatch) -> None:
-    render_threads: list[QThread] = []
-    original = ui_gallery.render_entry_thumbnail
-
-    def spy(spec: PipelineSpec, source: np.ndarray, size: int = THUMB_SIZE) -> np.ndarray:
-        render_threads.append(QThread.currentThread())
-        return original(spec, source, size)
-
-    monkeypatch.setattr(ui_gallery, "render_entry_thumbnail", spy)
-    with _open_gallery() as widget:
-        assert _wait_until(lambda: _all_ready(widget))
-        worker = widget._worker
-        assert isinstance(worker, GalleryWorker)
-        assert not isinstance(worker, QWidget)
-        assert worker.thread() is not qapp.thread()
-        assert render_threads and all(thread is not qapp.thread() for thread in render_threads)
-
-
-def test_a_failing_thumbnail_keeps_the_placeholder(qapp: QApplication,
-                                                   monkeypatch: pytest.MonkeyPatch) -> None:
-    def boom(spec: PipelineSpec, source: np.ndarray, size: int = THUMB_SIZE) -> np.ndarray:
-        raise RuntimeError("no render")
-
-    monkeypatch.setattr(ui_gallery, "render_entry_thumbnail", boom)
-    with _open_gallery() as widget:
-        assert _wait_until(lambda: "no render" in widget.cells()[0].toolTip())
-        assert all(not cell.has_thumbnail() for cell in widget.cells())
-        assert len(widget.cells()) == len(gallery_entries())
-
-
-def test_clicking_a_cell_reports_its_entry_and_shutdown_is_idempotent(
-        qapp: QApplication) -> None:
-    with _open_gallery() as widget:
-        assert _wait_until(lambda: _all_ready(widget))
-        chosen: list[str] = []
-        widget.cell_chosen.connect(chosen.append)
-        QTest.mouseClick(widget.cells()[1], Qt.MouseButton.LeftButton)
-        assert chosen == [widget.cells()[1].entry_id]
-        widget.shutdown()
-        widget.shutdown()
 
 
 def _import_roots(path: Path) -> set[str]:
@@ -383,4 +289,6 @@ def test_the_gallery_modules_respect_the_core_packaging_rules() -> None:
     apps = {"lattice_dither", "lattice_glyph", "lattice_glitch"}
     base = _import_roots(ROOT / "lattice_core" / "gallery.py")
     assert not base & (apps | {"PySide6"})
-    assert not _import_roots(ROOT / "lattice_core" / "ui" / "gallery.py") & apps
+    # The algorithm gallery moved into the core as `algorithm_gallery` (the old ui/gallery.py
+    # was a prototype no app used); it must still import no application module.
+    assert not _import_roots(ROOT / "lattice_core" / "ui" / "algorithm_gallery.py") & apps
