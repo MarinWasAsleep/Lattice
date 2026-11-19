@@ -80,6 +80,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
+      # Both jobs upload to the same release. Serialising them is what keeps the upload honest:
+      # run in parallel, the second one collides with the first and the API answers 404.
+      max-parallel: 1
       matrix:
         include:
           - os: ubuntu-latest
@@ -161,10 +164,12 @@ jobs:
       - name: Attach the binaries to the release
         uses: softprops/action-gh-release@v2
         with:
+          # Each job uploads only what it built: Linux ships its two binaries, Windows its two
+          # .exe. `files` listing all four means every job warns about the two it never made.
           files: |
             dist/Lattice
             dist/lattice
             dist/Lattice.exe
             dist/lattice.exe
           fail_on_unmatched_files: false
-          generate_release_notes: true
+          generate_release_notes: ${{ runner.os == 'Linux' }}
