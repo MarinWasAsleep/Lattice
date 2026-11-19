@@ -175,8 +175,8 @@ last_update: 2026-11-18
 | H10 | after L1 | ✅ done 2026-11-16 — app lancée par l'humain (`.venv/bin/python -m lattice_dither`, intacte) ; `lattice_core` s'installe seul en venv vierge (sans PySide6) |
 | H11 | after L2 | ✅ done 2026-11-16 — analyse Opus (H11-analyse-result.json), décisions B/A/A/A/A, amendements AMD-008 appliqués puis **contrat gelé en 0.1.0** |
 | H12 | after wave 1 | ✅ **done 2026-11-18** — analyses Sonnet + Opus high (4 passes) ; **4 décisions humaines** : (1) mode `palette` respecte `bg`, (2) plafond corrigé par le fond de case portant le ton, (3) renderer `text` répète son paragraphe, (4) corriger les deux puis vitrine = `text`. Cartes **L9b** et **L9c** créées. AMD-010 ratifié, AMD-011 sous réserve de test |
-| H13 | after wave 2 | pending — analyse Sonnet (thinking high) (Lattice Glitch vivant, pas un filtre ?) → toi : trancher |
-| H14 | L22 | pending — acceptance in PhotoCraft then DesignCraft |
+| H13 | after wave 2 | ✅ **done 2026-11-19** — 4 passes Opus (thinking high). Verdict final **H13 CLOS** : « Lattice Glitch est vivant », condition A satisfaite (axe `param` + `--reseed` : 81,2 % des pixels changent sur un balayage nul, contre 0 % sans). Notes : vhs_soft 7/10, channel_rift 6/10, crt_finish 5/10, sort_echo 3/10. Preuve : `harness/lattice/docs/h13/new/`. DEV-240 |
+| H14 | L22 | ✅ done 2026-11-19 — prouvé par L22 (commit 8e9d422) : PhotoCraft 3 apps écart 0.000000, DesignCraft width 160, exit 3 si hôte absent |
 
 La numérotation des checkpoints continue à travers les générations : 1.0 H0-H4, 1.1 H5-H9,
 0.1 H10-H14 (registre : `harness/README.md`).

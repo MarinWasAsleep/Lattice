@@ -70,6 +70,7 @@ def render_loop(
     from_value: float | None = None,
     to_value: float | None = None,
     curve: str = "sin",
+    reseed: int = 0,
 ) -> list[RGB8]:
     """Render count frames from src, varying only axis; other spec fields stay fixed.
 
@@ -80,6 +81,12 @@ def render_loop(
     On the param axis, param="<effect>.<key>" walks one numeric parameter from
     from_value to to_value and back (curve "sin" or "linear"), so frame[count-1]
     equals frame[0]; the other axes ignore the four param keywords.
+
+    reseed steps the seed on each frame of the param axis. Without it the param axis is
+    only an intensity change on a FIXED structure: the shakes, tears and noise all draw
+    from the same seed, so a VHS preset tears in exactly the same place on every frame
+    (Opus, H13c: "a filter with a knob being turned"). With reseed the random modules
+    draw a new stream per frame while the animated parameter keeps its curve.
     """
     if axis not in AXES:
         raise ValueError(f"unknown animation axis: {axis!r}, expected one of {AXES}")
@@ -88,6 +95,11 @@ def render_loop(
     shift = int(step)
     if axis == "param":
         pairs = _param_pairs(src, spec, count, param, from_value, to_value, curve)
+        if reseed:
+            pairs = [
+                (img, replace(frame_spec, seed=int(frame_spec.seed) + reseed * index))
+                for index, (img, frame_spec) in enumerate(pairs)
+            ]
     else:
         base = _iterations_base(spec) if axis == "iterations" else 0
         pairs = [

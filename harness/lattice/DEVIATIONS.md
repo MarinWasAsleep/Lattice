@@ -757,3 +757,39 @@ invented in code. The orchestrator folds them into the contract at the next chec
   se diagnostique d'abord en vérifiant que le paramètre arrive intact.
 - laissé ouvert : compression des hautes lumières pour tenir la teinte même à `mix` 1 (carte).
 - status: applied
+
+### DEV-240 — H13 CLOS · cloture « Lattice Glitch vivant » (verdict Opus H13c, 2 passes)
+- classes: AMD (checkpoint produit) + E1 + E3 | task: H13 | status: applied | date: 2026-11-19
+- context: troisième et quatrième jugement d'Opus (thinking high) sur les boucles Glitch. Les
+  deux premiers avaient refusé la clôture ; le quatrième la donne explicitement.
+- history of the verdicts: H13 #1 « OUI SOUS CONDITIONS » → 4 défauts (CRT, axe param absent,
+  raccord dupliqué, source floue). H13b : refus, « le symptôme a disparu, pas la cause ».
+  H13c #1 : refus, mais en AJOUTANT une condition, ce qu'il assume (« c'est en partie déplacer
+  le but »). H13c #2 : **H13 CLOS**, sans condition nouvelle.
+- condition A (la sienne, la vraie condition de « vivant ») : « sur l'axe param, les modules
+  aléatoires tirent un flux nouveau à chaque frame ». Facts vérifiés : `context.streams` (un
+  instantané de session) prenait le pas sur `spec.seed`, donc changer la graine ne faisait RIEN
+  — mesuré, deux rendus avec des graines différentes sortaient byte-identiques. Priorité
+  corrigée : flux de frame > graine du spec > instantané.
+- implémentation: `render_loop(..., reseed=STEP)` + `--reseed STEP` au CLI. La graine avance de
+  STEP à chaque frame de l'axe param ; les autres axes l'ignorent. `RenderContext.seed` porte la
+  graine qui a produit ses flux, ce qui rend la comparaison possible sans changer les appelants.
+- preuve (le test qu'il réclame, balayage NUL from=to pour isoler la graine) : sans reseed les
+  4 frames sont byte-identiques (la structure figée qu'il diagnostiquait) ; avec reseed,
+  **81,2 % des pixels changent de plus de 8 niveaux** sur `vhs_soft`. Deux tests ajoutés :
+  `test_reseed_isolated_by_a_null_sweep`, `test_a_fixed_seed_beats_the_session_snapshot`.
+- mesures de mouvement sur les 4 boucles (reseed 7) : vhs_soft 8/8 frames distinctes,
+  crt_finish 8/8, channel_rift 5/8 (un module déterministe), sort_echo **2/3 — il ne bouge pas**.
+- notes finales du juge : vhs_soft **7/10**, channel_rift 6/10, crt_finish 5/10, sort_echo 3/10.
+- défauts qu'il a trouvés et que je n'avais pas vus :
+  1. `pixel_sort.brightness` sature quand l'intervalle de tri couvre toute la ligne ; remonter
+     le paramètre ne change plus rien. Ce n'est PAS une plage mal choisie : c'est le calcul des
+     intervalles qui est à revoir. → carte de fond, hors clôture.
+  2. mon générateur de planches dupliquait une frame quand le GIF en avait moins de 4, ce qui
+     faisait croire à un état de plus. Corrigé : `tools/h13_planche.py` ne bourre jamais, et il
+     publie le vrai compte (`3 frames | 2 distinctes`).
+- après la clôture, sans bloquer : sort_echo à refaire entièrement ; animer le CRT sur du
+  temporel (barre qui défile, scintillement) au lieu de `curvature` qui fait gonfler l'écran
+  (« aucun tube ne fait ça ») ; reseed activé par défaut ou documenté ; le nom `channel_rift`
+  promet une déchirure par ligne que le preset ne montre pas.
+- status: applied — H13 clos, preuve committée dans `harness/lattice/docs/h13/new/`.

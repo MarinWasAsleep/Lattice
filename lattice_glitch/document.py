@@ -58,6 +58,9 @@ class RenderContext:
     mask_ids: tuple[str | None, ...] = ()
     masks: Mapping[str, Image] = field(default_factory=dict)
     streams: tuple[int, ...] = ()
+    # The seed these streams were derived from. A caller that steps `spec.seed` (the param
+    # axis with reseed) must not be answered from a snapshot built on the old seed.
+    seed: int | None = None
 
 
 def load_image(path: str | Path) -> Image:
@@ -99,6 +102,12 @@ def _module_rng(position: int, context: RenderContext,
         # A loop frame owns its streams for the whole stack: that is what makes the
         # seed axis vary every unlocked module while a locked one keeps its stream.
         return np.random.default_rng(frame_streams[position % len(frame_streams)])
+    # The spec's own seed must beat the session snapshot. `context_of_preset` pins a stream
+    # per slot from the preset seed, so when the caller steps `spec.seed` (the param axis
+    # with reseed) the snapshot would silently answer with the OLD seed and the frames came
+    # out byte-identical (measured: md5 equal with and without --reseed).
+    if spec is not None and context.seed is not None and int(spec.seed) != int(context.seed):
+        return np.random.default_rng(module_seed(int(spec.seed), position))
     if position < len(context.streams):
         return np.random.default_rng(context.streams[position])
     return controller.rng(position)
@@ -164,7 +173,8 @@ def context_of_preset(preset: Preset) -> RenderContext:
         planes = mask.resolve_masks(preset.masks)
     except (OSError, ValueError) as exc:
         raise DocumentError(f"cannot resolve the preset context: {exc}") from None
-    return RenderContext(mask_ids=mask_ids, masks=planes, streams=streams)
+    return RenderContext(mask_ids=mask_ids, masks=planes, streams=streams,
+                         seed=int(preset.seed))
 
 
 def render_preset(image: Image, preset: Preset) -> RGB8:

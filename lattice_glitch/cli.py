@@ -136,7 +136,7 @@ def _cmd_loop(args: argparse.Namespace) -> int:
         frames = animation.render_loop(
             image, to_pipeline_spec(preset), count=args.frames, axis=args.axis,
             param=args.param, from_value=args.from_value, to_value=args.to_value,
-            curve=args.curve,
+            curve=args.curve, reseed=args.reseed,
             render_fn=partial(render_rgb8, context=context_of_preset(preset)))
         target = Path(args.output)
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -331,6 +331,10 @@ def _add_loop_verb(verbs: argparse._SubParsersAction) -> None:
                       help="with --axis param: the B value")
     loop.add_argument("--curve", default="sin", choices=("sin", "linear"),
                       help="with --axis param: the A->B->A curve")
+    loop.add_argument("--reseed", type=int, default=0, metavar="STEP",
+                      help="with --axis param: also step the seed every STEP frames, so the "
+                           "random modules draw a new stream instead of repeating the same "
+                           "structure (0 = off, the historical behaviour)")
     loop.add_argument("--json", action="store_true", help="print a JSON result")
     loop.set_defaults(handler=_cmd_loop)
 

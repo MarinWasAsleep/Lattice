@@ -500,3 +500,82 @@ def test_param_axis_varies_only_the_first_matching_instance() -> None:
                 param="channel_shift.amount", from_value=1.0, to_value=9.0)
     assert [s.post_effects[1].params["amount"] for s in seen] == [6.0, 6.0]
     assert seen[0].post_effects[0].params["amount"] == 1.0
+
+
+def test_param_axis_reseed_rerolls_the_random_structure() -> None:
+    """The param axis alone is an intensity knob on a frozen structure.
+
+    Opus refused H13 on this: the seed stayed fixed, so a VHS preset tore in exactly the
+    same place on every frame — "a filter with a knob being turned". `reseed` steps the
+    seed per frame while the animated parameter keeps its curve.
+    """
+    # `feedback` with the displace transform draws its field from the rng, so a new seed
+    # really changes the structure; a deterministic effect like channel_shift could not
+    # show the difference and would prove nothing.
+    spec = _feedback()
+    frozen = render_loop(_gradient(), spec, count=4, axis="param",
+                         param="feedback.amount", from_value=1.0, to_value=9.0)
+    reseeded = render_loop(_gradient(), spec, count=4, axis="param",
+                           param="feedback.amount", from_value=1.0, to_value=9.0,
+                           reseed=7)
+    assert len(reseeded) == len(frozen)
+    assert not all(np.array_equal(a, b) for a, b in zip(frozen, reseeded, strict=True))
+    # The parameter still walks its curve: the first frame keeps the start value.
+    assert np.array_equal(reseeded[0], frozen[0])  # seed + 0 == seed
+
+
+def test_reseed_zero_is_the_historical_behaviour() -> None:
+    """reseed=0 must not change a single pixel of the existing param loop."""
+    spec = _channel()
+    default = render_loop(_gradient(), spec, count=3, axis="param",
+                         param="channel_shift.amount", from_value=1.0, to_value=5.0)
+    explicit = render_loop(_gradient(), spec, count=3, axis="param",
+                           param="channel_shift.amount", from_value=1.0, to_value=5.0,
+                           reseed=0)
+    assert all(np.array_equal(a, b) for a, b in zip(default, explicit, strict=True))
+
+
+def test_reseed_is_ignored_on_the_other_axes() -> None:
+    """Only the param axis reseeds; the seed axis already varies the seed itself."""
+    spec = _channel()
+    base = render_loop(_gradient(), spec, count=3, axis="seed")
+    with_reseed = render_loop(_gradient(), spec, count=3, axis="seed", reseed=7)
+    assert all(np.array_equal(a, b) for a, b in zip(base, with_reseed, strict=True))
+
+
+def test_reseed_isolated_by_a_null_sweep() -> None:
+    """The only test that isolates the reseed, as the H13c judge asked for.
+
+    With a null sweep (from_value == to_value) the parameter never moves, so ANY difference
+    between frames can only come from the seed. Without reseed the frames are byte-identical
+    — that is the "fixed structure" the judge diagnosed. With reseed a large share of pixels
+    must differ, not just a handful.
+    """
+    spec = _feedback()
+    frozen = render_loop(_gradient(64), spec, count=4, axis="param",
+                         param="feedback.amount", from_value=4.0, to_value=4.0)
+    reseeded = render_loop(_gradient(64), spec, count=4, axis="param",
+                           param="feedback.amount", from_value=4.0, to_value=4.0, reseed=7)
+    assert all(np.array_equal(frozen[0], frame) for frame in frozen[1:])  # no motion at all
+    assert not np.array_equal(reseeded[0], reseeded[1])
+    changed = float((np.abs(reseeded[1] - reseeded[0]).max(axis=2) > 8 / 255).mean())
+    assert changed > 0.10  # a real re-roll, not a stray pixel
+
+
+def test_a_fixed_seed_beats_the_session_snapshot() -> None:
+    """Non-regression for the priority fix: spec.seed must win over context.streams.
+
+    The snapshot was resolved before `spec.seed`, so stepping the seed changed nothing and
+    the param axis with reseed produced byte-identical frames. Any fixed render that changed
+    its seed mid-session was already silently wrong.
+    """
+    from lattice_glitch.document import RenderContext, render_rgb8
+
+    src = _gradient(32)
+    spec = _feedback(seed=7)  # the glitch path: no algorithm, no palette
+    ctx = RenderContext(streams=(1234,), seed=7)  # snapshot built from seed 7
+    same = render_rgb8(src, replace(spec, algorithm_id=None, palette=None), context=ctx)
+    other = render_rgb8(src, replace(spec, algorithm_id=None, palette=None, seed=8), context=ctx)
+    again = render_rgb8(src, replace(spec, algorithm_id=None, palette=None), context=ctx)
+    assert np.array_equal(same, again)  # deterministic
+    assert not np.array_equal(other, same)  # a new seed is honoured, not masked by the snapshot
