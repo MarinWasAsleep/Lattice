@@ -101,15 +101,23 @@ class RendererPanel(QWidget):
         self._show(str(self.selector.currentData()))
         self.changed.emit()
 
+    def _clear_rows(self) -> None:
+        """Remove every row of the form, labels and fields included.
+
+        Two things were wrong here. ``takeAt`` empties the layout's items but leaves the row
+        count untouched and hands back rows whose widgets stay alive: three renderer changes
+        stacked three sets of labels, and the screen showed two "Background" labels with a ghost
+        field over the ramp. ``removeRow`` is the call that actually drops a row, and it is what
+        keeps a rebuilt form to its own options.
+        """
+        while self.form.rowCount():
+            self.form.removeRow(0)
+
     def _show(self, name: str) -> None:
         """Rebuild the option form for name, every widget at its default."""
         self._renderer = name
         self._values = {}
-        while self.form.count():
-            item = self.form.takeAt(0)
-            widget = item.widget() if item is not None else None
-            if widget is not None:
-                widget.deleteLater()
+        self._clear_rows()
         self._widgets = {}
         for spec in option_tools.specs_for(name):
             widget = _widget_for(spec, self.host)

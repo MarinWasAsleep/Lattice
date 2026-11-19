@@ -186,3 +186,35 @@ def test_the_canvas_background_is_a_neutral_grey() -> None:
     assert "setBackgroundBrush(QColor(28, 28, 28))" in source
     colour = QColor(28, 28, 28)
     assert colour.red() == colour.green() == colour.blue()
+
+
+def test_switching_renderer_leaves_no_ghost_widgets(qapp: QApplication) -> None:
+    """Rebuilding the option form must destroy the previous rows, labels included.
+
+    ``QFormLayout.takeAt`` returns a row whose ``widget()`` is None — a form row is a label and a
+    field inside a nested layout — so clearing only the item's widget left the old labels alive.
+    Switching renderer three times stacked three sets of them: two "Background" labels and a
+    ghost field over the ramp. The screen showed it; nothing in the suite did.
+    """
+    from lattice.modes.glyph.renderer_panel import RendererPanel
+
+    panel = RendererPanel()
+    selector = panel.selector
+    # Every renderer, twice: the bug only appeared once a form had been rebuilt.
+    indexes = [i for i in range(selector.count())]
+    for index in indexes + indexes:
+        selector.setCurrentIndex(index)
+        QApplication.processEvents()
+
+    rows = panel.form.rowCount()
+    expected = len(panel._widgets)
+    # A renderer with no option shows a single explanatory row, which is legitimate.
+    expected = expected if expected else 1
+    assert rows == expected, (
+        f"the form holds {rows} rows for {expected} options: leftovers from a previous renderer")
+    if not panel._widgets:
+        return
+    # Every remaining label must belong to the current renderer, with no duplicate.
+    labels = [panel.form.itemAt(i, panel.form.ItemRole.LabelRole).widget().text()
+              for i in range(rows)]
+    assert len(labels) == len(set(labels)), f"duplicate labels in the form: {labels}"
