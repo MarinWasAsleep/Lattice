@@ -829,3 +829,47 @@ invented in code. The orchestrator folds them into the contract at the next chec
   clair-peu-saturé, trier le reste. Sans ça, `sort_echo` restera à 5-6/10 sur des images dont
   les formes sont des aplats brillants.
 - status: applied
+
+### DEV-242 — L34 · passe visuelle des 8 starters Dither et Glyph (verdicts Opus)
+- classes: E1 + E3 | task: L34 | status: applied | date: 2026-11-19
+- context: les 8 starters Dither et Glyph n'avaient JAMAIS été jugés visuellement (les 4 Glitch
+  l'avaient été en H13). Quatre passes d'Opus, avec une nouvelle source de test entre la 1re et
+  la 2e.
+- **Défaut de famille n°1 — Glyph ignorait sa palette (bug réel).** Les renderers bitmask et
+  glyph_shape ne lisent la palette que pour décider quels points s'allument ; la couleur vient de
+  `fg`/`bg`. `glyph_01` était en `mode: mono` noir sur blanc : les noms « gameboy », « pico8 » et
+  « ega » n'étaient que des étiquettes. Corrigé : les 4 starters peignent avec les couleurs
+  exactes de leur palette, lues dans `palettes/builtin.py` (#9bbc0f/#0f380f Game Boy, etc.).
+- **Défaut de famille n°2 — inversion de luminance (bug que J'AI introduit).** En mettant un `fg`
+  clair sur un `bg` sombre, l'image s'est inversée : mesuré, corrélation source→sortie de **−0,53**
+  (braille) et **−0,71** (quadrants). Le renderer allume l'encre là où la palette est SOMBRE
+  (`rel < threshold` dans `bitmask.py`). Corrigé en remettant fg sombre sur bg clair : +0,53 et
+  +0,71. Une corrélation négative est le symptôme objectif d'une image inversée.
+- **Défaut de famille n°3 — Glyph était illisible en vignette.** Cellules agrandies (pixel_size
+  6 et 10). Insuffisant selon le juge pour 01 et 04, dont la cause est ailleurs.
+- **Dither : la préparation de ton manquait.** `auto_levels`, `contrast` et un `pixel_size` de 3-4
+  sur les 4 starters : la trame se voit enfin en vignette (3 sur 4 livrables selon le juge).
+- **`dither_01_gameboy` : mon diagnostic était faux, le sien juste.** J'avais accusé le plus petit
+  écart de luminance entre deux verts (0,058). Il a objecté que EGA a un écart de 0,001 et trame
+  très bien. Vérifié : la vraie cause est l'ÉCRÊTAGE — le sommet de la palette est à 0,661 et
+  **40,8 % de l'image est au-dessus**, donc tout ce bloc tombe sur la même couleur. En retirant
+  `auto_levels` et en baissant le gamma, la 3e couleur passe de 0,0 % à **15,3 %**. Reste que le
+  4e vert (#8bac0f, luma 0,60) demeure à 0,00 % même à gamma 0,24 : la vraie correction est de
+  remapper la plage tonale de la source sur [min, max] de la palette, pas de jouer sur le gamma.
+- **`glyph_04_shape` : défaut de fond, non corrigé.** Le test décisif du juge — une image
+  entièrement noire doit produire 30-40 % d'encre — donne **6,0 %** (et 6,0 / 2,0 / 0,0 % pour
+  noir / gris / blanc). Ce n'est donc pas un réglage. Hypothèse écartée par la mesure : comparer
+  le vecteur de cellule (encre 0..1) à la table normalisée par composante donnait **0 %**, soit
+  pire ; le fichier a été restauré à l'identique (aucun diff, 60 tests verts). La cause reste à
+  établir entre l'échantillonnage des six cercles et la normalisation. Carte de fond.
+- **Source de test dédiée** : `docs/starters-source.png` — dégradé vertical complet (8 tranches sur
+  10), lune très claire, deux plans, visage net, texture fine. L'ancienne (portrait de bougé)
+  avait 32,6 % de ses pixels dans une seule tranche tonale et ne permettait pas de distinguer les
+  algorithmes, comme le juge l'avait relevé.
+- **Braille** : reste un semi-bloquant. L'image est juste mais les points se touchent, donc au
+  zoom 1:1 ça se lit comme une trame ordonnée, pas comme du braille. Il faut un espace entre les
+  points et entre les cellules.
+- état à la livraison : `dither_02`, `dither_03`, `dither_04` et `glyph_03` livrables tels quels
+  (avis du juge) ; `glyph_02` bon mais pas démonstratif ; **3 bloquants** : `dither_01`
+  (remapper la plage), `glyph_01` (même cause, même palette), `glyph_04` (défaut de fond).
+- status: applied — correctifs sûrs appliqués, défauts de fond documentés en cartes.

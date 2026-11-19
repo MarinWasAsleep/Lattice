@@ -41,13 +41,16 @@
     "gamma": 1.0,
     "max_side": null,
     "params": {},
-    "pixel_size": 8,
+    "pixel_size": 10,
     "pre_blur": 0.0,
     "saturation": 0.0
   },
   "renderer": {
     "name": "braille",
-    "style": {}
+    "style": {
+      "bg": "#ffffff",
+      "fg": "#000000"
+    }
   },
   "seed": 0,
   "version": 3

@@ -34,14 +34,14 @@
   },
   "pipeline": {
     "algorithm": "bayer_8",
-    "auto_levels": false,
+    "auto_levels": true,
     "brightness": 0.0,
     "color_metric": "srgb",
-    "contrast": 0.0,
+    "contrast": 0.3,
     "gamma": 1.0,
     "max_side": null,
     "params": {},
-    "pixel_size": 1,
+    "pixel_size": 4,
     "pre_blur": 0.0,
     "saturation": 0.0
   },

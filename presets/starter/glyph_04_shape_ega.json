@@ -33,21 +33,24 @@
     "source": "integrated"
   },
   "pipeline": {
-    "algorithm": "ostromoukhov",
-    "auto_levels": false,
+    "algorithm": "floyd_steinberg",
+    "auto_levels": true,
     "brightness": 0.0,
     "color_metric": "srgb",
-    "contrast": 0.0,
+    "contrast": 0.25,
     "gamma": 1.0,
     "max_side": null,
     "params": {},
-    "pixel_size": 8,
+    "pixel_size": 10,
     "pre_blur": 0.0,
     "saturation": 0.0
   },
   "renderer": {
     "name": "glyph_shape",
-    "style": {}
+    "style": {
+      "bg": "#aaaaaa",
+      "fg": "#000000"
+    }
   },
   "seed": 5,
   "version": 3

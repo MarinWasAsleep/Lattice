@@ -10,11 +10,7 @@
       "style": ""
     }
   },
-  "masks": {
-    "flip": {
-      "kind": "v_flip"
-    }
-  },
+  "masks": {},
   "meta": {
     "author": "Lattice",
     "created": "2026-11-19",
@@ -53,15 +49,15 @@
     "gamma": 1.0,
     "max_side": null,
     "params": {},
-    "pixel_size": 8,
+    "pixel_size": 6,
     "pre_blur": 0.0,
     "saturation": 0.0
   },
   "renderer": {
     "name": "glyph_ramp",
     "style": {
-      "bg": "#ffffff",
-      "fg": "#000000",
+      "bg": "#9bbc0f",
+      "fg": "#0f380f",
       "mode": "mono",
       "ramp": "@%#*+=-:. "
     }
