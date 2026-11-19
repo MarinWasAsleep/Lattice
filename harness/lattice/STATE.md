@@ -158,8 +158,12 @@ last_update: 2026-11-18
 | L20 | 2 | done | 0 | 2 | fdc07d3 | coquille lattice-glitch (21 modules, pyproject, CLI sans Qt) — G9 prouvé, crash export corrigé, NTSC simple+presets ; 8 tests, PASS 2e cycle, DEV-222/223 |
 | L-LOOP | 2 | done | 0 | 1 | 5993bb9 | N-image loop → lattice_core (GIF/APNG, axes seed/offset/feedback) — PASS 1er cycle, 22 tests, hy4-flash-free (épreuve A/B du 19/11), DEV-224/226 |
 | L21 | 3 | done | 0 | 1 | 0ad4ab2 | galerie 41 cellules + interchange presets + 12 starters v3 — PASS 1er cycle, 21 tests, qwen4 (épreuve A/B), DEV-225 |
-| L22 | 3 | todo | 0 | 0 | | acceptance in PhotoCraft and DesignCraft |
-| L23 | 3 | todo | 0 | 0 | | packaging multi-plateforme + installation |
+| L22 | 3 | done | 0 | 1 | 8e9d422 | acceptance E2E hôtes vivants — PhotoCraft 3 apps écart 0.0, DesignCraft width 160, exit 3 si hôte absent ; PASS, DEV-227 |
+| L23 | 3 | done | 0 | 1 | 14b5ba8 | packaging Linux prouvé (6 binaires, .desktop, ~/.local/bin) + PowerShell complété (Windows E1) ; DEV-228 |
+| L24 | 3 | done | 0 | 1 | 12525e1 | CRT : masque après courbure, bandes de bord supprimées (H13/M1) — mesuré +43→+15 et −27→+1 ; DEV-230 |
+| L25 | 3 | done | 0 | 1 | b219d60 | boucle animée dans Glitch (render_fn injectable, CLI loop, GIF/APNG) — frame 0 == PNG ; DEV-231 |
+| L26 | 3 | done | 0 | 2 | 674a9e1 | axe seed respecte les verrous — trou corrigé : sans verrou 1/3 → 3/3 frames ; DEV-232 |
+| L27 | 3 | done | 0 | 1 | 6e488c5 | 4e axe `param` A→B→A (AMD §20) — anime les effets déterministes, écart 236/255 ; DEV-233 |
 
 `g` = gate retries used (max 3), `r` = review cycles used (max 2).
 
@@ -358,3 +362,16 @@ La numérotation des checkpoints continue à travers les générations : 1.0 H0-
   d'app, 12 starters v3 (4 par app) validés par les validateurs réels. DEV-224/225/226 enregistrés.
   **Épreuve A/B conclue : hy4 = masse (vitesse, 1er essai), qwen4 = édition/reviews (rigueur) — les deux
   gratuites, la relecture reste le filet obligatoire.**
+
+- 2026-11-19 (10h35, clôture vague 3 + H13) : **L22, L23, L24, L25, L26, L27 done** — batterie **2204 tests / 1 skip**,
+  ruff 0, contract OK. **L22** acceptance réelle contre PhotoCraft 0.23.1 et DesignCraft 0.20.1 (écart pixels
+  0.000000 sur les 3 apps ; objet DesignCraft à la largeur demandée) ; deux découvertes consignées en DEV-227 :
+  DesignCraft n'ouvre son canal que sur `--control 7979`, et un `XDG_DATA_HOME` exporté masque les Flatpak user.
+  **L23** packaging : 6 binaires PyInstaller onefile, 3 `.desktop` validés, lanceurs en `~/.local/bin`, aucun sur le
+  Bureau ; bug réel corrigé (Glyph plantait sans `lattice_core/data/ramps.json`).
+  **H13 tranché par Opus** (délégué par l'humain) : *OUI SOUS CONDITIONS* — Glitch n'était pas vivant ; il a trouvé
+  le bug CRT sur image (bandes rouge/bleue de bord), et posé 4 cartes (DEV-229). **L24-L27 livrées dans la foulée** :
+  CRT réparé, boucle branchée par injection (frame 0 == PNG à l'octet), verrous respectés sur l'axe seed, 4e axe
+  `param` pour animer les effets déterministes. **Planche H13 : `harness/lattice/docs/h13/*.gif`** — 4 GIF de 8 frames,
+  tous 8/8 distinctes, écarts 170-239/255. Constat mesuré au passage : les 36 tests du codeur L26 passaient alors que
+  le cas le plus courant (aucun verrou) ne variait pas — corrigé par l'orchestrateur (DEV-232).
