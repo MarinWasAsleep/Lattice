@@ -1,32 +1,36 @@
-"""Command line of Lattice Glitch: the four verbs of §8 and their exit codes.
+"""Command line of Lattice Glitch: the verbs of §8, the L25 loop, and their exit codes.
 
-``render`` and ``batch`` go through :mod:`lattice_glitch.document`, the module the GUI
-export uses, so their PNG bytes are identical by construction (G9). ``presets`` reads the
-v3 preset tiers and ``bridge`` talks to PhotoCraft or DesignCraft; an absent host is a
-normal answer reported as text, not a traceback (§7). No verb needs a display and this
-module never imports Qt: it only imports the core, whose base install has no PySide6.
+``render``, ``batch`` and ``loop`` go through :mod:`lattice_glitch.document`, the module
+the GUI export uses, so their bytes are identical by construction (G9); ``loop`` loads
+:mod:`lattice_core.animation` lazily so the other verbs never import it. ``presets`` reads
+the v3 tiers and ``bridge`` talks to the hosts; an absent host is a normal answer (§7).
+No verb needs a display and this module never imports Qt.
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import sys
+from functools import partial
 from pathlib import Path
 from typing import NoReturn
 
 import lattice_core.effects  # noqa: F401  (importing the package registers every effect)
 from lattice_core import color
 from lattice_core.bridge import HOSTS, BridgeError
-from lattice_core.preset import Preset
+from lattice_core.preset import Preset, to_pipeline_spec
 from lattice_glitch import presets as preset_tools
 from lattice_glitch.document import (
     FORMATS,
     DocumentError,
     Export,
+    context_of_preset,
     format_of,
     load_image,
     render_preset,
+    render_rgb8,
     target_path,
     write_render,
 )
@@ -38,6 +42,8 @@ EXIT_RENDER = 2
 EXIT_BRIDGE = 3
 DEFAULT_EXTENSIONS = "png,jpg,jpeg,bmp,tif,tiff,webp"
 PROG = "lattice-glitch"
+LOOP_AXES = ("seed", "offset", "iterations")  # mirrors lattice_core.animation.AXES
+LOOP_WRITERS = {"gif": "gif", "png": "apng", "apng": "apng"}
 
 
 class UsageError(Exception):
@@ -50,10 +56,8 @@ class _Parser(argparse.ArgumentParser):
     _argv: list[str] | None = None
 
     def error(self, message: str) -> NoReturn:
-        """Print the usage line and exit with the §8 usage code.
-
-        With ``--json`` on the command line the machine result is still printed on
-        stdout, so a machine caller never receives an empty answer (§8).
+        """Print the usage line and exit with the §8 usage code; with ``--json`` the
+        machine result is still printed on stdout so a caller never gets silence (§8).
         """
         self.print_usage(sys.stderr)
         if self._argv is not None and "--json" in self._argv:
@@ -115,6 +119,36 @@ def _cmd_render(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _cmd_loop(args: argparse.Namespace) -> int:
+    """Render an N-image loop on the glitch path and write it as GIF or APNG (L25)."""
+    try:
+        preset = _preset(args.preset)
+        image = load_image(Path(args.source))
+        suffix = Path(args.output).suffix.lower().lstrip(".")
+        if suffix not in LOOP_WRITERS:
+            raise UsageError(f"loop output must end in .gif, .png or .apng: {args.output!r}")
+        if args.frames < 1:
+            raise UsageError(f"--frames must be >= 1, got {args.frames}")
+        fmt = LOOP_WRITERS[suffix]
+        animation = importlib.import_module("lattice_core.animation")
+        frames = animation.render_loop(
+            image, to_pipeline_spec(preset), count=args.frames, axis=args.axis,
+            render_fn=partial(render_rgb8, context=context_of_preset(preset)))
+        target = Path(args.output)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        writer = animation.export_gif if fmt == "gif" else animation.export_apng
+        writer(frames, target)
+    except UsageError as exc:
+        return _failure(args, str(exc), EXIT_USAGE)
+    except (DocumentError, OSError, ValueError) as exc:
+        return _failure(args, str(exc), EXIT_RENDER)
+    size = target.stat().st_size
+    _note(f"wrote {target} ({fmt}, {args.frames} frames, {size} bytes)")
+    _emit(args, {"ok": True, "file": str(target), "format": fmt, "frames": args.frames,
+                 "axis": args.axis, "bytes": size, "errors": []})
+    return EXIT_OK
+
+
 def _extensions(text: str) -> set[str]:
     """Return the lower-case extensions listed in a comma-separated string."""
     return {part.strip().lower().lstrip(".") for part in text.split(",") if part.strip()}
@@ -125,10 +159,8 @@ def _batch_inputs(source: Path, extensions: set[str], recursive: bool) -> list[P
     if not source.is_dir():
         raise UsageError(f"input directory not found: {source}")
     found = source.rglob("*") if recursive else source.iterdir()
-    return sorted(
-        path for path in found
-        if path.is_file() and path.suffix.lower().lstrip(".") in extensions
-    )
+    return sorted(path for path in found
+                  if path.is_file() and path.suffix.lower().lstrip(".") in extensions)
 
 
 def _destination(target_dir: Path, item: Path, source: Path, fmt: str, recursive: bool) -> Path:
@@ -147,8 +179,7 @@ def _cmd_batch(args: argparse.Namespace) -> int:
     except UsageError as exc:
         return _failure(args, str(exc), EXIT_USAGE)
     fmt = args.format or "png"
-    written: list[str] = []
-    errors: list[str] = []
+    written, errors = [], []
     for item in files:
         destination = _destination(Path(args.output), item, source, fmt, args.recursive)
         try:
@@ -167,10 +198,8 @@ def _cmd_presets_list(args: argparse.Namespace) -> int:
     """List the presets of the shipped tier and of the user tier."""
     directories = [Path(entry) for entry in args.directory] or None
     entries = preset_tools.available(directories)
-    payload = {"presets": [
-        {"name": entry.name, "path": str(entry.path), "read_only": entry.read_only}
-        for entry in entries
-    ]}
+    payload = {"presets": [{"name": e.name, "path": str(e.path), "read_only": e.read_only}
+                           for e in entries]}
     _emit(args, payload)
     if not args.json:
         for entry in entries:
@@ -194,15 +223,11 @@ def _cmd_presets_show(args: argparse.Namespace) -> int:
 
 def _cmd_presets_validate(args: argparse.Namespace) -> int:
     """Validate one preset file, or every preset of the tiers when no path is given."""
-    reports = [preset_tools.validate(Path(args.path))] if args.path \
-        else preset_tools.validate_all()
+    reports = [preset_tools.validate(Path(args.path))] if args.path else preset_tools.validate_all()
     payload = {
         "ok": all(report.ok for report in reports),
-        "presets": [
-            {"name": report.name, "ok": report.ok, "renderer": report.renderer,
-             "errors": report.errors, "warnings": report.warnings}
-            for report in reports
-        ],
+        "presets": [{"name": r.name, "ok": r.ok, "renderer": r.renderer,
+                     "errors": r.errors, "warnings": r.warnings} for r in reports],
     }
     _emit(args, payload)
     if not args.json:
@@ -282,13 +307,24 @@ def _add_render_options(parser: argparse.ArgumentParser, *, output_help: str) ->
     """Add the preset, the output and the JSON flag shared by the render verbs."""
     parser.add_argument("--preset", required=True, help="preset JSON file")
     parser.add_argument("--out", dest="output", required=True, help=output_help)
-    parser.add_argument("--format", choices=FORMATS, default=None,
-                        help="png (default: from --out)")
+    parser.add_argument("--format", choices=FORMATS, default=None, help="png (default: from --out)")
     parser.add_argument("--json", action="store_true", help="print a JSON result")
 
 
+def _add_loop_verb(verbs: argparse._SubParsersAction) -> None:
+    """Add the L25 loop verb: an N-image GIF or APNG rendered on the glitch path."""
+    loop = verbs.add_parser("loop", help="render an N-image loop as GIF or APNG")
+    loop.add_argument("--preset", required=True, help="preset JSON file")
+    loop.add_argument("--in", dest="source", required=True, help="input image")
+    loop.add_argument("--out", dest="output", required=True, help="output .gif, .png or .apng")
+    loop.add_argument("--frames", type=int, required=True, help="number of frames (>= 1)")
+    loop.add_argument("--axis", default="seed", choices=LOOP_AXES, help="the axis that varies")
+    loop.add_argument("--json", action="store_true", help="print a JSON result")
+    loop.set_defaults(handler=_cmd_loop)
+
+
 def _build_parser() -> argparse.ArgumentParser:
-    """Return the argument parser carrying the four verbs of §8."""
+    """Return the argument parser carrying the verbs of §8 and the L25 loop."""
     parser = _Parser(prog=PROG, description="Lattice Glitch command line.")
     verbs = parser.add_subparsers(dest="command", required=True, parser_class=_Parser)
 
@@ -296,6 +332,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_render_options(render, output_help="output file")
     render.add_argument("--in", dest="source", required=True, help="input image")
     render.set_defaults(handler=_cmd_render)
+    _add_loop_verb(verbs)
 
     batch = verbs.add_parser("batch", help="render a directory with one preset")
     _add_render_options(batch, output_help="output directory")
@@ -305,8 +342,8 @@ def _build_parser() -> argparse.ArgumentParser:
     batch.set_defaults(handler=_cmd_batch)
 
     presets = verbs.add_parser("presets", help="list, show and validate presets")
-    preset_verbs = presets.add_subparsers(dest="preset_command", required=True,
-                                          parser_class=_Parser)
+    preset_verbs = presets.add_subparsers(
+        dest="preset_command", required=True, parser_class=_Parser)
     listing = preset_verbs.add_parser("list", help="list the presets of both tiers")
     listing.add_argument("--dir", dest="directory", action="append", default=[],
                          help="search directory, repeatable")
@@ -322,8 +359,7 @@ def _build_parser() -> argparse.ArgumentParser:
     check.set_defaults(handler=_cmd_presets_validate)
 
     bridge = verbs.add_parser("bridge", help="talk to PhotoCraft or DesignCraft")
-    bridge_verbs = bridge.add_subparsers(dest="bridge_command", required=True,
-                                         parser_class=_Parser)
+    bridge_verbs = bridge.add_subparsers(dest="bridge_command", required=True, parser_class=_Parser)
     status = bridge_verbs.add_parser("status", help="report the host state")
     status.add_argument("host", nargs="?", default=None, choices=HOSTS,
                         help="host to probe (default: both)")

@@ -6,19 +6,23 @@ import os
 import subprocess
 import sys
 import time
+from functools import partial
 from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
+from PIL import Image as PILImage  # noqa: E402
 from PySide6.QtCore import QSettings  # noqa: E402
 from PySide6.QtWidgets import QApplication, QMessageBox, QSlider  # noqa: E402
 
 import lattice_core.effects  # noqa: E402,F401  (registers every effect)
 import lattice_glitch  # noqa: E402
 from lattice_core import color, mask  # noqa: E402
+from lattice_core.animation import render_loop  # noqa: E402
 from lattice_core.effects.ntsc import LABEL_NOTES, PRESET_NAMES, SIMPLE_PARAM_IDS  # noqa: E402
 from lattice_core.pipeline import PipelineSpec  # noqa: E402
+from lattice_core.preset import to_pipeline_spec  # noqa: E402
 from lattice_core.registry import get_effect, list_effects, resolve_params  # noqa: E402
 from lattice_core.seed import SeedController  # noqa: E402
 from lattice_core.ui import ExportDialog, ExportError  # noqa: E402
@@ -44,6 +48,18 @@ from lattice_glitch.__main__ import main
 code = main(['render', '--preset', {preset!r}, '--in', {source!r}, '--out', {target!r}])
 forbidden = ('lattice_core.ui', 'lattice_core.animation', 'lattice_dither', 'lattice_glyph')
 assert not [m for m in sys.modules if m.split('.')[0] == 'PySide6' or m.startswith(forbidden)]
+raise SystemExit(code)"""
+LOOP_BLOCKER = """import sys, importlib.abc
+class Refuse(importlib.abc.MetaPathFinder):
+    def find_spec(self, name, path=None, target=None):
+        if name.split('.')[0] == 'PySide6': raise ImportError('PySide6 is not installed')
+sys.meta_path.insert(0, Refuse()); sys.path.insert(0, {root!r})
+from lattice_glitch.__main__ import main
+code = main(['loop', '--preset', {preset!r}, '--in', {source!r}, '--out', {target!r},
+             '--frames', '4'])
+forbidden = ('lattice_core.ui', 'lattice_dither', 'lattice_glyph')
+assert not [m for m in sys.modules if m.split('.')[0] == 'PySide6' or m.startswith(forbidden)]
+assert 'lattice_core.animation' in sys.modules
 raise SystemExit(code)"""
 
 
@@ -119,6 +135,11 @@ def _settle(predicate, timeout_ms: int = 20000) -> None:
 def _r(preset, source, out, *extra) -> int:
     return cli.main(["render", "--preset", str(preset), "--in", str(source),
                      "--out", str(out), *extra])
+
+
+def _loop(preset, source, out, frames, *extra) -> int:
+    return cli.main(["loop", "--preset", str(preset), "--in", str(source),
+                     "--out", str(out), "--frames", str(frames), *extra])
 
 
 def _cli(tmp_path: Path, preset: Path, source: Path, name: str = "cli") -> bytes:
@@ -457,3 +478,165 @@ def test_cli_presets_bridge_and_batch(capsys: pytest.CaptureFixture[str],
     assert cli.main(["batch", "--preset", P, "--in", str(source_dir),
                      "--out", str(out_dir), "--recursive"]) == cli.EXIT_OK
     assert sorted(p.name for p in out_dir.rglob("*.png")) == ["a.png", "b.png"]
+
+
+def test_loop_frame_zero_is_the_preset_png_byte_for_byte(tmp_path: Path,
+                                                         image_file: Path) -> None:
+    """Accept (B2): frame 0 of a Glitch loop IS the PNG of the same preset, byte for byte."""
+    source = doc.load_image(image_file)
+    for preset_path in sorted(SHIPPED.glob("*.json")):
+        preset = presets.read_preset(preset_path)
+        expected = _cli(tmp_path, preset_path, image_file, preset_path.stem)
+        context = doc.context_of_preset(preset)
+        frames = render_loop(source, to_pipeline_spec(preset), count=3, axis="seed",
+                             render_fn=partial(doc.render_rgb8, context=context))
+        assert len(frames) == 3
+        assert doc.png_bytes(frames[0]) == expected, preset_path.name
+        target = tmp_path / f"{preset_path.stem}_loop.png"
+        assert _loop(preset_path, image_file, target, 3, "--axis", "offset") == cli.EXIT_OK
+        with PILImage.open(target) as handle:
+            assert handle.format == "PNG" and handle.n_frames == 3
+            handle.seek(0)
+            frame0 = np.asarray(handle.convert("RGB"))
+        assert doc.png_bytes(frame0) == expected, preset_path.name
+
+
+def test_loop_keeps_the_mask_and_the_session_on_every_frame(make_window, tmp_path: Path,
+                                                            image_file: Path) -> None:
+    """Accept: the mask holds on all N frames; locks and streams ride the injected loop."""
+    window = make_window()
+    assert window.open_path(image_file) is True
+    mid = window.mask_panel.new_mask()
+    window.mask_panel.painter.set_brush(1.0, 6)
+    window.mask_panel.painter.paint_at(20, 20)
+    window.effects_panel.add_effect("noise", {"amount": 1.0})
+    window.effect_stack.set_mask(0, mid)
+    window.sync_spec()
+    source_rgb8 = color.to_rgb8(window.source)
+    frames = window.exporter.loop_frames(4, "seed")
+    assert len(frames) == 4
+    for frame in frames:
+        assert np.array_equal(frame[80, 110], source_rgb8[80, 110])
+        assert not np.array_equal(frame[20, 20], source_rgb8[20, 20])
+    assert np.array_equal(frames[0], window.render_full(window.source, window.spec))
+    masked = tmp_path / "user" / "masked_loop.json"
+    window.save_preset_to(str(masked))
+    masked_expected = _cli(tmp_path, masked, image_file, "masked_loop")
+    assert doc.png_bytes(frames[0]) == masked_expected
+    window.seed_panel.lock_check(0).setChecked(True)
+    window.reroll()
+    locked_frames = window.exporter.loop_frames(3, "seed")
+    assert np.array_equal(locked_frames[0], window.render_full(window.source, window.spec))
+    locked = tmp_path / "user" / "locked_loop.json"
+    window.save_preset_to(str(locked))
+    expected = _cli(tmp_path, locked, image_file, "locked_loop")
+    assert doc.png_bytes(locked_frames[0]) == expected
+    target = tmp_path / "masked_anim.png"
+    plane = window.mask_panel.planes()[mid]
+    stack = EffectStack()
+    stack.add("feedback", {"decay": 0.5, "transform": "displace", "amount": 4.0,
+                           "iterations": 1}, mid)
+    fb = tmp_path / "user" / "masked_feedback.json"
+    presets.save_spec(fb, presets.default_spec(), stack=stack, masks={mid: plane})
+    fb_expected = _cli(tmp_path, fb, image_file, "masked_feedback")
+    assert _loop(fb, image_file, target, 4, "--axis", "iterations") == cli.EXIT_OK
+    with PILImage.open(target) as handle:
+        assert handle.n_frames == 4
+        for index in range(4):
+            handle.seek(index)
+            frame = np.asarray(handle.convert("RGB"))
+            assert np.array_equal(frame[80, 110], source_rgb8[80, 110])
+            assert not np.array_equal(frame[20, 20], source_rgb8[20, 20])
+        handle.seek(0)
+        assert doc.png_bytes(np.asarray(handle.convert("RGB"))) == fb_expected
+
+
+def test_export_dialog_writes_gif_and_apng(make_window, tmp_path: Path,
+                                           image_file: Path) -> None:
+    """Accept (B1): the export dialog offers GIF and APNG, N frames, frame 0 on the G9 path."""
+    window = make_window()
+    assert window.open_path(image_file) is True
+    window.effects_panel.add_effect("noise")
+    window.sync_spec()
+    dialog = window.exporter.build_dialog()
+    box = dialog.format_box
+    assert [box.itemData(i) for i in range(box.count())] == ["png", "gif", "apng"]
+    assert dialog.stack.count() == 2
+    assert [dialog.loop_axis.itemData(i) for i in range(dialog.loop_axis.count())] == [
+        "seed", "offset", "iterations"]
+    box.setCurrentIndex(box.findData("gif"))
+    assert dialog.stack.currentIndex() == 1
+    assert dialog.path_edit.text().endswith(".gif")
+    assert dialog.loop_axis.currentData() == "seed"
+    dialog.loop_axis.setCurrentIndex(dialog.loop_axis.findData("offset"))
+    dialog.loop_count.setValue(4)
+    dialog.path_edit.setText(str(tmp_path / "clip.gif"))
+    dialog._on_export()
+    assert "Exported" in dialog.report.text()
+    with PILImage.open(tmp_path / "clip.gif") as handle:
+        assert handle.format == "GIF" and handle.n_frames == 4
+    box.setCurrentIndex(box.findData("apng"))
+    assert dialog.path_edit.text().endswith(".png")
+    dialog.path_edit.setText(str(tmp_path / "clip.png"))
+    dialog._on_export()
+    with PILImage.open(tmp_path / "clip.png") as handle:
+        assert handle.format == "PNG" and handle.n_frames == 4
+        handle.seek(0)
+        frame0 = np.asarray(handle.convert("RGB"))
+    assert np.array_equal(frame0, window.render_full(window.source, window.spec))
+    box.setCurrentIndex(box.findData("png"))
+    dialog.path_edit.setText(str(tmp_path / "still.png"))
+    dialog._on_export()
+    with PILImage.open(tmp_path / "still.png") as handle:
+        assert handle.n_frames == 1
+    assert dialog.written == [tmp_path / "still.png"]
+    dialog.deleteLater()
+
+
+def test_loop_cli_is_qt_free_and_reports_errors(capsys: pytest.CaptureFixture[str],
+                                                tmp_path: Path, image_file: Path) -> None:
+    """§8: the loop verb keeps the exit codes and --json purity, and imports no Qt."""
+    T = tmp_path
+    P = T / "preset.json"
+    presets.save_spec(P, presets.default_spec())
+    gif = T / "x.gif"
+    assert _loop(P, image_file, gif, 0) == cli.EXIT_USAGE
+    assert _loop(P, image_file, gif, 3, "--axis", "time") == cli.EXIT_USAGE
+    assert _loop(P, image_file, T / "x.jpg", 3) == cli.EXIT_USAGE
+    assert _loop(P, image_file, T / "no-suffix", 3) == cli.EXIT_USAGE
+    assert _loop(T / "nope.json", image_file, gif, 3) == cli.EXIT_USAGE
+    assert _loop(P, T / "nope.png", gif, 3) == cli.EXIT_RENDER
+    assert cli.main(["loop", "--preset", str(P), "--in", str(image_file),
+                     "--out", str(gif), "--json"]) == cli.EXIT_USAGE
+    assert json.loads(capsys.readouterr().out)["ok"] is False
+    assert _loop(P, image_file, gif, 5, "--axis", "offset", "--json") == cli.EXIT_OK
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] and payload["frames"] == 5 and payload["format"] == "gif"
+    assert payload["axis"] == "offset" and payload["bytes"] == gif.stat().st_size
+    with PILImage.open(gif) as handle:
+        assert handle.format == "GIF" and handle.n_frames == 5
+    echo = SHIPPED / "07_feedback_echo.json"
+    iterated = T / "iterated.png"
+    assert _loop(echo, image_file, iterated, 4, "--axis", "iterations", "--json") == cli.EXIT_OK
+    assert json.loads(capsys.readouterr().out)["format"] == "apng"
+    with PILImage.open(iterated) as handle:
+        assert handle.n_frames == 4
+        stills = []
+        for index in range(4):
+            handle.seek(index)
+            stills.append(np.asarray(handle.convert("RGB")).copy())
+    assert any(not np.array_equal(stills[0], other) for other in stills[1:])
+    shifted = T / "shifted.gif"
+    assert _loop(P, image_file, shifted, 4, "--axis", "offset") == cli.EXIT_OK
+    with PILImage.open(shifted) as handle:
+        assert handle.n_frames == 4
+        handle.seek(0)
+        first = np.asarray(handle.convert("RGB")).copy()
+        handle.seek(1)
+        assert not np.array_equal(first, np.asarray(handle.convert("RGB")))
+    script = LOOP_BLOCKER.format(root=str(PACKAGE.parent), source=str(image_file),
+                                 target=str(T / "bare.gif"), preset=str(P))
+    result = subprocess.run([sys.executable, "-c", script], capture_output=True,
+                            text=True, timeout=300, check=False)
+    assert result.returncode == 0, result.stderr
+    assert (T / "bare.gif").read_bytes()[:6] in (b"GIF87a", b"GIF89a")

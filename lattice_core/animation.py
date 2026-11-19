@@ -5,10 +5,13 @@ change (§21). ``render_loop`` generalises it: it renders N frames from one sour
 varying only the declared axis — ``seed``, ``offset`` (a horizontal pixel shift) or
 ``iterations`` (the feedback buffer iteration count) — and keeps everything else fixed.
 Stable mode resolves the palette once, on the first frame, so colours cannot flicker.
+An injectable ``render_fn`` lets an application render every varied pair on its own
+path (masks, streams, locks) instead of the pipeline's (L25).
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 
@@ -42,8 +45,13 @@ def render_loop(
     axis: str = "seed",
     stable: bool = True,
     step: int = 1,
+    render_fn: Callable[[Image, PipelineSpec], RGB8] | None = None,
 ) -> list[RGB8]:
-    """Render count frames from src, varying only axis; other spec fields stay fixed."""
+    """Render count frames from src, varying only axis; other spec fields stay fixed.
+
+    render_fn, when given, renders each varied (image, spec) pair itself, so the
+    caller's own path (masks, streams, locks) applies and stable is ignored.
+    """
     if axis not in AXES:
         raise ValueError(f"unknown animation axis: {axis!r}, expected one of {AXES}")
     if count < 0:
@@ -53,6 +61,8 @@ def render_loop(
     pairs = [
         _varied(src, spec, axis, index, shift, base) for index in range(count)
     ]
+    if render_fn is not None:
+        return [render_fn(image, varied) for image, varied in pairs]
     return _render([pair[0] for pair in pairs], [pair[1] for pair in pairs], stable)
 
 
@@ -72,7 +82,11 @@ def export_gif(frames: list[RGB8], path: Path, *, fps: int = 12, loop: int = 0) 
 
 
 def export_apng(frames: list[RGB8], path: Path, *, fps: int = 12, loop: int = 0) -> None:
-    """Write frames to path as an animated APNG, using Pillow only."""
+    """Write frames to path as an animated APNG, using Pillow only.
+
+    Disposal is NONE: Pillow delta-encodes the changed region of each frame, so
+    disposing to background would blank everything the next frame does not repaint.
+    """
     duration = _check(frames, fps)
     images = [_pil(frame) for frame in frames]
     images[0].save(
@@ -82,7 +96,7 @@ def export_apng(frames: list[RGB8], path: Path, *, fps: int = 12, loop: int = 0)
         append_images=images[1:],
         duration=duration,
         loop=int(loop),
-        disposal=2,
+        disposal=0,
     )
 
 

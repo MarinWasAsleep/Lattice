@@ -263,3 +263,101 @@ def test_dither_video_exports_are_left_intact(tmp_path: Path) -> None:
         assert written.n_frames == 3
     assert callable(dither_video)
     assert len(dither_sequence([_src()], _spec())) == 1
+
+
+def test_render_fn_renders_every_frame_without_the_pipeline(monkeypatch) -> None:
+    """An injected render_fn produces every frame; the 1.0 pipeline path is bypassed."""
+    def forbidden(*args, **kwargs):
+        raise AssertionError("the injected loop must not ride the pipeline render path")
+
+    monkeypatch.setattr(animation, "render_with_palette", forbidden)
+    monkeypatch.setattr(animation, "resolve_palette", forbidden)
+    calls: list[tuple[Image, PipelineSpec]] = []
+
+    def render_fn(image: Image, spec: PipelineSpec) -> RGB8:
+        calls.append((image, spec))
+        return np.full((16, 16, 3), len(calls), dtype=np.uint8)
+
+    out = render_loop(_src(), _feedback(), count=4, axis="seed", render_fn=render_fn)
+    assert len(calls) == 4 and len(out) == 4
+    assert [int(frame[0, 0, 0]) for frame in out] == [1, 2, 3, 4]
+
+
+@pytest.mark.parametrize("axis", AXES)
+def test_render_fn_frame_zero_gets_the_unvaried_inputs(axis: str) -> None:
+    """On every axis the first injected call receives the original image and spec values."""
+    src = _src()
+    seen: list[tuple[Image, PipelineSpec]] = []
+
+    def render_fn(image: Image, spec: PipelineSpec) -> RGB8:
+        seen.append((image, spec))
+        return np.zeros((16, 16, 3), dtype=np.uint8)
+
+    render_loop(src, _feedback(), count=3, axis=axis, render_fn=render_fn)
+    image0, spec0 = seen[0]
+    assert np.array_equal(image0, src)
+    assert spec0.seed == 7
+    assert spec0.post_effects[0].params["iterations"] == 1
+
+
+@pytest.mark.parametrize("axis", AXES)
+def test_render_fn_receives_only_the_varied_axis(axis: str) -> None:
+    """The injected pairs vary exactly the declared axis, the step included."""
+    src = _gradient()
+    seen: list[tuple[Image, PipelineSpec]] = []
+
+    def render_fn(image: Image, spec: PipelineSpec) -> RGB8:
+        seen.append((image, spec))
+        return np.zeros((16, 16, 3), dtype=np.uint8)
+
+    render_loop(src, _feedback(), count=4, axis=axis, step=2, render_fn=render_fn)
+    assert len(seen) == 4
+    for index, (image, spec) in enumerate(seen):
+        if axis == "seed":
+            assert spec.seed == 7 + 2 * index
+            assert np.array_equal(image, src)
+        elif axis == "offset":
+            assert np.array_equal(image, np.roll(src, 2 * index, axis=1))
+            assert spec.seed == 7
+        else:
+            assert spec.post_effects[0].params["iterations"] == min(8, 1 + 2 * index)
+            assert np.array_equal(image, src)
+
+
+def test_render_fn_keeps_validation_and_the_empty_count() -> None:
+    """Axis and count validation still apply with an injected renderer; zero stays empty."""
+    def render_fn(image: Image, spec: PipelineSpec) -> RGB8:
+        return np.zeros((16, 16, 3), dtype=np.uint8)
+
+    with pytest.raises(ValueError, match="axis"):
+        render_loop(_src(), _spec(), count=3, axis="time", render_fn=render_fn)
+    with pytest.raises(ValueError, match="count"):
+        render_loop(_src(), _spec(), count=-1, render_fn=render_fn)
+    assert render_loop(_src(), _spec(), count=0, render_fn=render_fn) == []
+
+
+def test_render_fn_none_keeps_the_pipeline_path() -> None:
+    """The default (no injection) stays byte-for-byte the L-LOOP pipeline behaviour."""
+    first = render_loop(_src(), _feedback(), count=3, axis="seed")
+    second = render_loop(_src(), _feedback(), count=3, axis="seed", render_fn=None)
+    assert all(np.array_equal(a, b) for a, b in zip(first, second, strict=True))
+
+
+@pytest.mark.parametrize("writer", [export_gif, export_apng])
+def test_writers_keep_unchanged_regions_across_frames(tmp_path: Path, writer) -> None:
+    """A frame that changes only a small spot keeps the rest of the image intact."""
+    base = np.zeros((32, 32, 3), dtype=np.uint8)
+    base[:, :, 1] = 100
+    base[:, :, 2] = np.linspace(0, 255, 32, dtype=np.uint8)[None, :]
+    frames = []
+    for index in range(4):
+        frame = base.copy()
+        frame[4 + index * 5 : 7 + index * 5, 4:7] = 255
+        frames.append(frame)
+    target = tmp_path / "spot"
+    writer(frames, target, fps=12)
+    with PILImage.open(target) as written:
+        assert written.n_frames == 4
+        for index in range(4):
+            written.seek(index)
+            assert np.array_equal(np.asarray(written.convert("RGB")), frames[index])
