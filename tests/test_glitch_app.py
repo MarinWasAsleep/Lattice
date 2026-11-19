@@ -649,7 +649,10 @@ def test_cli_loop_exposes_every_axis_the_core_accepts() -> None:
     since L27: only the tests could animate an effect. This pins the two lists together.
     """
     from lattice_core import animation, axes
-    from lattice_glitch.cli import _build_parser
+    from lattice_core.cli_shared import _build_parser
+    from lattice_glitch.cli import install_backend
+
+    install_backend()
 
     assert axes.AXES == animation.AXES
     loop = _build_parser()._subparsers._group_actions[0].choices["loop"]

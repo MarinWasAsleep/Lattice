@@ -932,3 +932,36 @@ invented in code. The orchestrator folds them into the contract at the next chec
 - note: la galerie du core prend `app_dir_name` en argument plutôt que de deviner, donc Glitch et
   Glyph pourront l'afficher avec leur propre cache sans se marcher dessus.
 - status: applied
+
+### DEV-245 — L37 · Vague 2 d'unification : CLI et actions partagés
+- classes: E3 | task: L37 | status: applied | date: 2026-11-19
+- facts: `cli.py` était identique à **un verbe près** — Glitch a `loop`, Glyph ne l'a pas ; les
+  onze autres verbes (`render`, `batch`, `presets`, `bridge`, `status`, `pull`, `push`) étaient
+  les mêmes. `actions.py` ne différait que d'une action (`reroll` contre `export_text`) et du
+  glisser-déposer, absent côté Glyph.
+- decision: `lattice_core.cli_shared` porte les onze verbes, leurs drapeaux, leurs charges JSON
+  et leurs codes d'exit ; un `CliBackend` (NamedTuple) déclare ce qui reste propre à l'app :
+  lecture du preset, rendu, écriture, formats, erreur de document, outils de presets, sonde de
+  host, et `extra_verbs`. Glitch enregistre `loop` par `extra_verbs` ; Glyph n'enregistre rien.
+  `lattice_core.ui.actions` porte la table, le groupe de modes, la barre et le drag-and-drop ;
+  l'action propre à chaque app arrive par un marqueur `@extra` dans la table des groupes.
+- tailles: `cli.py` 419+370 → 141+69 (+417 partagés) ; `actions.py` 136+114 → 57+58 (+172).
+- pièges corrigés en route, tous trouvés par les tests :
+  1. `_cmd_loop` lisait le preset avant de vérifier son existence : exit 2 au lieu de 1.
+     L'ancien passait par `_preset()` qui faisait ce garde.
+  2. Glyph rend un **spec**, Glitch un **preset** ; `write_render` et `render_preset` ne
+     prennent donc pas la même chose. La conversion vit dans le backend de Glyph.
+  3. Ordre des arguments : le contrat est `render_preset(image, preset)`, l'inverse passait un
+     Preset là où un PipelineSpec était attendu (« 'Preset' object has no attribute
+     'algorithm_id' »).
+  4. `host_report` exigeait un backend installé pour un simple diagnostic : il retombe sur la
+     sonde du cœur quand aucun n'est lié.
+  5. `discover_host` doit se résoudre **à l'appel**, pas à l'installation du backend : les tests
+     patchent le module de l'app après coup. Le backend porte donc le module, pas la fonction.
+  6. Un champ de dataclass nommé `host_report` masquait la fonction du même nom ; renommée
+     `_default_host_report`.
+  7. Les formats de sortie sont propres à l'app : Glitch n'écrit que du PNG, Glyph accepte
+     png/svg/txt/ansi/html. `FORMATS` vient du document de chaque app.
+- evidence: 2309 tests verts, ruff 0, contrat OK ; `python -m lattice_glitch.cli` et
+  `python -m lattice_glyph.cli` répondent, verbes et verbes propres inclus.
+- status: applied
