@@ -24,8 +24,14 @@ SOURCE = ROOT / "docs/bytemosh/00_source.png"
 LOOPS = (
     ("glitch_01_vhs_soft", "ntsc.snow", 0.02, 0.30),
     ("glitch_02_channel_rift", "channel_shift.amount", 2.0, 24.0),
-    ("glitch_03_sort_echo", "pixel_sort.brightness", 0.05, 0.55),
-    ("glitch_04_crt_finish", "crt.curvature", 0.05, 0.35),
+    # sort_echo animates the ECHO, not the sort: pixel_sort.brightness barely moves the
+    # image (measured steps of 0.00-0.01) because above ~0.6 the sort band already covers
+    # the row. feedback.amount gives steps of 2.5-3.4.
+    ("glitch_03_sort_echo", "feedback.amount", 0.5, 9.0),
+    # Animate the BEAM, not the curvature: the judge rejected curvature ("aucun tube
+    # ne fait ça") because it swells and shrinks the whole picture. `roll` scrolls the
+    # scanlines with the usable surface held constant (measured: 0.7554 on every phase).
+    ("glitch_04_crt_finish", "crt.roll", 0.0, 8.0),
 )
 
 

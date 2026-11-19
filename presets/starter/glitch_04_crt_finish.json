@@ -10,6 +10,7 @@
         "curvature": 0.15,
         "mask": "slot",
         "mask_scale": 6,
+        "roll": 0.0,
         "scanline_intensity": 0.35,
         "vignette": 0.3
       },

@@ -24,6 +24,7 @@ NEUTRAL = {
     "curvature": 0.0,
     "vignette": 0.0,
     "output_width": 0,
+    "roll": 0.0,
 }
 SHAPES = ((1, 1), (1, 7), (9, 1), (37, 23), (64, 64))
 MASK_TYPES = ("slot", "aperture_grille", "shadow_mask")
@@ -275,3 +276,26 @@ def test_phosphor_after_curvature_avoids_border_colour_bands() -> None:
         for column in range(strip.shape[1]):
             variance = float(strip[:, column, :].var())
             assert variance > 0.01 * span * span or variance == 0.0
+
+
+def test_roll_scrolls_the_beam_without_moving_the_geometry() -> None:
+    """The one temporal knob: the scanlines scroll while the tube silhouette stays put.
+
+    The judge rejected animating `curvature` — the whole picture swelled and shrank like a
+    zoom, "aucun tube ne fait ça". `roll` moves the beam phase instead: the usable surface
+    must stay identical (his threshold is 2%) while consecutive frames differ.
+    """
+    img = np.linspace(0.0, 1.0, 64 * 64 * 3, dtype=np.float32).reshape(64, 64, 3)
+    base = {"scanline_intensity": 0.4, "mask": "slot", "mask_scale": 4, "curvature": 0.15,
+            "vignette": 0.2, "output_width": 0}
+    frames = [_apply(img, {**base, "roll": phase}) for phase in (0.0, 1.5, 3.0)]
+    surfaces = [float((frame.max(axis=2) > 0.02).mean()) for frame in frames]
+    assert max(surfaces) - min(surfaces) < 0.02  # the tube silhouette does not move
+    assert all(not np.array_equal(frames[i], frames[i + 1]) for i in range(2))
+
+
+def test_roll_zero_is_the_neutral_phase() -> None:
+    """roll = 0 must leave the historical beam exactly where it was."""
+    img = np.full((16, 16, 3), 0.5, dtype=np.float32)
+    base = {"scanline_intensity": 0.5}
+    assert np.array_equal(_apply(img, base), _apply(img, {**base, "roll": 0.0}))

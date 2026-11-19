@@ -793,3 +793,39 @@ invented in code. The orchestrator folds them into the contract at the next chec
   (« aucun tube ne fait ça ») ; reseed activé par défaut ou documenté ; le nom `channel_rift`
   promet une déchirure par ligne que le preset ne montre pas.
 - status: applied — H13 clos, preuve committée dans `harness/lattice/docs/h13/new/`.
+
+### DEV-241 — Vague de polissage : `sort_echo`, CRT temporel, planches honnêtes (verdicts Opus)
+- classes: E1 + E3 | task: polissage post-H13 | status: applied | date: 2026-11-19
+- context: après la clôture H13, Opus avait laissé trois dettes nommées. Six passes de jugement
+  visuel pour les traiter, avec les rendus régénérés entre chacune.
+- **1. `sort_echo` : de 3/10 à 5-6/10, avec une limite assumée.**
+  - Cause mesurée du départ : `white = 1.0` (le défaut du preset) faisait courir les runs de tri
+    jusqu'au bout de la ligne — run moyen **543 px sur 720** — ce qui poussait le jaune au bord
+    droit et rendait `brightness` insensible (toute la ligne était déjà dans la bande).
+  - `white 0.92` + `brightness 0.45` → 6/10 (anneau revenu entier, écho enfin visible).
+  - Le rectangle vert restait mangé : mesuré, son luma plafonne à 0,749. `brightness 0.86` le
+    protège — mais déplace le problème sur l'anneau jaune (0,928) : 5/10.
+  - Deux pistes d'Opus essayées et REJETÉES sur mesure : la bande étroite 0.30-0.70 donne 4/10
+    (elle protège les cœurs de couleur mais entraîne leurs bords anti-aliasés, et laisse le fond
+    intact) ; la clé `saturation` protège les formes mais détruit le texte (le blanc a une
+    saturation nulle, donc il passe en tête du tri) ; la clé `hue` casse tout.
+  - Retenu : tri large, `brightness 0.86`, axe d'animation `feedback.amount` (0,5→9 ; pas de
+    2,45-3,39 par frame, contre 0,00-0,01 pour `pixel_sort.brightness`).
+  - **Limite assumée et documentée** : sur une image dont les formes culminent toutes au même
+    luma qu'un blanc, aucun seuil unique ne peut épargner les trois formes ET trier visiblement.
+    La vraie solution est un masque qui exclut à la fois le très saturé et le clair-peu-saturé.
+    C'est une carte de fond, pas un réglage — noté ci-dessous.
+- **2. CRT temporel : `roll`.**
+  - Opus : « animer `curvature` fait gonfler et dégonfler l'écran ; aucun tube ne fait ça ».
+  - Nouveau ParamSpec `roll` (0..64) : la PHASE du balayage. Mesuré sur les quatre phases :
+    surface utile **0,7554 identique** (son seuil était 2 %) et frames différentes. Le preset
+    `08_crt_finish` l'expose et la planche anime `crt.roll` 0→8 (pas 8,05-8,09, très régulier).
+  - Note : 5/10 → 6/10, sans bloquant.
+- **3. Planches honnêtes.** `tools/h13_planche.py` : rend les quatre boucles, publie le compte
+  réel de frames distinctes ET leur pas, et ne bourre jamais une planche de doublons.
+- lesson: sur un effet de tri, le paramètre qui décide de la LONGUEUR des runs est la borne haute
+  (`white`), pas le seuil de départ, qui ne fait que choisir où le run commence.
+- carte ouverte (fond) : masque d'exclusion pour `pixel_sort` — protéger le très saturé et le
+  clair-peu-saturé, trier le reste. Sans ça, `sort_echo` restera à 5-6/10 sur des images dont
+  les formes sont des aplats brillants.
+- status: applied

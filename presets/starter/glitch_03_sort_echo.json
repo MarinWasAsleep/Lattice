@@ -6,9 +6,11 @@
       "mask": null,
       "name": "pixel_sort",
       "params": {
-        "brightness": 0.45,
+        "black": 0.0,
+        "brightness": 0.86,
         "direction": "rows",
-        "key": "luma"
+        "key": "luma",
+        "white": 0.95
       },
       "stage": "post"
     },
@@ -17,11 +19,14 @@
       "mask": null,
       "name": "feedback",
       "params": {
-        "amount": 3.0,
-        "blend": "screen",
-        "decay": 0.6,
-        "iterations": 2,
-        "transform": "translate"
+        "amount": 1.6,
+        "blend": "add",
+        "decay": 0.72,
+        "direction": 0.0,
+        "iterations": 3,
+        "mix": 0.62,
+        "origin": "top_left",
+        "transform": "rotate"
       },
       "stage": "post"
     }
