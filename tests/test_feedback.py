@@ -235,8 +235,9 @@ def test_resolve_params_clamps_numeric_bounds() -> None:
     info = get_effect(EFFECT_ID)
     resolved = resolve_params(info.params, {"decay": 5.0, "amount": -4.0, "iterations": 99})
     assert resolved["decay"] == 0.99
-    assert resolved["amount"] == 0.0
+    assert resolved["amount"] == -4.0  # a negative amount is meaningful: zoom inward
     assert resolved["iterations"] == 16
+    assert resolve_params(info.params, {"amount": -99.0})["amount"] == -6.0
     assert resolve_params(info.params, {"iterations": 0})["iterations"] == 1
 
 
@@ -437,3 +438,28 @@ def test_transform_accepts_a_documented_composition() -> None:
     single = _run(img, {"decay": 0.85, "transform": "rotate", "amount": 3.0,
                         "iterations": 4, "blend": "screen"})
     assert not np.array_equal(out, single)  # the composition really adds the second step
+
+
+def test_negative_amount_makes_the_zoom_go_inward() -> None:
+    """`scale` with a negative amount zooms IN: the factor must stay below 1.
+
+    A negative amount used to be clamped to 0 by the ParamSpec bound, so the factor became
+    exactly 1.0 and `scale` collapsed silently into `identity`. Opus scored that render
+    3/10 ("aucun echo visible") without knowing the effect was doing nothing at all.
+    """
+    img = _ramp((64, 64))
+    grid = _grid(64, 64)
+    null = _apply_transform(img, "scale", 0.0, grid, None, "center", 0.0)
+    inward = _apply_transform(img, "scale", -3.0, grid, None, "center", 0.0)
+    assert np.array_equal(null, img)  # amount 0 really is the identity
+    assert not np.array_equal(inward, img)  # and a negative amount is not
+    resolved = resolve_params(get_effect(EFFECT_ID).params, {"amount": -3.0})
+    assert resolved["amount"] == -3.0  # the bound no longer eats the sign
+
+
+def test_negative_amount_never_divides_by_zero() -> None:
+    """The lower bound stays off the singular point of `1 + amount/10`."""
+    img = _ramp((32, 32))
+    out = _apply_transform(img, "scale", -6.0, _grid(32, 32), None, "center", 0.0)
+    assert np.isfinite(out).all()
+    assert float(out.min()) >= 0.0 and float(out.max()) <= 1.0

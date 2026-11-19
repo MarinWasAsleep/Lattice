@@ -7,7 +7,7 @@
       "name": "feedback",
       "params": {
         "amount": 6.0,
-        "blend": "screen",
+        "blend": "add",
         "decay": 0.7,
         "iterations": 4,
         "mix": 0.45,

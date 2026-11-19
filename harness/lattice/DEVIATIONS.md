@@ -734,3 +734,26 @@ invented in code. The orchestrator folds them into the contract at the next chec
   sous `screen`) ; une compression des hautes lumières douce le règlerait, c'est une carte.
   Le décalage de teinte par écho (son idée n°2) est explicitement classé non nécessaire par lui.
 - status: applied
+
+### DEV-239 — L33 · `feedback` : `amount` négatif avalé + le délavage vient de `screen`
+- classes: E1 + E3 | task: L33 | status: applied | date: 2026-11-19
+- context: Opus notait le rendu `scale amount -3` (zoom avant) 3/10 — « aucun écho visible des
+  formes, soit les échos sortent du cadre, soit le signe du zoom ne fait pas ce qu'on croit ».
+  Il avait raison, et ce n'était pas un mauvais réglage.
+- facts (mesurés) : `_AMOUNT` bornait `amount` à `min = 0.0`. Demander −3 rendait 0, donc le
+  facteur `1 + amount/10` valait exactement 1.0, donc `scale` devenait `identity` — l'effet ne
+  faisait RIEN. Deuxième mesure, la cause du délavage que le juge voyait encore à `mix` 0,5 :
+  c'est `blend = screen`. Sur la vraie image (scale +1.5, 6 itérations, mix 0.5) :
+  source 0,430 / `add` 0,434 / `max` 0,476 / `screen` **0,609** de moyenne.
+- decision: `amount` accepte −6,0 au minimum (facteur 0,4) ; le preset `07_feedback_echo` passe
+  à `blend = add` + `mix = 0.45`. La borne basse est −6 et non −9,5 : à facteur 0,10 le deuxième
+  écho fait 1 % de la taille et la récursion s'effondre en un point, ce que le juge a noté 2/10.
+  Garde explicite : facteur jamais nul (amount = −10 serait une division par zéro).
+- evidence: après correction, `scale -3` rend un tunnel lisible — note Opus **7/10** (contre 3/10
+  avant) : 5 à 6 cercles, 2 rectangles, échos du texte qui rentrent vers le centre. Notes de la
+  série : in_3 7/10, in_6 5/10, in_9 (facteur 0,10) 2/10, out_15 7/10.
+- lesson: une borne de ParamSpec qui écrase un signe transforme un effet en no-op silencieux.
+  C'est la deuxième fois sur ce projet (déjà DEV-234 sur `bytemosh.stride`) — un rendu « raté »
+  se diagnostique d'abord en vérifiant que le paramètre arrive intact.
+- laissé ouvert : compression des hautes lumières pour tenir la teinte même à `mix` 1 (carte).
+- status: applied
