@@ -8,7 +8,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-from lattice_core.pipeline import EffectInstance, PaletteSpec, PipelineSpec
+from lattice_core.pipeline import EffectInstance, PaletteSpec, PipelineSpec, PresetMeta
 from lattice_core.renderers import list_renderers
 
 PRESET_VERSION = 3
@@ -168,8 +168,15 @@ def to_pipeline_spec(preset: Preset) -> PipelineSpec:
             effect)
     spec.palette = _spec_palette(preset.palette)
     spec.seed = preset.seed
-    spec.meta.name = str(preset.meta.get("name", ""))
-    spec.meta.author = str(preset.meta.get("author", ""))
+    # The whole display metadata travels: a preset read through this path and shown in a
+    # browser must keep its description, tags and thumbnail, not just name and author.
+    spec.meta = PresetMeta(
+        name=str(preset.meta.get("name", "")),
+        author=str(preset.meta.get("author", "")),
+        description=str(preset.meta.get("description", "")),
+        tags=[str(tag) for tag in _as_list(preset.meta.get("tags", []), "tags")],
+        thumbnail=str(preset.meta.get("thumbnail", "")),
+    )
     spec.renderer = str(preset.renderer.get("name", "pixel"))
     spec.renderer_style = dict(_as_dict(preset.renderer.get("style", {}), "style"))
     return spec

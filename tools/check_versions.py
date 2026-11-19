@@ -1,6 +1,6 @@
 """Vérifie la cohérence des versions des distributions Lattice et des manifests de build.
 
-Contrôle (carte L23) : les quatre pyproject.toml déclarent 0.1.0 et, pour chaque
+Contrôle (carte L23) : les quatre pyproject.toml déclarent 1.0.0 et, pour chaque
 application dont un build a été enregistré, les deux binaires (gui + cli) portent
 la même version et la même empreinte de code source.
 """
@@ -15,7 +15,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-EXPECTED_VERSION = "0.1.0"
+EXPECTED_VERSION = "1.0.0"
 APPS: tuple[str, ...] = ("dither", "glyph", "glitch")
 PLATFORMS: tuple[str, ...] = ("linux", "windows")
 MODES: tuple[str, ...] = ("gui", "cli")

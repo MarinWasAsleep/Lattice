@@ -131,8 +131,33 @@ def save_preset(path: str | Path, spec: PipelineSpec) -> None:
 
 
 def load_preset(path: str | Path) -> PipelineSpec:
-    """Read a UTF-8 JSON preset file and parse it into a PipelineSpec."""
-    return from_json(Path(path).read_text(encoding="utf-8"))
+    """Read a preset file and parse it into a PipelineSpec, whatever its version.
+
+    Two readers coexist. ``from_json`` below owns versions 1 and 2 and is kept exactly as it
+    was: the witness presets are pinned to v1 and to the v2 defaults, and their baselines were
+    rendered through those defaults. ``lattice_core.preset`` owns version 3, the format every
+    Lattice app ships. The shipped starters are v3, so a reader that only knew v1 and v2 could
+    not open the very files it ships — that is what this dispatch fixes.
+    """
+    text = Path(path).read_text(encoding="utf-8")
+    version = _peek_version(text)
+    if version >= PRESET_VERSION:
+        from lattice_core.preset import load_preset as read_v3
+        from lattice_core.preset import to_pipeline_spec
+
+        return to_pipeline_spec(read_v3(Path(path)))
+    return from_json(text)
+
+
+def _peek_version(text: str) -> int:
+    """Return the preset version of text without parsing the whole document."""
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid preset JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError("preset JSON must be an object")
+    return _as_int(data.get("version", 1), "version")
 
 
 def _appdata() -> Path:

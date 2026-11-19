@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lattice-dither"
-version = "0.1.0"
+version = "1.0.0"
 description = "Lattice Dither: a dithering studio for PhotoCraft"
 requires-python = ">=3.13"
 license = "MIT OR Apache-2.0"

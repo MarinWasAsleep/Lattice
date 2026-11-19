@@ -12,6 +12,8 @@ import pytest
 from lattice_core import presets, registry
 from lattice_core.pipeline import EffectInstance, PaletteSpec, PipelineSpec, PresetMeta
 from lattice_core.presets import from_json, load_preset, save_preset, to_json
+
+ROOT = Path(__file__).resolve().parents[1]
 from lattice_core.registry import AlgorithmInfo, EffectInfo
 
 
@@ -349,3 +351,38 @@ def test_is_within_accepts_the_directory_and_its_children(tiers):
     assert presets.is_within(shipped / "01_a.json", shipped)
     assert not presets.is_within(user / "01_a.json", shipped)
     assert not presets.is_within(shipped, user)
+
+
+@pytest.mark.parametrize("path", sorted((ROOT / "presets" / "starter").glob("dither_*.json")),
+                         ids=lambda p: p.stem)
+def test_every_shipped_starter_opens_through_the_loader(path: Path) -> None:
+    """The starters Dither ships must open with the loader Dither uses.
+
+    The starters are written in v3 while ``presets.from_json`` owns v1 and v2 only, so this
+    shipped app could not open its own files: ``lattice-dither-cli render`` answered
+    "unsupported preset version: 3" and the preset browser refused the same four files. A
+    renderer that cannot read what it ships is not shippable, so the version is asserted
+    together with the fact that a spec actually comes out.
+    """
+    import lattice_core.dither  # noqa: F401  (registers the algorithms the starters name)
+
+    spec = load_preset(path)
+    assert spec.algorithm_id, f"{path.name} loaded without an algorithm"
+    # A palette is either named (resolved from the built-in table at render time) or carries
+    # its own colours; what must never happen is landing with neither.
+    assert spec.palette is not None, f"{path.name} lost its palette"
+    assert spec.palette.name or spec.palette.colors, (
+        f"{path.name} has a palette with no name and no colours")
+
+
+def test_a_v3_preset_keeps_its_full_metadata() -> None:
+    """Description, tags and thumbnail survive a v3 read, not only name and author."""
+    starter = next(iter(sorted((ROOT / "presets" / "starter").glob("dither_*.json"))))
+    from lattice_core.preset import load_preset as read_v3
+    from lattice_core.preset import to_pipeline_spec
+
+    raw = json.loads(starter.read_text(encoding="utf-8"))
+    spec = to_pipeline_spec(read_v3(starter))
+    assert spec.meta.name == raw["meta"]["name"]
+    assert spec.meta.description == raw["meta"].get("description", "")
+    assert spec.meta.tags == list(raw["meta"].get("tags", []))

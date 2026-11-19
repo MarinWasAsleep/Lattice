@@ -1,4 +1,4 @@
-# Lattice technical contract — version 0.1.0-draft
+# Lattice technical contract — version 1.0.0
 
 **Supersedes nothing.** Sections §1 to §11 of `harness/v1.0/CONTRACT.md` (DitherCraft 1.0.0) and
 §12 to §25 of `harness/v1.1/CONTRACT.md` (1.1.0) remain in force for the dithering application.
