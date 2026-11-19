@@ -21,6 +21,11 @@ env:
   # Qt has no display in CI; the suite runs against the offscreen platform.
   QT_QPA_PLATFORM: offscreen
 
+# Attaching the binaries to a release writes to the repository, which the default token may not
+# do: without this the build succeeds and the upload answers 403.
+permissions:
+  contents: write
+
 jobs:
   test:
     name: test (${{ matrix.os }})
@@ -102,13 +107,12 @@ jobs:
           pip install -e ".[ui]"
           pip install pyinstaller
 
-      - name: Build the window binary (Linux)
+      # Both binaries come from one spec and one source tree, so they are built in a single pass:
+      # the script checks their fingerprints against each other at the end, which it cannot do
+      # when the two are built by separate invocations.
+      - name: Build both binaries (Linux)
         if: runner.os == 'Linux'
-        run: MODES=gui bash scripts/build_linux.sh
-
-      - name: Build the console binary (Linux)
-        if: runner.os == 'Linux'
-        run: MODES=cli bash scripts/build_linux.sh
+        run: bash scripts/build_linux.sh
 
       - name: Build both binaries (Windows)
         if: runner.os == 'Windows'

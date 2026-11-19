@@ -4,11 +4,21 @@
 #
 # Lattice 1.0 est un seul programme : un spec, deux binaires (un fenetre, un console) qui
 # portent la meme version et sortent du meme arbre source.
+#
+# L'interpreteur vient de PYTHON s'il est defini, sinon du venv du depot, sinon de celui qui
+# execute ce script. Sans ce troisieme cas la CI echoue : sur un runner il n'y a pas de .venv,
+# et le Python installe est celui du systeme.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-PYTHON="${PYTHON:-$ROOT/.venv/bin/python}"
+if [[ -n "${PYTHON:-}" ]]; then
+    PYTHON="$PYTHON"
+elif [[ -x "$ROOT/.venv/bin/python" ]]; then
+    PYTHON="$ROOT/.venv/bin/python"
+else
+    PYTHON="$(command -v python3 || command -v python)"
+fi
 SPEC_DIR="$SCRIPT_DIR/packaging"
 DIST_DIR="${DIST_DIR:-$ROOT/dist}"
 WORK_DIR="${WORK_DIR:-$ROOT/build/pyinstaller}"
