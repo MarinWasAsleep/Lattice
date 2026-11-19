@@ -706,3 +706,31 @@ invented in code. The orchestrator folds them into the contract at the next chec
   bas. Signe inversé sur translate et displace ; revérifié sur rendu réel : droite / bas / haut
   conformes.
 - status: applied
+
+### DEV-238 — L32 · `feedback` : `mix` (sec/mouillé) et compositions de choix
+- classes: E1 (option neuve) + E3 (registre) | task: L32 | status: applied | date: 2026-11-19
+- context: Opus, jugeant 7 rendus de `feedback` — « il manque un mix sec/mouillé, toute image avec
+  feedback devient pastel ». Il attribuait la cause à la normalisation (« elle étire chaque canal
+  séparément »), en précisant ne pas l'avoir vérifié.
+- facts (mesurés, pas supposés) : sa théorie était fausse. Sur un rouge franc [0.8, 0.2, 0.1], le
+  ratio R/B reste 8,00 en entrée comme en sortie. Ce qui lave, c'est l'EXPOSITION : la récurrence
+  additionne chaque écho à la source, donc la moyenne montait de 0,43 à 0,73 en 6 itérations.
+  Deuxième mesure, la vraie cause de la désaturation : c'est `blend=screen`, pas la normalisation.
+  Sur un orange saturé, `add` conserve R/G = 2,00 tandis que `screen` le porte à 1,17 (fonction
+  non linéaire qui relève proportionnellement plus les canaux faibles). Le preset `07_feedback_echo`
+  utilisait `screen`.
+- second défaut trouvé en générant les rendus : `transform: "rotate+scale"` — composition
+  documentée par `_transform_names` — était REFUSÉE par `resolve_params` (« invalid choice »).
+  Le registre validait un choix simple sans savoir que certains effets lisent des combinaisons.
+- decision: (1) `mix` 0..1, mélange du buffer bouclé sur la source intacte, défaut 1.0 (comportement
+  inchangé) ; le preset 07 passe à 0.45, la valeur que le juge a retenue. (2) `ParamSpec.composable`
+  (drapeau déclaratif) : le registre accepte `a+b` seulement si l'effet le déclare, et vérifie que
+  chaque partie est un choix connu. Les autres choix restent stricts (vérifié sur `crt.mask`).
+- evidence: `mix` 1.0/0.5/0.25/0.0 sur la vraie image → moyenne 0,722 / 0,576 / 0,503 / 0,430
+  contre 0,43 pour la source, écart-type croissant à mesure que le mix baisse (contraste rendu).
+  Notes Opus : scale+mix0.5 **7,5/10** (la meilleure), translate+mix0.5 **7/10**, mix1.0 **4/10**.
+  Sa recommandation : défaut entre 0,4 et 0,5. 93 tests dans `test_feedback.py`.
+- laissé ouvert : à `mix` élevé, une couleur déjà saturée sature encore (mesuré : ratio 2,00 → 1,17
+  sous `screen`) ; une compression des hautes lumières douce le règlerait, c'est une carte.
+  Le décalage de teinte par écho (son idée n°2) est explicitement classé non nécessaire par lui.
+- status: applied

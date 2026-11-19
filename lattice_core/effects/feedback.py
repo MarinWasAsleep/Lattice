@@ -31,7 +31,8 @@ _MAX_DECAY = 0.99
 # Labels are drawn from the frozen i18n catalogue (lattice_dither/i18n/en.json),
 # which is outside this card's owns; no catalogue entry may be added here.
 _DECAY = ParamSpec("decay", "Strength", "float", 0.5, 0.0, _MAX_DECAY, 0.01)
-_TRANSFORM = ParamSpec("transform", "Scale", "choice", "identity", choices=_TRANSFORMS)
+_TRANSFORM = ParamSpec("transform", "Scale", "choice", "identity", choices=_TRANSFORMS,
+                       composable=True)
 _AMOUNT = ParamSpec("amount", "Amount", "float", 2.0, 0.0, 32.0, 0.5)
 _ITERATIONS = ParamSpec("iterations", "Iterations", "int", 1, 1, 16, 1)
 _BLEND = ParamSpec("blend", "Ratio", "choice", "add", choices=_BLENDS)
@@ -40,7 +41,12 @@ _BLEND = ParamSpec("blend", "Ratio", "choice", "add", choices=_BLENDS)
 _ORIGIN = ParamSpec("origin", "Source", "choice", "center", choices=_ORIGINS)
 # The heading, in degrees: 0 = right, 90 = down. Positive rotates clockwise on screen.
 _DIRECTION = ParamSpec("direction", "Angle", "float", 0.0, -180.0, 180.0, 5.0)
-_PARAMS = (_DECAY, _TRANSFORM, _AMOUNT, _ITERATIONS, _BLEND, _ORIGIN, _DIRECTION)
+# Wet/dry: how much of the echoed buffer is mixed back over the untouched source. The
+# recurrence adds every echo to the input, so `iterations` lifts the mean from 0.43 to 0.73
+# and the result reads pastel (Opus: "every image with feedback becomes washed out").
+# At 0 you get the source back, at 1 the full loop — the control the effect was missing.
+_MIX = ParamSpec("mix", "Intensity", "float", 1.0, 0.0, 1.0, 0.05)
+_PARAMS = (_DECAY, _TRANSFORM, _AMOUNT, _ITERATIONS, _BLEND, _ORIGIN, _DIRECTION, _MIX)
 
 
 def _transform_names(value: object) -> tuple[str, ...]:
@@ -77,6 +83,7 @@ def validate_params(params: Mapping[str, object]) -> dict:
         "blend": blend,
         "origin": _origin_name(params.get("origin", "center")),
         "direction": float(np.clip(float(str(params.get("direction", 0.0))), -180.0, 180.0)),
+        "mix": float(np.clip(float(str(params.get("mix", 1.0))), 0.0, 1.0)),
     }
 
 
@@ -249,6 +256,13 @@ def iterate(
         transformed = _compose(buf, cfg["transform"], cfg["amount"], grid, field,
                               cfg["origin"], cfg["direction"])
         buf = _normalise(_mix(decay * transformed, source, cfg["blend"]))
+    # The loop always sums its echoes onto the input, so a long run lifts the mean well above
+    # the source (0.43 -> 0.73 measured) and everything reads pastel. `mix` blends the looped
+    # buffer back over the untouched source, which is the only way to keep blacks and
+    # saturation while still having echoes.
+    weight = np.float32(cfg["mix"])
+    if weight < 1.0:
+        buf = _normalise(source * (np.float32(1.0) - weight) + buf * weight)
     return np.ascontiguousarray(buf, dtype=np.float32)
 
 

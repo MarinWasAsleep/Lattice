@@ -92,6 +92,7 @@ def test_registration_and_params() -> None:
         "blend",
         "origin",
         "direction",
+        "mix",
     ]
     assert resolve_params(info.params, {}) == {
         "decay": 0.5,
@@ -101,6 +102,7 @@ def test_registration_and_params() -> None:
         "blend": "add",
         "origin": "center",
         "direction": 0.0,
+        "mix": 1.0,
     }
 
 
@@ -383,3 +385,55 @@ def test_direction_is_clamped_to_plus_minus_180() -> None:
     """Direction outside the documented range is clamped, not accepted silently."""
     assert validate_params({"direction": 400})["direction"] == 180.0
     assert validate_params({"direction": -400})["direction"] == -180.0
+
+
+def test_mix_at_zero_returns_the_source() -> None:
+    """`mix = 0` is the dry signal: the loop is computed and thrown away."""
+    img = _ramp((32, 32))
+    out = _run(img, {"decay": 0.9, "transform": "rotate", "amount": 5.0,
+                     "iterations": 6, "blend": "screen", "mix": 0.0})
+    assert np.allclose(out, img, atol=1e-6)
+
+
+def test_mix_controls_how_far_the_mean_drifts() -> None:
+    """The loop lifts the mean (the pastel wash); `mix` pulls it back towards the source.
+
+    Measured on the real complaint: with translate + screen, the mean rose from 0.43 to
+    0.72 and everything read pastel. A half mix lands in between, monotonically.
+    """
+    img = _ramp((48, 48))
+    base = {"decay": 0.85, "transform": "translate", "amount": 7.0, "iterations": 6,
+            "blend": "screen", "origin": "top", "direction": 90.0}
+    full = float(_run(img, {**base, "mix": 1.0}).mean())
+    half = float(_run(img, {**base, "mix": 0.5}).mean())
+    dry = float(img.mean())
+    assert full > half > dry
+    assert full - dry > 0.05  # the wash is real, not a rounding artefact
+
+
+def test_blend_add_keeps_the_hue_ratio_but_screen_does_not() -> None:
+    """The pastel is caused by `screen`, not by the normalisation (measured, not assumed).
+
+    A saturated orange keeps R/G = 2 under `add` because every channel is scaled by the
+    same factor; `screen` is non-linear and lifts the weak channels proportionally more,
+    which desaturates towards pastel. Documented so nobody hunts the wrong culprit again.
+    """
+    img = np.zeros((24, 24, 3), dtype=np.float32)
+    img[...] = [0.9, 0.45, 0.1]
+    base = {"decay": 0.85, "transform": "translate", "amount": 4.0, "iterations": 6,
+            "origin": "center", "direction": 0.0, "mix": 1.0}
+    added = _run(img, {**base, "blend": "add"})[12, 12]
+    screened = _run(img, {**base, "blend": "screen"})[12, 12]
+    assert abs(float(added[0] / added[1]) - 2.0) < 0.05  # add keeps the hue
+    assert float(screened[0] / screened[1]) < 1.5  # screen washes it towards grey
+
+
+def test_transform_accepts_a_documented_composition() -> None:
+    """`rotate+scale` is a documented composition, so a preset may ask for it."""
+    img = _ramp((32, 32))
+    out = _run(img, {"decay": 0.85, "transform": "rotate+scale", "amount": 3.0,
+                     "iterations": 4, "blend": "screen"})
+    assert out.shape == img.shape
+    single = _run(img, {"decay": 0.85, "transform": "rotate", "amount": 3.0,
+                        "iterations": 4, "blend": "screen"})
+    assert not np.array_equal(out, single)  # the composition really adds the second step

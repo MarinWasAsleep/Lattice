@@ -92,6 +92,11 @@ def list_effects() -> list[EffectInfo]:
     return sorted(_EFFECTS.values(), key=lambda info: info.name)
 
 
+def _split_choice(value: str) -> tuple[str, ...]:
+    """Split a composed choice ("rotate+scale") into its names, dropping empties."""
+    return tuple(part for part in value.replace(",", "+").split("+") if part)
+
+
 def resolve_params(specs: tuple[ParamSpec, ...], given: dict) -> dict:
     """Fill defaults, clamp numbers to their bounds, cast ints and validate choices."""
     known = {spec.id for spec in specs}
@@ -119,7 +124,13 @@ def resolve_params(specs: tuple[ParamSpec, ...], given: dict) -> dict:
             resolved[spec.id] = bool(value)
         elif spec.kind == "choice":
             if value not in spec.choices:
-                raise ValueError(f"invalid choice for {spec.id!r}: {value!r}")
+                joined = (
+                    isinstance(value, str)
+                    and spec.composable
+                    and all(part in spec.choices for part in _split_choice(value))
+                )
+                if not joined:
+                    raise ValueError(f"invalid choice for {spec.id!r}: {value!r}")
             resolved[spec.id] = value
         else:
             raise ValueError(f"unknown parameter kind: {spec.kind!r}")

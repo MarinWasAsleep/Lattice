@@ -25,3 +25,8 @@ class ParamSpec:
     max: float | None = None
     step: float | None = None
     choices: tuple[str, ...] = ()
+    # A choice may hold several names joined by "+" ("rotate+scale"). The registry cannot
+    # know that a given effect reads them that way, so the effect declares it instead of
+    # the registry guessing: without this flag a documented composition is unreachable
+    # from a preset ("invalid choice for 'transform': 'rotate+scale'").
+    composable: bool = False
