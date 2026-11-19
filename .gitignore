@@ -11,3 +11,7 @@ __pycache__/
 # Per-machine state
 *.log
 .DS_Store
+
+# IDE
+.idea/
+.vscode/
