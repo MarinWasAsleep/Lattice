@@ -53,7 +53,7 @@
       "alphabet": " ░▒▓█",
       "bg": "#ffffff",
       "fg": "#000000",
-      "font": "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
+      "font": null
     }
   },
   "seed": 5,

@@ -220,10 +220,21 @@ def test_glyph_text_is_escaped() -> None:
 
 
 def test_the_font_option_names_the_font_family() -> None:
+    """An explicit font file names its family in the SVG; the default font has no such name.
+
+    The font is looked up rather than hard-coded: a Linux path means nothing on Windows, and
+    the point of the test is the family name, not where the file lives.
+    """
+    font = next((path for path in (
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"),
+        Path("C:/Windows/Fonts/consola.ttf"),
+    ) if path.is_file()), None)
+    if font is None:
+        pytest.skip("no system TrueType font available")
     grid = _grid(np.zeros((1, 1), np.int32), CELL_W, CELL_H)
-    style = RenderStyle(options={"font": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"})
+    style = RenderStyle(options={"font": str(font)})
     svg, _ = render_svg(grid, BW, get_renderer("glyph_ramp"), style)
-    assert _texts(svg)[0].get("font-family") == "DejaVuSansMono"
+    assert _texts(svg)[0].get("font-family") == font.stem.split("-")[0]
 
 
 # --- accept: the 8 MB budget triggers a merge and a warning on a large render ---
