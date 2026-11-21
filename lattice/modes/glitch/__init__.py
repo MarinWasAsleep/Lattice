@@ -4,4 +4,4 @@ from __future__ import annotations
 
 APP_NAME = "Lattice Glitch"
 APP_ID = "glitch"
-__version__ = "1.0.0"
+__version__ = "1.0.1"

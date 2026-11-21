@@ -33,7 +33,7 @@ from lattice.modes.glyph import __version__ as glyph_version
 from lattice.registry import get_algorithm, get_effect, list_algorithms, list_effects
 from lattice.window import MODES, MainWindow, mode_title
 
-EXPECTED_VERSION = "1.0.0"
+EXPECTED_VERSION = "1.0.1"
 
 
 @pytest.fixture(scope="module")
