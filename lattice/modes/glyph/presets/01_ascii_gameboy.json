@@ -1,0 +1,60 @@
+{
+  "app": "glyph",
+  "effects": [],
+  "fonts": {},
+  "masks": {},
+  "meta": {
+    "author": "Lattice",
+    "created": "",
+    "description": "Classic density ramp on the Game Boy palette.",
+    "name": "01_ascii_gameboy",
+    "tags": [
+      "ascii",
+      "gameboy"
+    ],
+    "thumbnail": ""
+  },
+  "output": {
+    "dpi": null,
+    "scale": 1,
+    "width": null
+  },
+  "palette": {
+    "colors": [],
+    "extract": {
+      "from": "image",
+      "n_colors": 8,
+      "rows": null
+    },
+    "extract_method": "kmeans",
+    "locked": false,
+    "locked_colours": [],
+    "name": "gameboy",
+    "order": [],
+    "source": "integrated"
+  },
+  "pipeline": {
+    "algorithm": "floyd_steinberg",
+    "auto_levels": false,
+    "brightness": 0.0,
+    "color_metric": "srgb",
+    "contrast": 0.0,
+    "gamma": 1.0,
+    "max_side": null,
+    "params": {},
+    "pixel_size": 8,
+    "pre_blur": 0.0,
+    "saturation": 0.0
+  },
+  "renderer": {
+    "name": "glyph_ramp",
+    "style": {
+      "bg": "#ffffff",
+      "fg": "#000000",
+      "mode": "mono",
+      "ramp": "@%#*+=-:. "
+    }
+  },
+  "seed": 0,
+  "version": 3
+}

@@ -1,0 +1,59 @@
+{
+  "app": "glyph",
+  "effects": [],
+  "fonts": {},
+  "masks": {},
+  "meta": {
+    "author": "Lattice",
+    "created": "",
+    "description": "Quadrant blocks, one dither pattern per cell.",
+    "name": "04_quadrant_dither",
+    "tags": [
+      "bitmask",
+      "quadrant"
+    ],
+    "thumbnail": ""
+  },
+  "output": {
+    "dpi": null,
+    "scale": 1,
+    "width": null
+  },
+  "palette": {
+    "colors": [],
+    "extract": {
+      "from": "image",
+      "n_colors": 8,
+      "rows": null
+    },
+    "extract_method": "kmeans",
+    "locked": false,
+    "locked_colours": [],
+    "name": "ega",
+    "order": [],
+    "source": "integrated"
+  },
+  "pipeline": {
+    "algorithm": "floyd_steinberg",
+    "auto_levels": false,
+    "brightness": 0.0,
+    "color_metric": "srgb",
+    "contrast": 0.0,
+    "gamma": 1.0,
+    "max_side": null,
+    "params": {},
+    "pixel_size": 8,
+    "pre_blur": 0.0,
+    "saturation": 0.0
+  },
+  "renderer": {
+    "name": "quadrant",
+    "style": {
+      "bg": "#ffffff",
+      "fg": "#000000",
+      "threshold": 0.5
+    }
+  },
+  "seed": 0,
+  "version": 3
+}

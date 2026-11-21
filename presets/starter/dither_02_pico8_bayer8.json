@@ -1,0 +1,54 @@
+{
+  "app": "dither",
+  "effects": [],
+  "fonts": {},
+  "masks": {},
+  "meta": {
+    "author": "Lattice",
+    "created": "2026-11-19",
+    "description": "Bayer 8x8 ordered dither on PICO-8, doubled output.",
+    "name": "dither_02_pico8_bayer8",
+    "tags": [
+      "dither",
+      "pico8",
+      "ordered"
+    ],
+    "thumbnail": ""
+  },
+  "output": {
+    "dpi": null,
+    "scale": 2,
+    "width": null
+  },
+  "palette": {
+    "colors": [],
+    "extract": {
+      "from": "image",
+      "n_colors": 8,
+      "rows": null
+    },
+    "locked": false,
+    "name": "pico8",
+    "order": null,
+    "source": "integrated"
+  },
+  "pipeline": {
+    "algorithm": "bayer_8",
+    "auto_levels": true,
+    "brightness": 0.0,
+    "color_metric": "srgb",
+    "contrast": 0.3,
+    "gamma": 1.0,
+    "max_side": null,
+    "params": {},
+    "pixel_size": 4,
+    "pre_blur": 0.0,
+    "saturation": 0.0
+  },
+  "renderer": {
+    "name": "pixel",
+    "style": {}
+  },
+  "seed": 0,
+  "version": 3
+}

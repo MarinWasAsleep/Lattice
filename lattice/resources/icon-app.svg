@@ -1,0 +1,26 @@
+<!-- icon-app.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>Lattice</title>
+  <rect x="0" y="0" width="256" height="256" rx="56" fill="#161616"/>
+  <rect x="2" y="2" width="252" height="252" rx="54" fill="none" stroke="#2E2E2E" stroke-width="4"/>
+  <g fill="#333333">
+    <rect x="44"  y="44"  width="36" height="36"/>
+    <rect x="88"  y="44"  width="36" height="36"/>
+    <rect x="132" y="44"  width="36" height="36"/>
+    <rect x="176" y="44"  width="36" height="36"/>
+    <rect x="88"  y="88"  width="36" height="36"/>
+    <rect x="176" y="88"  width="36" height="36"/>
+    <rect x="132" y="132" width="36" height="36"/>
+    <rect x="176" y="132" width="36" height="36"/>
+    <rect x="176" y="176" width="36" height="36"/>
+  </g>
+  <g fill="#FFB000">
+    <rect x="44"  y="88"  width="36" height="36"/>
+    <rect x="132" y="88"  width="36" height="36"/>
+    <rect x="44"  y="132" width="36" height="36"/>
+    <rect x="88"  y="132" width="36" height="36"/>
+    <rect x="44"  y="176" width="36" height="36"/>
+    <rect x="88"  y="176" width="36" height="36"/>
+    <rect x="132" y="176" width="36" height="36"/>
+  </g>
+</svg>

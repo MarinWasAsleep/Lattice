@@ -1,0 +1,269 @@
+{
+  "schema": "lattice.ramps/1",
+  "categories": [
+    {
+      "id": "classic_ascii",
+      "name": "Classic ASCII",
+      "ladder": "$@B%8&WM#*+=-:;,.·' ",
+      "ramps": [
+        {
+          "id": "classic_10",
+          "name": "Classic 10",
+          "script": "latin",
+          "ramp": "@%#*+=-:. "
+        },
+        {
+          "id": "classic_dense",
+          "name": "Dense ASCII",
+          "script": "latin",
+          "ramp": "$@B%8&WM#"
+        },
+        {
+          "id": "classic_light",
+          "name": "Light ASCII",
+          "script": "latin",
+          "ramp": "=-:,. "
+        }
+      ]
+    },
+    {
+      "id": "numbers",
+      "name": "Numbers",
+      "ladder": "8069453271 ",
+      "ramps": [
+        {
+          "id": "numbers_ten",
+          "name": "Digits, ten steps",
+          "script": "latin",
+          "ramp": "8069453271 "
+        },
+        {
+          "id": "numbers_five",
+          "name": "Digits, five steps",
+          "script": "latin",
+          "ramp": "80631 "
+        },
+        {
+          "id": "numbers_three",
+          "name": "Digits, three steps",
+          "script": "latin",
+          "ramp": "801 "
+        }
+      ]
+    },
+    {
+      "id": "symbols",
+      "name": "Symbols",
+      "ladder": "@&%$#*+=~-:;,.· ",
+      "ramps": [
+        {
+          "id": "symbols_ladder",
+          "name": "Symbol ladder",
+          "script": "latin",
+          "ramp": "@&%$#*+=~-:,. "
+        },
+        {
+          "id": "symbols_short",
+          "name": "Symbol short",
+          "script": "latin",
+          "ramp": "@%#+=-,. "
+        },
+        {
+          "id": "symbols_light",
+          "name": "Symbol light",
+          "script": "latin",
+          "ramp": "~-;,. "
+        }
+      ]
+    },
+    {
+      "id": "blocks",
+      "name": "Blocks",
+      "ladder": "█▉▊▓▋▒▌▍▎░▏· ",
+      "ramps": [
+        {
+          "id": "blocks_shades",
+          "name": "Block shades",
+          "script": "latin",
+          "ramp": "█▓▒░ "
+        },
+        {
+          "id": "blocks_eighths",
+          "name": "Block eighths",
+          "script": "latin",
+          "ramp": "█▉▊▋▌▍▎▏ "
+        },
+        {
+          "id": "blocks_dots",
+          "name": "Blocks and dots",
+          "script": "latin",
+          "ramp": "█▌░· "
+        }
+      ]
+    },
+    {
+      "id": "geometric",
+      "name": "Geometric",
+      "ladder": "●◉◍◎○◆◇□△▽· ",
+      "ramps": [
+        {
+          "id": "geometric_circles",
+          "name": "Filled circles",
+          "script": "latin",
+          "ramp": "●◉◍◎○ "
+        },
+        {
+          "id": "geometric_shapes",
+          "name": "Outline shapes",
+          "script": "latin",
+          "ramp": "◆◇□△▽ "
+        },
+        {
+          "id": "geometric_dots",
+          "name": "Dots",
+          "script": "latin",
+          "ramp": "●· "
+        }
+      ]
+    },
+    {
+      "id": "braille",
+      "name": "Braille",
+      "ladder": "⣿⣷⣯⣟⡿⢿⣻⣽⣾⣶⣦⣤⣠⣀ ",
+      "ramps": [
+        {
+          "id": "braille_full",
+          "name": "Braille, full descent",
+          "script": "braille",
+          "ramp": "⣿⣷⣯⣟⡿⢿⣻⣽⣾⣶⣦⣤⣀ "
+        },
+        {
+          "id": "braille_four",
+          "name": "Braille, four steps",
+          "script": "braille",
+          "ramp": "⣿⣶⣤⣀ "
+        },
+        {
+          "id": "braille_light",
+          "name": "Braille, light",
+          "script": "braille",
+          "ramp": "⣤⣀ "
+        }
+      ]
+    },
+    {
+      "id": "playing_cards",
+      "name": "Playing cards",
+      "ladder": "♠♣♥♦♤♧♡♢ ",
+      "ramps": [
+        {
+          "id": "card_suits",
+          "name": "Card suits, filled",
+          "script": "latin",
+          "ramp": "♠♣♥♦ "
+        },
+        {
+          "id": "card_suits_outline",
+          "name": "Card suits, outline",
+          "script": "latin",
+          "ramp": "♤♧♡♢ "
+        }
+      ]
+    },
+    {
+      "id": "japanese",
+      "name": "Japanese",
+      "ladder": "鬱曜語書日中口一 ",
+      "ramps": [
+        {
+          "id": "kanji_density",
+          "name": "Kanji, by stroke count",
+          "script": "japanese",
+          "ramp": "鬱曜書日口一 "
+        },
+        {
+          "id": "kanji_light",
+          "name": "Kanji, light",
+          "script": "japanese",
+          "ramp": "日中口一 "
+        }
+      ]
+    },
+    {
+      "id": "korean",
+      "name": "Korean",
+      "ladder": "한국어문자 ",
+      "ramps": [
+        {
+          "id": "hangul_syllables",
+          "name": "Hangul syllables",
+          "script": "korean",
+          "ramp": "한국어문자 "
+        }
+      ]
+    },
+    {
+      "id": "chinese",
+      "name": "Chinese",
+      "ladder": "鬱龍書國中一 ",
+      "ramps": [
+        {
+          "id": "hanzi_density",
+          "name": "Hanzi, by stroke count",
+          "script": "chinese",
+          "ramp": "鬱龍書國中一 "
+        },
+        {
+          "id": "hanzi_light",
+          "name": "Hanzi, light",
+          "script": "chinese",
+          "ramp": "國中一 "
+        }
+      ]
+    },
+    {
+      "id": "russian",
+      "name": "Russian",
+      "ladder": "ЩЖШМДФБ ",
+      "ramps": [
+        {
+          "id": "cyrillic_dense",
+          "name": "Cyrillic, dense",
+          "script": "russian",
+          "ramp": "ЩЖШМДФБ "
+        },
+        {
+          "id": "cyrillic_light",
+          "name": "Cyrillic, light",
+          "script": "russian",
+          "ramp": "МДФБ "
+        }
+      ]
+    },
+    {
+      "id": "accented_latin",
+      "name": "Accented Latin",
+      "ladder": "ÄÖÜẞÉÈÊÀÇÑÁÍÓÚß ",
+      "ramps": [
+        {
+          "id": "german_umlauts",
+          "name": "German umlauts",
+          "script": "german",
+          "ramp": "ÄÖÜẞ "
+        },
+        {
+          "id": "french_accents",
+          "name": "French accents",
+          "script": "french",
+          "ramp": "ÉÈÊÀÇ "
+        },
+        {
+          "id": "spanish_accents",
+          "name": "Spanish accents",
+          "script": "spanish",
+          "ramp": "ÑÁÍÓÚ "
+        }
+      ]
+    }
+  ]
+}

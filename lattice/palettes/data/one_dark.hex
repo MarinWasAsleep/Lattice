@@ -1,0 +1,16 @@
+# source: https://github.com/atom/one-dark-syntax
+# licence: MIT
+# copyright: GitHub Inc.
+
+282C34	background
+21252B	background dark
+ABB2BF	foreground
+5C6370	comment
+E06C75	red
+98C379	green
+E5C07B	yellow
+61AFEF	blue
+C678DD	purple
+56B6C2	cyan
+BE5046	red dark
+D19A66	orange
