@@ -16,7 +16,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-EXPECTED_VERSION = "1.0.0"
+EXPECTED_VERSION = "1.0.1"
 APP = "lattice"
 PLATFORMS: tuple[str, ...] = ("linux", "windows")
 MODES: tuple[str, ...] = ("gui", "cli")
