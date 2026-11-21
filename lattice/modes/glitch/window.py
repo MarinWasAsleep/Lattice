@@ -59,6 +59,7 @@ from lattice.ui import (
     preview_proxy,
 )
 from lattice.ui.geometry import PANEL_WIDTH
+from lattice.ui.scrolling import scrolled
 
 LOGGER = logging.getLogger(__name__)
 SETTINGS_NAME = "LatticeGlitch"
@@ -139,7 +140,8 @@ class MainWindow(BridgeMixin, QMainWindow):
                          self.preset_panel), strict=True,
         ))
         for name, panel in self.panels.items():
-            self.tabs.addTab(panel, name)
+            # Scrolling page: the mask panel alone asks for 554 pixels of height.
+            self.tabs.addTab(scrolled(panel), name)
         self.dock.setWidget(self.tabs)
         self.dock.setMinimumWidth(PANEL_WIDTH)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.dock)

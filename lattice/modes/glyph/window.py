@@ -57,6 +57,7 @@ from lattice.ui import (
 )
 from lattice.ui.geometry import PANEL_WIDTH
 from lattice.ui.glyph_browser import GlyphBrowser
+from lattice.ui.scrolling import scrolled
 
 LOGGER = logging.getLogger(__name__)
 
@@ -134,7 +135,8 @@ class MainWindow(QMainWindow):
             strict=True,
         ))
         for name, panel in self.panels.items():
-            self.tabs.addTab(panel, name)
+            # Scrolling page: see lattice/ui/scrolling.py for why each panel needs one.
+            self.tabs.addTab(scrolled(panel), name)
         self.dock.setWidget(self.tabs)
         self.dock.setMinimumWidth(PANEL_WIDTH)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.dock)

@@ -806,16 +806,18 @@ ThumbnailCell[selected="true"] {
 
 /* 16. Barres de défilement : fines, sans flèches --------------------------- */
 
+/* 12 px, not 10: SCROLLBAR_EXTENT in lattice/ui/geometry.py sizes the panel docks from this
+   number, so the content keeps its 320 pixels and no panel needs a horizontal bar. */
 QScrollBar:vertical {
     background-color: transparent;
-    width: 10px;
+    width: 12px;
     margin: 2px 2px 2px 0px;
     border: none;
 }
 
 QScrollBar:horizontal {
     background-color: transparent;
-    height: 10px;
+    height: 12px;
     margin: 0px 2px 2px 2px;
     border: none;
 }
@@ -911,3 +913,16 @@ QProgressBar::chunk {
 QDialog { background-color: #232323; }
 QDialogButtonBox QPushButton { min-width: 80px; }
 QMessageBox QLabel { color: #EDEDED; }
+
+/* 17. Planchers de hauteur des zones qui défilent ---------------------------
+   Un QListWidget a un minimum d'une dizaine de pixels : sans plancher il se comprime au lieu
+   de défiler, et l'ascenseur n'apparaît jamais. En QSS, min-height devient le minimum réel du
+   widget au polish et écrase un setMaximumHeight posé en code. Ces valeurs laissent chaque
+   zone utilisable sur un écran de 768 px de haut tout en gardant la page défilante.       */
+
+QListWidget#mask_list       { min-height: 76px; max-height: 120px; }
+QListWidget#effect_list     { min-height: 76px; }
+QListWidget#preset_list     { min-height: 76px; }
+QWidget#mask_painter        { min-height: 140px; }
+QScrollArea#panel_scroll    { border: none; background-color: transparent; }
+QWidget#panel_scroll_page   { background-color: transparent; }

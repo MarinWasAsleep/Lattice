@@ -27,4 +27,16 @@ GALLERY_COLUMNS = 3
 # Below this the canvas stops shrinking and the view scrolls instead.
 CANVAS_MIN_WIDTH = 420
 
-__all__ = ["CANVAS_MIN_WIDTH", "GALLERY_COLUMNS", "GALLERY_WIDTH", "PANEL_WIDTH"]
+# A vertical scrollbar costs this much width; a dock that scrolls must be that much wider so the
+# content keeps its own 320 pixels and no panel ever needs a horizontal bar.
+SCROLLBAR_EXTENT = 12
+PANEL_DOCK_WIDTH = PANEL_WIDTH + SCROLLBAR_EXTENT
+
+# The height below which the window refuses to shrink: 1366x768 laptops are the target, and the
+# status bar must stay reachable there. The width is left to the layout, which needs more.
+WINDOW_MIN_HEIGHT = 600
+
+__all__ = [
+    "CANVAS_MIN_WIDTH", "GALLERY_COLUMNS", "GALLERY_WIDTH", "PANEL_DOCK_WIDTH",
+    "PANEL_WIDTH", "SCROLLBAR_EXTENT", "WINDOW_MIN_HEIGHT",
+]

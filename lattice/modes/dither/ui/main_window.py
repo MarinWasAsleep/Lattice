@@ -49,6 +49,7 @@ from lattice.presets import is_within, shipped_preset_dir, user_preset_dir
 from lattice.types import RGB8, Image
 from lattice.ui.canvas import PreviewCanvas
 from lattice.ui.geometry import GALLERY_COLUMNS, GALLERY_WIDTH, PANEL_WIDTH
+from lattice.ui.scrolling import page_of, scrolled
 from lattice.ui.worker import PreviewResult, RenderResult, RenderWorker
 
 LOGGER = logging.getLogger(__name__)
@@ -209,7 +210,9 @@ class MainWindow(QMainWindow):
         panels = (self.algorithm_panel, self.palette_panel, self.effects_panel)
         self.panels: dict[str, QWidget] = dict(zip(PANEL_TABS, panels, strict=True))
         for name, panel in self.panels.items():
-            self.tabs.addTab(panel, tr(name))
+            # A scrolling page per panel: the settings stack is taller than a 768-pixel
+            # laptop screen, and a panel cannot shrink below its children's minima.
+            self.tabs.addTab(scrolled(panel), tr(name))
             panel.changed.connect(self.commands.on_panels_changed)
         self.dock.setWidget(self.tabs)
         self.dock.setMinimumWidth(DOCK_MIN_WIDTH)
@@ -336,6 +339,10 @@ class MainWindow(QMainWindow):
     def dropEvent(self, event: QDropEvent) -> None:
         """Open the first image of a drop, ignoring anything else."""
         self.commands.drop(event)
+
+    def panel_for(self, name: str) -> QWidget:
+        """Return the panel of one settings tab, looking through its scroll area."""
+        return page_of(self.tabs, self.tab_index(name))
 
     def tab_index(self, name: str) -> int:
         """Return the index of the panel tab called name, or -1."""

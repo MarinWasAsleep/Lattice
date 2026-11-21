@@ -143,9 +143,10 @@ def test_main_window_builds_offscreen(
     tabs = window.tabs
     assert isinstance(tabs, QTabWidget)
     assert [tabs.tabText(i) for i in range(tabs.count())] == list(PANEL_TABS)
-    assert isinstance(tabs.widget(window.tab_index("Algorithm")), AlgorithmPanel)
-    assert isinstance(tabs.widget(window.tab_index("Palette")), PalettePanel)
-    assert isinstance(tabs.widget(window.tab_index("Effects")), EffectsPanel)
+    # Each panel now sits in a scrolling viewport, so it is one container deep.
+    assert isinstance(window.panel_for("Algorithm"), AlgorithmPanel)
+    assert isinstance(window.panel_for("Palette"), PalettePanel)
+    assert isinstance(window.panel_for("Effects"), EffectsPanel)
     expected = {
         "open_image",
         "get_from_photocraft",

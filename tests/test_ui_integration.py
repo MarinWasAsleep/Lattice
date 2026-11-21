@@ -181,9 +181,10 @@ def test_panels_replace_the_placeholders(window: mw.MainWindow) -> None:
     """The three placeholder tabs are replaced by the real panels."""
     tabs = window.tabs
     assert [tabs.tabText(index) for index in range(tabs.count())] == list(mw.PANEL_TABS)
-    assert isinstance(tabs.widget(window.tab_index("Algorithm")), AlgorithmPanel)
-    assert isinstance(tabs.widget(window.tab_index("Palette")), PalettePanel)
-    assert isinstance(tabs.widget(window.tab_index("Effects")), EffectsPanel)
+    # Each panel sits in a scrolling viewport now, so it is one container deep.
+    assert isinstance(window.panel_for("Algorithm"), AlgorithmPanel)
+    assert isinstance(window.panel_for("Palette"), PalettePanel)
+    assert isinstance(window.panel_for("Effects"), EffectsPanel)
     assert window.placeholder_tabs == {}
 
 

@@ -20,16 +20,25 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import QSettings, QSize, Qt
-from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication, QMainWindow, QTabWidget, QWidget
+from PySide6.QtCore import QByteArray, QSettings, QSize, Qt
+from PySide6.QtGui import QAction, QIcon, QKeySequence
+from PySide6.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QTabWidget,
+    QWidget,
+)
 
 from lattice import APP_NAME, __version__
 from lattice.app import RESOURCES
+from lattice.ui.geometry import WINDOW_MIN_HEIGHT
+from lattice.ui.screen import clamp_to_area
 
 LOGGER = logging.getLogger(__name__)
 
 SETTINGS_NAME = "Lattice"
+GEOMETRY_KEY = "window/geometry"
+FULLSCREEN_KEY = "window/fullscreen"
 
 # Order matters: the tabs are numbered, and Ctrl+1..3 walk them.
 MODES: tuple[str, ...] = ("dither", "glyph", "glitch")
@@ -64,7 +73,10 @@ class MainWindow(QMainWindow):
         """Build the tab widget and open every mode inside it."""
         super().__init__(parent)
         self.setWindowTitle(f"{APP_NAME} {__version__}")
-        self.resize(1440, 900)
+        # No fixed size: a 1440x900 default is taller than a 1366x768 laptop screen and put the
+        # status bar out of reach. The height floor is explicit and small; the width is left to
+        # the layout, which needs more room than a fixed floor would allow for Dither.
+        self.setMinimumHeight(WINDOW_MIN_HEIGHT)
         self._settings = QSettings(SETTINGS_NAME, SETTINGS_NAME)
 
         self.tabs = QTabWidget(self)
@@ -92,7 +104,9 @@ class MainWindow(QMainWindow):
             window.setWindowFlags(window.windowFlags() & ~Qt.WindowType.Window)
 
         self.tabs.currentChanged.connect(self._remember_tab)
+        self._build_view_menu()
         self._restore_tab()
+        self._restore_window()
 
     def current_mode(self) -> str:
         """Return the mode of the visible tab."""
@@ -103,6 +117,82 @@ class MainWindow(QMainWindow):
         if mode not in self.windows:
             raise ValueError(f"unknown mode: {mode!r}")
         self.tabs.setCurrentIndex(MODES.index(mode))
+
+    # --- window size, fullscreen ------------------------------------------------------
+
+    def _build_view_menu(self) -> None:
+        """Add View: fullscreen, a shortcut per mode, and nothing that duplicates the modes."""
+        view = self.menuBar().addMenu("&View")
+        self.fullscreen_action = QAction("&Fullscreen", self)
+        self.fullscreen_action.setShortcut(QKeySequence("F11"))
+        self.fullscreen_action.setCheckable(True)
+        self.fullscreen_action.triggered.connect(self.toggle_fullscreen)
+        self.addAction(self.fullscreen_action)
+        view.addAction(self.fullscreen_action)
+
+        # Escape leaves fullscreen only while in it, so it keeps working as a field shortcut the
+        # rest of the time. Disabled outside fullscreen is what expresses that.
+        self.leave_fullscreen = QAction(self)
+        self.leave_fullscreen.setShortcut(QKeySequence("Esc"))
+        self.leave_fullscreen.setEnabled(False)
+        self.leave_fullscreen.triggered.connect(lambda: self.set_fullscreen(False))
+        self.addAction(self.leave_fullscreen)
+
+        view.addSeparator()
+        for index, mode in enumerate(MODES):
+            action = QAction(mode_title(mode), self)
+            action.setShortcut(QKeySequence(f"Ctrl+{index + 1}"))
+            action.triggered.connect(lambda _checked=False, name=mode: self.show_mode(name))
+            self.addAction(action)
+            view.addAction(action)
+
+    def set_fullscreen(self, on: bool) -> None:
+        """Enter or leave fullscreen, keeping the check state in step with reality."""
+        if on == self.isFullScreen():
+            return
+        if on:
+            self.showFullScreen()
+        else:
+            self.showNormal()
+        self.fullscreen_action.setChecked(on)
+        self.leave_fullscreen.setEnabled(on)
+
+    def toggle_fullscreen(self) -> None:
+        """Flip between fullscreen and normal."""
+        self.set_fullscreen(not self.isFullScreen())
+
+    def available_area(self):
+        """Return the screen area this window may use, margins excluded.
+
+        The screen the window sits on is preferred; at startup, before any move, that is the
+        primary screen.
+        """
+        screen = self.screen() or QApplication.primaryScreen()
+        return screen.availableGeometry()
+
+    def _restore_window(self) -> None:
+        """Open at the size of the screen, or at the saved size if the screen can hold it."""
+        area = self.available_area()
+        stored = self._settings.value(GEOMETRY_KEY)
+        if isinstance(stored, QByteArray) and not stored.isEmpty():
+            # restoreGeometry first, then corrected: a rectangle saved on a bigger screen would
+            # otherwise reopen taller than this display, its bottom edge off the screen and out
+            # of reach.
+            self.restoreGeometry(stored)
+            self.setGeometry(clamp_to_area(self.geometry(), area))
+        else:
+            self.resize(area.size())
+        if self._settings.value(FULLSCREEN_KEY, False, type=bool):
+            self.set_fullscreen(True)
+
+    def _remember_window(self) -> None:
+        """Persist the geometry to come back to, and whether the window was fullscreen.
+
+        Saved through ``saveGeometry`` because that is the only form ``restoreGeometry`` accepts;
+        while fullscreen it records the normal geometry, which is the size to come back to.
+        """
+        self._settings.setValue(GEOMETRY_KEY, self.saveGeometry())
+        self._settings.setValue(FULLSCREEN_KEY, self.isFullScreen())
 
     def shutdown(self) -> None:
         """Stop the helper threads of every mode, not only the visible one.
@@ -118,7 +208,8 @@ class MainWindow(QMainWindow):
             stopper()
 
     def closeEvent(self, event) -> None:  # noqa: N802 (Qt signature)
-        """Stop every mode before the window closes."""
+        """Remember the window size, then stop every mode before closing."""
+        self._remember_window()
         self.shutdown()
         super().closeEvent(event)
 

@@ -238,6 +238,7 @@ def test_the_three_modes_share_one_panel_width(window: MainWindow) -> None:
                   if d.windowTitle() in {"Panels", "Panel"}]
         assert panels, f"{mode} has no settings dock"
         widths[mode] = panels[0].minimumWidth()
+        # The dock adds room for its vertical scrollbar, so the content keeps PANEL_WIDTH.
         assert widths[mode] >= PANEL_WIDTH, f"{mode} allows a panel narrower than {PANEL_WIDTH}"
     assert len(set(widths.values())) == 1, f"panel widths differ across modes: {widths}"
 
@@ -263,6 +264,9 @@ def test_the_canvas_keeps_the_largest_share_of_the_window(window: MainWindow) ->
     This is the claim the layout exists to serve, and it was false before: a 469-pixel gallery
     and a 418-pixel panel left the canvas 134 pixels wide in a 1440-pixel window.
     """
+    # An explicit size, not the screen's: the window now opens at the available area, which on a
+    # headless runner is 800x800 and too small to say anything about proportions.
+    window.resize(1440, 900)
     window.show_mode("dither")
     QApplication.processEvents()
     dither = window.windows["dither"]
@@ -273,3 +277,80 @@ def test_the_canvas_keeps_the_largest_share_of_the_window(window: MainWindow) ->
         f"canvas {canvas} is not wider than the panel {dither.dock.width()}")
     assert canvas > window.width() // 2, (
         f"canvas {canvas} holds less than half of a {window.width()}-pixel window")
+
+
+def test_the_window_fits_a_laptop_screen(window: MainWindow) -> None:
+    """1366x768 is the target: the whole interface must fit without losing its bottom edge.
+
+    The settings stack used to ask for 729 pixels of height, more than a 768-pixel screen once
+    the title bar is counted, so the status bar sat off-screen with no way to reach it.
+    """
+    window.resize(1366, 768)
+    QApplication.processEvents()
+    assert window.height() <= 768, f"the window refuses to shrink below {window.height()}"
+    assert window.minimumSizeHint().height() <= 768, (
+        f"the interface needs {window.minimumSizeHint().height()} pixels of height")
+    # Every mode, not only the shortest one: the tab widget takes the tallest.
+    for mode in MODES:
+        window.show_mode(mode)
+        QApplication.processEvents()
+        assert window.height() <= 768, f"{mode} pushed the window to {window.height()} pixels"
+
+
+def test_a_panel_wider_than_the_window_still_scrolls(window: MainWindow) -> None:
+    """Each settings panel is reachable at the smallest supported size, by scrolling.
+
+    A panel cannot shrink below the sum of its children's minima, so a short window must scroll
+    rather than cut a control off. The scroll areas are what makes that possible.
+    """
+    from PySide6.QtWidgets import QScrollArea
+
+    window.resize(1024, 700)
+    window.show_mode("dither")
+    QApplication.processEvents()
+    dither = window.windows["dither"]
+    pages = [dither.tabs.widget(i) for i in range(dither.tabs.count())]
+    assert all(isinstance(page, QScrollArea) for page in pages), (
+        "a settings panel is not in a scrolling page")
+    assert all(page.widgetResizable() for page in pages), (
+        "a scrolling page must resize its panel, or the stretch factors stop working")
+
+
+def test_fullscreen_can_be_entered_and_left(window: MainWindow) -> None:
+    """F11 toggles fullscreen, Escape only works while in it, and the check state follows."""
+    assert not window.fullscreen_action.isChecked()
+    assert not window.leave_fullscreen.isEnabled(), (
+        "Escape must not shadow fields while not fullscreen")
+
+    window.set_fullscreen(True)
+    QApplication.processEvents()
+    assert window.isFullScreen()
+    assert window.fullscreen_action.isChecked()
+    assert window.leave_fullscreen.isEnabled()
+
+    window.set_fullscreen(False)
+    QApplication.processEvents()
+    assert not window.isFullScreen()
+    assert not window.fullscreen_action.isChecked()
+    assert not window.leave_fullscreen.isEnabled()
+
+
+def test_a_saved_geometry_from_a_bigger_screen_is_brought_back(qapp: QApplication) -> None:
+    """A window saved on a large monitor must not reopen off-screen on a laptop.
+
+    The rule is pure, so it is tested without a display: shrink first, then move inside.
+    """
+    from PySide6.QtCore import QRect
+
+    from lattice.ui.screen import clamp_to_area
+
+    laptop = QRect(0, 0, 1366, 768)
+    huge = QRect(0, 0, 2560, 1440)
+    fitted = clamp_to_area(huge, laptop)
+    assert fitted.width() <= 1366 and fitted.height() <= 768
+    assert laptop.contains(fitted)
+
+    # A window pushed past the bottom-right corner comes back wholly inside.
+    offscreen = QRect(1200, 700, 800, 500)
+    fitted = clamp_to_area(offscreen, laptop)
+    assert laptop.contains(fitted), f"{fitted.getRect()} is not inside the screen"
