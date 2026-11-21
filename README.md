@@ -119,7 +119,12 @@ installed, nothing breaks — you simply do not get the host buttons.
 
 ## Project status
 
-- Version 1.0.0.
+- Version 1.0.1.cd /tmp
+curl https://updates.signal.org/desktop/apt/keys.asc | gpg --dearmor > signal-desktop-keyring.gpg
+cat signal-desktop-keyring.gpg | sudo tee /usr/share/keyrings/signal-desktop-keyring.gpg > /dev/null
+curl -o signal-desktop.sources https://updates.signal.org/static/desktop/apt/signal-desktop.sources
+cat signal-desktop.sources | sudo tee /etc/apt/sources.list.d/signal-desktop.sources > /dev/null
+sudo apt update && sudo apt install signal-desktop
 - 2328 tests, run by CI on Linux and Windows on every push.
 - One Python package (`lattice`), one command line (`lattice`), one window.
 
